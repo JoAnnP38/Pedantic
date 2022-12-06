@@ -127,6 +127,19 @@ namespace Pedantic.Chess
         public int FullMoveCounter => fullMoveCounter;
         public ulong Hash => hash;
 
+        public ulong LastMove
+        {
+            get
+            {
+                if (gameStack.TryPeek(out BoardState item))
+                {
+                    return item.Move;
+                }
+
+                return 0ul;
+            }
+        }
+
         public void Clear()
         {
             Array.Fill(board, Piece.None);
