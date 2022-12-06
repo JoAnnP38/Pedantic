@@ -1,75 +1,72 @@
 ﻿using Pedantic.Chess;
 using System.Diagnostics;
-using System.Linq.Expressions;
 using System.Runtime;
+using System.CommandLine;
+
 
 namespace Pedantic
 {
     internal class Program
     {
-        enum RunType
+        private static Perft perft = new();
+        private static Stopwatch watch = new();
+
+        enum PerftRunType
         {
             Normal,
             Average,
             Details
         }
-        static void Main(string[] args)
+        static int Main(string[] args)
         {
-            RunType runType = RunType.Normal;
-            int trials = 2;
-            if (args.Length > 0)
+            var typeOption = new Option<PerftRunType>(
+                name: "--type",
+                description: "Specify the perft variant to execute.",
+                getDefaultValue: () => PerftRunType.Normal);
+            var depthOption = new Option<int>(
+                name: "--depth",
+                description: "Specifies the maximum depth for the perft test.",
+                getDefaultValue: () => 6);
+            var uciCommand = new Command("uci", "Start the pedantic application in UCI mode.");
+            var perftCommand = new Command("perft", "Run a standard Perft test.")
             {
-                if (args[0] == "/a")
-                {
-                    runType = RunType.Average;
-                    if (args.Length > 1)
-                    {
-                        if (!int.TryParse(args[1], out trials))
-                        {
-                            trials = 2;
-                        }
+                typeOption,
+                depthOption
+            };
+            var rootCommand = new RootCommand("The pedantic chess engine.")
+            {
+                uciCommand,
+                perftCommand
+            };
 
-                        trials = Math.Max(trials, 2);
-                    }
-                }
-                else if (args[0] == "/d")
-                {
-                    runType = RunType.Details;
-                    if (args.Length > 1)
-                    {
-                        if (!int.TryParse(args[1], out trials))
-                        {
-                            trials = 6;
-                        }
+            uciCommand.SetHandler(() => Uci());
+            perftCommand.SetHandler((runType, depth) => RunPerft(runType, depth), typeOption, depthOption);
 
-                        trials = Math.Max(trials, 5);
-                    }
-                }
-                else if (int.TryParse(args[0], out int result))
-                {
-                    trials = Math.Max(result, 5);
-                }
-            }
-            RunPerft(runType, trials);
+            return rootCommand.InvokeAsync(args).Result;
         }
 
-        static void RunPerft(RunType runType, int trials = 2)
+        static void Uci()
+        {
+
+        }
+
+        static void RunPerft(PerftRunType runType, int depth)
         {
             GCSettings.LatencyMode = GCLatencyMode.SustainedLowLatency;
             Thread.CurrentThread.Priority = ThreadPriority.AboveNormal;
 
             switch (runType)
             {
-                case RunType.Normal:
-                    RunNormalPerft(trials);
+                case PerftRunType.Normal:
+                    RunNormalPerft(depth);
                     break;
 
-                case RunType.Average:
-                    RunAveragePerft(trials);
+                case PerftRunType.Details:
+                    RunDetailedPerft(depth);
                     break;
 
-                case RunType.Details:
-                    RunDetailedPerft(trials);
+                case PerftRunType.Average:
+                    RunAveragePerft(depth);
                     break;
             }
 
@@ -79,9 +76,6 @@ namespace Pedantic
 
         static void RunNormalPerft(int totalDepth)
         {
-            Perft perft = new();
-            Stopwatch watch = new();
-
             Console.WriteLine(@"Single threaded results:");
 
             for (int depth = 1; depth <= totalDepth; ++depth)
@@ -95,19 +89,17 @@ namespace Pedantic
             }
         }
 
-        static void RunAveragePerft(int trials)
+        static void RunAveragePerft(int totalDepth)
         {
-            Perft perft = new();
-            Stopwatch watch = new();
-
             Console.WriteLine(@"Calculating Perft(6) Average Mnps...");
+            const int trials = 5;
             double totalSeconds = 0.0D;
             double totalNodes = 0.0D;
             TimeSpan ts = new();
             for (int i = 0; i < trials; ++i)
             {
                 watch.Restart();
-                totalNodes += perft.Execute(6);
+                totalNodes += perft.Execute(totalDepth);
                 watch.Stop();
 
                 totalSeconds += watch.Elapsed.TotalSeconds;
@@ -120,9 +112,6 @@ namespace Pedantic
 
         static void RunDetailedPerft(int totalDepth)
         {
-            Perft perft = new();
-            Stopwatch watch = new();
-
             Console.WriteLine(@"Running Perft and collecting details...");
             Console.WriteLine(@"+-------+--------+--------------+------------+---------+---------+------------+------------+------------+");
             Console.WriteLine(@"| Depth |  Mnps  |     Nodes    |  Captures  |   E.p.  | Castles |   Checks   | Checkmates | Promotions |");
