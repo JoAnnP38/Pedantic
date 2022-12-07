@@ -9,9 +9,14 @@ namespace Pedantic.Utilities
     {
         private readonly Bag<T> objects;
 
-        public ObjectPool(int capacity)
+        public ObjectPool(int capacity, int preallocate = 0)
         {
             objects = new Bag<T>(capacity);
+
+            for (int i = 0; i < preallocate; ++i)
+            {
+                Return(new T());
+            }
         }
 
         public T Get()

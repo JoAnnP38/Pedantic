@@ -14,11 +14,11 @@ namespace Pedantic.Chess
         public MoveList() : base(64)
         { }
 
-        public void Sort()
+        public void Sort(int n)
         {
             int largest = -1;
             int score = -1;
-            for (int i = 0; i < insertIndex; ++i)
+            for (int i = n; i < insertIndex; ++i)
             {
                 int mvScore = Move.GetScore(array[i]);
                 if (mvScore > score)
@@ -28,9 +28,9 @@ namespace Pedantic.Chess
                 }
             }
 
-            if (largest > 0)
+            if (largest > n)
             {
-                (array[0], array[largest]) = (array[largest], array[0]);
+                (array[n], array[largest]) = (array[largest], array[n]);
             }
         }
 

@@ -1,7 +1,6 @@
-﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
-using System;
-using Pedantic.Chess;
+﻿using Pedantic.Chess;
 using Pedantic.Utilities;
+using Constants = Pedantic.Chess.Constants;
 using Index = Pedantic.Chess.Index;
 
 namespace Pedantic.UnitTests
@@ -9,6 +8,8 @@ namespace Pedantic.UnitTests
     [TestClass]
     public class BoardTests
     {
+        public TestContext? TestContext { get; set; }
+
         [TestMethod]
         public void CtorTest()
         {

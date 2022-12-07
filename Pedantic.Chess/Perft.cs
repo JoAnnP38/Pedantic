@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -11,7 +12,7 @@ namespace Pedantic.Chess
     public sealed class Perft
     {
         private Board board = new Board(Constants.FEN_START_POS);
-        private ObjectPool<MoveList> moveListPool = new(Constants.MAX_PLY);
+        private ObjectPool<MoveList> moveListPool = new(Constants.MAX_PLY, 10);
 
         public struct Counts
         {
@@ -51,6 +52,12 @@ namespace Pedantic.Chess
                 return counts;
             }
         }
+
+        public Perft(string? startingPosition = null)
+        {
+            board.LoadFenPosition(startingPosition ?? Constants.FEN_START_POS);
+        }
+
         public void Initialize(string fen = Constants.FEN_START_POS)
         {
             board.LoadFenPosition(fen);
@@ -78,6 +85,7 @@ namespace Pedantic.Chess
                     {
                         nodes++;
                     }
+
                     board.UnmakeMove();
                 }
             }
