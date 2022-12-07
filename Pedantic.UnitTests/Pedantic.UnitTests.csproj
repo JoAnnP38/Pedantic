@@ -39,9 +39,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Pedantic.Chess\Pedantic.Chess.csproj" />
-    <ProjectReference Include="..\Pedantic.Collections\Pedantic.Collections.csproj" />
-    <ProjectReference Include="..\Pedantic.Utilities\Pedantic.Utilities.csproj" />
     <ProjectReference Include="..\Pedantic\Pedantic.csproj" />
   </ItemGroup>
 
