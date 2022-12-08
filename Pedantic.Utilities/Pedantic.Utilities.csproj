@@ -25,4 +25,8 @@
     <DefineConstants>$(DefineConstants);TRACE;X64</DefineConstants>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Pedantic.Collections\Pedantic.Collections.csproj" />
+  </ItemGroup>
+
 </Project>

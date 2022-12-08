@@ -1,8 +1,11 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.Drawing;
+using System;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Transactions;
 using Pedantic.Collections;
 using Pedantic.Utilities;
+using System.Reflection;
 
 namespace Pedantic.Chess
 {
@@ -21,47 +24,26 @@ namespace Pedantic.Chess
         private int fullMoveCounter = 0;
         private ulong hash = 0;
 
-        public readonly struct BoardState
+        public struct BoardState
         {
-            private readonly ulong move;
-            private readonly Color sideToMove;
-            private readonly CastlingRights castling;
-            private readonly int enPassant;
-            private readonly int enPassantValidated;
-            private readonly int halfMoveClock;
-            private readonly int fullMoveCounter;
-            private readonly ulong hash;
-
-            public BoardState(Board board, ulong move)
-            {
-                this.move = move;
-                sideToMove = board.SideToMove;
-                castling = board.Castling;
-                enPassant = board.EnPassant;
-                enPassantValidated = board.enPassantValidated;
-                halfMoveClock = board.HalfMoveClock;
-                fullMoveCounter = board.FullMoveCounter;
-                hash = board.Hash;
-            }
-
-            public ulong Move => move;
-            public Color SideToMove => sideToMove;
-            public CastlingRights Castling => castling;
-            public int EnPassant => enPassant;
-            public int EnPassantValidated => enPassantValidated;
-            public int HalfMoveClock => halfMoveClock;
-            public int FullMoveCounter => fullMoveCounter;
-            public ulong Hash => hash;
+            public ulong Move;
+            public Color SideToMove;
+            public CastlingRights Castling;
+            public int EnPassant;
+            public int EnPassantValidated;
+            public int HalfMoveClock;
+            public int FullMoveCounter;
+            public ulong Hash;
 
             public void Restore(Board board)
             {
-                board.sideToMove = sideToMove;
-                board.castling = castling;
-                board.enPassant = enPassant;
-                board.enPassantValidated = enPassantValidated;
-                board.halfMoveClock = halfMoveClock;
-                board.fullMoveCounter = fullMoveCounter;
-                board.hash = hash;
+                board.sideToMove = SideToMove;
+                board.castling = Castling;
+                board.enPassant = EnPassant;
+                board.enPassantValidated = EnPassantValidated;
+                board.halfMoveClock = HalfMoveClock;
+                board.fullMoveCounter = FullMoveCounter;
+                board.hash = Hash;
             }
         }
 
@@ -79,6 +61,7 @@ namespace Pedantic.Chess
             InitPieceMasks();
             InitPieceMagicTables();
             InitializePext();
+            InitFancyMagic();
         }
 
         public Board()
@@ -232,7 +215,7 @@ namespace Pedantic.Chess
 
         public bool MakeMove(ulong move)
         {
-            gameStack.Push(new BoardState(this, move));
+            PushBoardState(move);
 
             if (enPassantValidated != Index.None)
             {
@@ -437,21 +420,66 @@ namespace Pedantic.Chess
                     return new CastlingRookMove();
             }
         }
+
+        public void PushBoardState(ulong move)
+        {
+            BoardState state;
+            state.Castling = castling;
+            state.EnPassant = enPassant;
+            state.EnPassantValidated = enPassantValidated;
+            state.FullMoveCounter = fullMoveCounter;
+            state.HalfMoveClock = halfMoveClock;
+            state.Hash = hash;
+            state.SideToMove = sideToMove;
+            state.Move = move;
+            gameStack.Push(ref state);
+        }
+
         #endregion
 
         #region Attacks & Checks
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsChecked()
         {
             return IsChecked(OpponentColor);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsChecked(Color byColor)
         {
             int kingIndex = BitOps.TzCount(Pieces((Color)((int)byColor ^ 1), Piece.King));
-            return IsSquareAttackedByColor(kingIndex, byColor);
+            return IsSquareAttackedByColorNoKing(kingIndex, byColor);
         }
 
+        public bool IsSquareAttackedByColorNoKing(int index, Color color)
+        {
+            if ((PawnDefends(color, index) & Pieces(color, Piece.Pawn)) != 0)
+            {
+                return true;
+            }
+
+            if ((PieceMoves(Piece.Knight, index) & Pieces(color, Piece.Knight)) != 0)
+            {
+                return true;
+            }
+
+            ulong bb = PieceMoves(Piece.Rook, index) &
+                       (Pieces(color, Piece.Rook) | Pieces(color, Piece.Queen));
+
+            bb |= PieceMoves(Piece.Bishop, index) &
+                  (Pieces(color, Piece.Bishop) | Pieces(color, Piece.Queen));
+
+            for (; bb != 0; bb = BitOps.ResetLsb(bb))
+            {
+                int index2 = BitOps.TzCount(bb);
+                if ((between[index2, index] & All) == 0)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
         public bool IsSquareAttackedByColor(int index, Color color)
         {
             if ((PawnDefends(color, index) & Pieces(color, Piece.Pawn)) != 0)
@@ -691,13 +719,13 @@ namespace Pedantic.Chess
                     return PieceMoves(Piece.Knight, from);
 
                 case Piece.Bishop:
-                    return GetBishopAttacksMagic(from, All);
+                    return GetBishopAttacks(from, All);
 
                 case Piece.Rook:
-                    return GetRookAttacksPext(from, All);
+                    return GetRookAttacks(from, All);
 
                 case Piece.Queen:
-                    return GetBishopAttacksMagic(from, All) | GetRookAttacksMagic(from, All);
+                    return GetBishopAttacks(from, All) | GetRookAttacks(from, All);
 
                 case Piece.King:
                     return PieceMoves(Piece.King, from);
@@ -774,6 +802,7 @@ namespace Pedantic.Chess
 
         #region Incremental Board Updates
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void AddPiece(Color color, Piece piece, int square)
         {
             hash = ZobristHash.HashPiece(hash, color, piece, square);
@@ -783,6 +812,7 @@ namespace Pedantic.Chess
             all = BitOps.SetBit(all, square);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void RemovePiece(Color color, Piece piece, int square)
         {
             hash = ZobristHash.HashPiece(hash, color, piece, square);
@@ -792,6 +822,7 @@ namespace Pedantic.Chess
             all = BitOps.ResetBit(all, square);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void UpdatePiece(Color color, Piece piece, int fromSquare, int toSquare)
         {
             RemovePiece(color, piece, fromSquare);

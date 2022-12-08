@@ -10,7 +10,7 @@ namespace Pedantic.Chess
         public static ulong GetBishopAttacksMagic(int square, ulong blockers)
         {
             blockers &= bishopMasks[square];
-            int index = square * 1024;
+            int index = square << 10;
             index += (int)((blockers * bishopMagics[square]) >> (64 - bishopIndexBits[square]));
             return bishopTable[index];
         }
@@ -18,7 +18,7 @@ namespace Pedantic.Chess
         public static ulong GetRookAttacksMagic(int square, ulong blockers)
         {
             blockers &= rookMasks[square];
-            int index = square * 4096;
+            int index = square << 12;
             index += (int)((blockers * rookMagics[square]) >> (64 - rookIndexBits[square]));
             return rookTable[index];
         }
@@ -139,11 +139,9 @@ namespace Pedantic.Chess
             6, 5, 5, 5, 5, 5, 5, 6
         };
         
-        private static readonly ulong[] rookMasks = new ulong[Constants.MAX_SQUARES];
-        private static readonly ulong[] bishopMasks = new ulong[Constants.MAX_SQUARES];
-        /*new ulong[Constants.MAX_SQUARES, 4096];*/
+        private static readonly ulong[] rookMasks = GC.AllocateArray<ulong>(Constants.MAX_SQUARES, true);
+        private static readonly ulong[] bishopMasks = GC.AllocateArray<ulong>(Constants.MAX_SQUARES, true);
         private static readonly ulong[] rookTable = GC.AllocateArray<ulong>(Constants.MAX_SQUARES * 4096, true);
-        /*new ulong[Constants.MAX_SQUARES, 1024];*/
         private static readonly ulong[] bishopTable = GC.AllocateArray<ulong>(Constants.MAX_SQUARES * 1024, true);
 
         #endregion

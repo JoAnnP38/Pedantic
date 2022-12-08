@@ -33,7 +33,7 @@ namespace Pedantic.Collections
 
         public void Add(T item)
         {
-            Push(item);
+            Push(ref item);
         }
 
         public void Clear()
@@ -79,7 +79,7 @@ namespace Pedantic.Collections
             return stack[--sp];
         }
 
-        public void Push(T item)
+        public void Push(ref T item)
         {
             if (sp >= stack.Length)
             {
@@ -87,6 +87,11 @@ namespace Pedantic.Collections
             }
 
             stack[sp++] = item;
+        }
+
+        void IStack<T>.Push(T item)
+        {
+            Push(ref item);
         }
 
         public bool Remove(T item)

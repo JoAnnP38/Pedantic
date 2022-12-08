@@ -22,21 +22,15 @@ namespace Pedantic.Utilities
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong ResetBit(ulong bitBoard, int bitIndex)
         {
-#if X64
-            return Bmi1.X64.AndNot(1ul << bitIndex, bitBoard);
-#else
-            return bitBoard & ~GetMask(bitIndex);
-#endif
+            return bitBoard & ~(1ul << bitIndex);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int GetBit(ulong bitBoard, int bitIndex)
         {
-#if X64
-            return (int)Bmi1.X64.BitFieldExtract(bitBoard, (byte)bitIndex, 1);
-#else
-            return (bitBoard & GetMask(bitIndex)) == 0ul ? 0 : 1;
-#endif
+            //return (int)Bmi1.X64.BitFieldExtract(bitBoard, (byte)bitIndex, 1);
+            //return (bitBoard & GetMask(bitIndex)) == 0ul ? 0 : 1;
+            return (int)((bitBoard >> bitIndex) & 1);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -75,11 +69,7 @@ namespace Pedantic.Utilities
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong AndNot(ulong bb1, ulong bb2)
         {
-#if X64
-            return Bmi1.X64.AndNot(bb2, bb1);
-#else
-            return bb1 & ~bb2;
-#endif
+            return bb1 & ~bb2; // actually faster than Bmi1.X64.AndNot
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -100,8 +90,7 @@ namespace Pedantic.Utilities
 #if X64
             return (int)Bmi1.X64.BitFieldExtract(bits, start, length);
 #else
-            ulong mask = (1ul << length) - 1;
-            return (int)((bits >> start) & mask);
+            return (int)((bits >> start) & ((1ul << length) - 1ul));
 #endif
         }
 

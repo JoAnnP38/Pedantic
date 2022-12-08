@@ -231,8 +231,6 @@ namespace Pedantic
         {
             Console.WriteLine($@"{PROGRAM_NAME_VER}");
             Perft perft = new(fen);
-            GCSettings.LatencyMode = GCLatencyMode.SustainedLowLatency;
-            Thread.CurrentThread.Priority = ThreadPriority.AboveNormal;
 
             switch (runType)
             {
@@ -248,9 +246,6 @@ namespace Pedantic
                     RunAveragePerft(perft, depth);
                     break;
             }
-
-            Thread.CurrentThread.Priority = ThreadPriority.Normal;
-            GCSettings.LatencyMode = GCLatencyMode.Interactive;
         }
 
         static void RunNormalPerft(Perft perft, int totalDepth)
@@ -260,9 +255,15 @@ namespace Pedantic
 
             for (int depth = 1; depth <= totalDepth; ++depth)
             {
+                GCSettings.LatencyMode = GCLatencyMode.SustainedLowLatency;
+                Thread.CurrentThread.Priority = ThreadPriority.AboveNormal;
+
                 watch.Restart();
                 ulong actual = perft.Execute(depth);
                 watch.Stop();
+
+                Thread.CurrentThread.Priority = ThreadPriority.Normal;
+                GCSettings.LatencyMode = GCLatencyMode.Interactive;
 
                 double Mnps = (double)actual / (watch.Elapsed.TotalSeconds * 1000000.0D);
                 Console.WriteLine($@"{depth}: Elapsed = {watch.Elapsed}, Mnps: {Mnps,7:N2}, nodes = {actual}");
@@ -280,9 +281,15 @@ namespace Pedantic
             TimeSpan ts = new();
             for (int i = 0; i < trials; ++i)
             {
+                GCSettings.LatencyMode = GCLatencyMode.SustainedLowLatency;
+                Thread.CurrentThread.Priority = ThreadPriority.AboveNormal;
+
                 watch.Restart();
                 totalNodes += perft.Execute(totalDepth);
                 watch.Stop();
+
+                Thread.CurrentThread.Priority = ThreadPriority.Normal;
+                GCSettings.LatencyMode = GCLatencyMode.Interactive;
 
                 totalSeconds += watch.Elapsed.TotalSeconds;
                 ts += watch.Elapsed;
@@ -303,9 +310,16 @@ namespace Pedantic
 
             for (int depth = 1; depth <= totalDepth; ++depth)
             {
+                GCSettings.LatencyMode = GCLatencyMode.SustainedLowLatency;
+                Thread.CurrentThread.Priority = ThreadPriority.AboveNormal;
+
                 watch.Restart();
                 Perft.Counts counts = perft.ExecuteWithDetails(depth);
                 watch.Stop();
+
+                Thread.CurrentThread.Priority = ThreadPriority.Normal;
+                GCSettings.LatencyMode = GCLatencyMode.Interactive;
+
                 double Mnps = (double)counts.Nodes / (watch.Elapsed.TotalSeconds * 1000000.0D);
                 Console.WriteLine(@$"|{depth,4:N0}   | {Mnps,6:N2} |{counts.Nodes,13:N0} |{counts.Captures,11:N0} |{counts.EnPassants,8:N0} |{counts.Castles,10:N0} |{counts.Checks,11:N0} | {counts.Checkmates,10:N0} |{counts.Promotions,11:N0} |");
                 Console.WriteLine(@"+-------+--------+--------------+------------+---------+-----------+------------+------------+------------+");

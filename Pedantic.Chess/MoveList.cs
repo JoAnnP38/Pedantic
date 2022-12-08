@@ -39,5 +39,8 @@ namespace Pedantic.Chess
         {
             Add(Move.PackMove(from, to, type, capture, promote, score));
         }
+
+        public ReadOnlySpan<ulong> ToSpan() => new ReadOnlySpan<ulong>(array, 0, Count);
+
     }
 }

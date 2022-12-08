@@ -7,6 +7,7 @@
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
     <Platforms>AnyCPU;x64</Platforms>
+    <StartupObject>Pedantic.Program</StartupObject>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
@@ -27,6 +28,12 @@
 
   <ItemGroup>
     <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Pedantic.Chess\Pedantic.Chess.csproj" />
+    <ProjectReference Include="..\Pedantic.Collections\Pedantic.Collections.csproj" />
+    <ProjectReference Include="..\Pedantic.Utilities\Pedantic.Utilities.csproj" />
   </ItemGroup>
 
 </Project>

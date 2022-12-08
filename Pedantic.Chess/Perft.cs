@@ -63,7 +63,7 @@ namespace Pedantic.Chess
             board.LoadFenPosition(fen);
         }
 
-        public ulong Execute(int depth)
+        public unsafe ulong Execute(int depth)
         {
             if (depth == 0)
             {
@@ -73,9 +73,11 @@ namespace Pedantic.Chess
             ulong nodes = 0;
             MoveList moveList = moveListPool.Get();
             board.GenerateMoves(moveList);
-            for (int n = 0; n < moveList.Count; ++n)
+
+            ReadOnlySpan<ulong> moves = moveList.ToSpan();
+            for (int n = 0; n < moves.Length; ++n)
             {
-                if (board.MakeMove(moveList[n]))
+                if (board.MakeMove(moves[n]))
                 {
                     if (depth > 1)
                     {
@@ -89,11 +91,12 @@ namespace Pedantic.Chess
                     board.UnmakeMove();
                 }
             }
+
             moveListPool.Return(moveList);
             return nodes;
         }
 
-        public Counts ExecuteWithDetails(int depth)
+        public unsafe Counts ExecuteWithDetails(int depth)
         {
             Counts counts = Counts.Default;
             MoveList moveList;
@@ -105,20 +108,22 @@ namespace Pedantic.Chess
 
             moveList = moveListPool.Get();
             board.GenerateMoves(moveList);
-            for (int n = 0; n < moveList.Count; ++n)
+            ReadOnlySpan<ulong> moves = moveList.ToSpan();
+
+            for (int n = 0; n < moves.Length; ++n)
             {
-                ulong move = moveList[n];
-                if (board.MakeMove(move))
+                if (board.MakeMove(moves[n]))
                 {
                     counts += ExecuteWithDetails(depth - 1);
                     board.UnmakeMove();
                 }
             }
+
             moveListPool.Return(moveList);
             return counts;
         }
 
-        private Counts GetCounts()
+        private unsafe Counts GetCounts()
         {
             Counts counts = Counts.Default;
             counts.Nodes = 1;
@@ -130,9 +135,11 @@ namespace Pedantic.Chess
                 mate = true;
                 MoveList moveList = moveListPool.Get();
                 board.GenerateMoves(moveList);
-                for (int n = 0; n < moveList.Count; ++n)
+                ReadOnlySpan<ulong> moves = moveList.ToSpan();
+
+                for (int n = 0; n < moves.Length; ++n)
                 {
-                    if (board.MakeMove(moveList[n]))
+                    if (board.MakeMove(moves[n]))
                     {
                         board.UnmakeMove();
                         mate = false;
