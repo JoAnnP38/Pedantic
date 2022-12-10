@@ -13,6 +13,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Pedantic.Collections", "Ped
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Pedantic.Utilities", "Pedantic.Utilities\Pedantic.Utilities.csproj", "{2E5AA9BB-77D3-4C43-A529-59082A07C4F9}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Pedantic.Genetics", "Pedantic.Genetics\Pedantic.Genetics.csproj", "{015EB49D-6E62-49DF-B7A4-AAA55E644E11}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -61,6 +63,14 @@ Global
 		{2E5AA9BB-77D3-4C43-A529-59082A07C4F9}.Release|Any CPU.Build.0 = Release|Any CPU
 		{2E5AA9BB-77D3-4C43-A529-59082A07C4F9}.Release|x64.ActiveCfg = Release|x64
 		{2E5AA9BB-77D3-4C43-A529-59082A07C4F9}.Release|x64.Build.0 = Release|x64
+		{015EB49D-6E62-49DF-B7A4-AAA55E644E11}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{015EB49D-6E62-49DF-B7A4-AAA55E644E11}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{015EB49D-6E62-49DF-B7A4-AAA55E644E11}.Debug|x64.ActiveCfg = Debug|x64
+		{015EB49D-6E62-49DF-B7A4-AAA55E644E11}.Debug|x64.Build.0 = Debug|x64
+		{015EB49D-6E62-49DF-B7A4-AAA55E644E11}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{015EB49D-6E62-49DF-B7A4-AAA55E644E11}.Release|Any CPU.Build.0 = Release|Any CPU
+		{015EB49D-6E62-49DF-B7A4-AAA55E644E11}.Release|x64.ActiveCfg = Release|x64
+		{015EB49D-6E62-49DF-B7A4-AAA55E644E11}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

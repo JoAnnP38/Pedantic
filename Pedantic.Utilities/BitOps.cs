@@ -41,8 +41,6 @@ namespace Pedantic.Utilities
 #else
             return BitOperations.TrailingZeroCount(bitBoard);
 #endif
-            
-
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -53,7 +51,6 @@ namespace Pedantic.Utilities
 #else
             return BitOperations.LeadingZeroCount(bitBoard);
 #endif
-
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -101,6 +98,18 @@ namespace Pedantic.Utilities
             Util.Assert(length < 64 - start);
             ulong mask = ((1ul << length) - 1) << start;
             return AndNot(bits, mask) | (((ulong)value << start) & mask);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe ulong MultX(ulong left, ulong right)
+        {
+#if X64
+            ulong low = 0;
+            Bmi2.X64.MultiplyNoFlags(left, right, &low);
+            return low;
+#else
+            return left * right;
+#endif
         }
 
         public static int GreatestPowerOfTwoLessThan(int n)

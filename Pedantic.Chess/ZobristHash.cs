@@ -477,7 +477,7 @@ namespace Pedantic.Chess
         public static ulong GetPieceKey(int color, int piece, int index)
         {
             int pieceKind = piece << 1 | (color ^ 1);
-            return rand64[rand64_piece_offset + 64 * pieceKind + index];
+            return rand64[rand64_piece_offset + (pieceKind << 6) + index];
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

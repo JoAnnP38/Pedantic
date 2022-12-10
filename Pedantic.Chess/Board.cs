@@ -12,7 +12,8 @@ namespace Pedantic.Chess
     public sealed partial class Board : ICloneable
     {
         private readonly Piece[] board = new Piece[Constants.MAX_SQUARES];
-        private readonly ulong[][] pieces = Mem.Allocate2D<ulong>(Constants.MAX_COLORS, Constants.MAX_PIECES);
+        //private readonly ulong[][] pieces = Mem.Allocate2D<ulong>(Constants.MAX_COLORS, Constants.MAX_PIECES);
+        private readonly BitBoardArray2D pieces = new(Constants.MAX_COLORS, Constants.MAX_PIECES);
         private readonly ulong[] units = new ulong[Constants.MAX_COLORS];
         private ulong all = 0ul;
 
@@ -60,7 +61,6 @@ namespace Pedantic.Chess
 
             InitPieceMasks();
             InitPieceMagicTables();
-            InitializePext();
             InitFancyMagic();
         }
 
@@ -80,7 +80,8 @@ namespace Pedantic.Chess
         private Board(Board other)
         {
             Array.Copy(other.board, board, board.Length);
-            Mem.Copy(other.pieces, pieces);
+            //Mem.Copy(other.pieces, pieces);
+            pieces.Copy(other.pieces);
             Array.Copy(other.units, units, units.Length);
             all = other.all;
             sideToMove = other.sideToMove;
@@ -98,7 +99,7 @@ namespace Pedantic.Chess
         public ReadOnlySpan<Piece> PieceBoard => new(board);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ulong Pieces(Color color, Piece piece) => pieces[(int)color][(int)piece];
+        public ulong Pieces(Color color, Piece piece) => pieces[(int)color, (int)piece];
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ulong Units(Color color) => units[(int)color];
@@ -129,7 +130,8 @@ namespace Pedantic.Chess
         public void Clear()
         {
             Array.Fill(board, Piece.None);
-            Mem.Clear(pieces);
+            //Mem.Clear(pieces);
+            pieces.Clear();
             Array.Clear(units);
             all = 0;
             sideToMove = Color.None;
@@ -449,37 +451,9 @@ namespace Pedantic.Chess
         public bool IsChecked(Color byColor)
         {
             int kingIndex = BitOps.TzCount(Pieces((Color)((int)byColor ^ 1), Piece.King));
-            return IsSquareAttackedByColorNoKing(kingIndex, byColor);
+            return IsSquareAttackedByColor(kingIndex, byColor);
         }
 
-        public bool IsSquareAttackedByColorNoKing(int index, Color color)
-        {
-            if ((PawnDefends(color, index) & Pieces(color, Piece.Pawn)) != 0)
-            {
-                return true;
-            }
-
-            if ((PieceMoves(Piece.Knight, index) & Pieces(color, Piece.Knight)) != 0)
-            {
-                return true;
-            }
-
-            ulong bb = PieceMoves(Piece.Rook, index) &
-                       (Pieces(color, Piece.Rook) | Pieces(color, Piece.Queen));
-
-            bb |= PieceMoves(Piece.Bishop, index) &
-                  (Pieces(color, Piece.Bishop) | Pieces(color, Piece.Queen));
-
-            for (; bb != 0; bb = BitOps.ResetLsb(bb))
-            {
-                int index2 = BitOps.TzCount(bb);
-                if ((between[index2, index] & All) == 0)
-                {
-                    return true;
-                }
-            }
-            return false;
-        }
         public bool IsSquareAttackedByColor(int index, Color color)
         {
             if ((PawnDefends(color, index) & Pieces(color, Piece.Pawn)) != 0)
@@ -719,13 +693,13 @@ namespace Pedantic.Chess
                     return PieceMoves(Piece.Knight, from);
 
                 case Piece.Bishop:
-                    return GetBishopAttacks(from, All);
+                    return GetBishopAttacksFancy(from, All);
 
                 case Piece.Rook:
-                    return GetRookAttacks(from, All);
+                    return GetRookAttacksFancy(from, All);
 
                 case Piece.Queen:
-                    return GetBishopAttacks(from, All) | GetRookAttacks(from, All);
+                    return GetBishopAttacksFancy(from, All) | GetRookAttacksFancy(from, All);
 
                 case Piece.King:
                     return PieceMoves(Piece.King, from);
@@ -807,7 +781,7 @@ namespace Pedantic.Chess
         {
             hash = ZobristHash.HashPiece(hash, color, piece, square);
             board[square] = piece;
-            pieces[(int)color][(int)piece] = BitOps.SetBit(Pieces(color, piece), square);
+            pieces[(int)color, (int)piece] = BitOps.SetBit(Pieces(color, piece), square);
             units[(int)color] = BitOps.SetBit(units[(int)color], square);
             all = BitOps.SetBit(all, square);
         }
@@ -817,7 +791,7 @@ namespace Pedantic.Chess
         {
             hash = ZobristHash.HashPiece(hash, color, piece, square);
             board[square] = Piece.None;
-            pieces[(int)color][(int)piece] = BitOps.ResetBit(Pieces(color, piece), square);
+            pieces[(int)color, (int)piece] = BitOps.ResetBit(Pieces(color, piece), square);
             units[(int)color] = BitOps.ResetBit(Units(color), square);
             all = BitOps.ResetBit(all, square);
         }

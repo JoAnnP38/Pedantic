@@ -231,7 +231,6 @@ namespace Pedantic
         {
             Console.WriteLine($@"{PROGRAM_NAME_VER}");
             Perft perft = new(fen);
-
             switch (runType)
             {
                 case PerftRunType.Normal:

@@ -1,38 +1,77 @@
-﻿using System.Diagnostics;
+﻿using System;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace Pedantic.Collections
 {
-    public sealed class BitBoardArray2D : ICloneable
+    public sealed unsafe class BitBoardArray2D : ICloneable, IDisposable
     {
-        private readonly ulong[] array;
+        private bool isDisposed = false;
+        private IntPtr memory = IntPtr.Zero;
+        private ulong* pArray = null;
         private readonly int length1;
         private readonly int length2;
 
         public BitBoardArray2D(int length1, int length2)
         {
-            array = new ulong[length1 * length2];
             this.length1 = length1;
             this.length2 = length2;
+            memory = Marshal.AllocHGlobal(MemorySize);
+            GC.AddMemoryPressure(MemorySize);
+            pArray = (ulong*)memory;
+            Clear();
         }
 
+        ~BitBoardArray2D()
+        {
+            Dispose();
+        }
+
+        public void Dispose()
+        {
+            if (isDisposed)
+            {
+                return;
+            }
+
+            if (memory != IntPtr.Zero)
+            {
+                Marshal.FreeHGlobal(memory);
+                //tell garbage collector memory is gone
+                memory = IntPtr.Zero;
+                pArray = null;
+                GC.RemoveMemoryPressure(MemorySize);
+            }
+            GC.SuppressFinalize(this);
+
+            isDisposed = true;
+        }
+
+        public int MemorySize => length1 * length2 * sizeof(ulong);
         public bool IsFixedSize => true;
         public bool IsReadOnly => false;
         public int Length1 => length1;
         public int Length2 => length2;
-        public int Length => array.Length;
+        public int Length => length1 * length2;
         public int Rank => 2;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Clear()
         {
-            Array.Clear(array);
+            for (int n = 0; n < Length; ++n)
+            {
+                pArray[n] = 0ul;
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Fill(ulong bb)
         {
-            Array.Fill(array, bb);
+            for (int n = 0; n < Length; ++n)
+            {
+                pArray[n] = bb;
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -41,31 +80,37 @@ namespace Pedantic.Collections
             return i * length2 + j;
         }
 
-        public ref ulong this[int i, int j] => ref array[i * length2 + j];
+        public ref ulong this[int i, int j] => ref pArray[i * length2 + j];
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ulong GetItem(int i, int j)
         {
-            return array[GetIndex(i, j)];
+            return pArray[GetIndex(i, j)];
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetItem(int i, int j, ulong value)
         {
-            array[GetIndex(i, j)] = value;
+            pArray[GetIndex(i, j)] = value;
         }
 
-        public Span<ulong> this[int i] => new(array, i * length2, length2);
+        public Span<ulong> Span => new Span<ulong>((void*)memory, Length);
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Copy(BitBoardArray2D other)
         {
             Debug.Assert(length1 == other.length1 && length2 == other.length2);
-            Array.Copy(other.array, array, array.Length);
+            for (int n = 0; n < Length; ++n)
+            {
+                pArray[n] = other.pArray[n];
+            }
         }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public BitBoardArray2D Clone()
         {
             BitBoardArray2D clone = new(length1, length2);
-            Array.Copy(array, clone.array, clone.array.Length);
+            clone.Copy(this);
             return clone;
         }
 
