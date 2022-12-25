@@ -11,7 +11,7 @@ namespace Pedantic.Chess
 {
     public sealed class MoveList : ValueList<ulong>, IPooledObject<MoveList>
     {
-        public MoveList() : base(64)
+        public MoveList() : base(Constants.AVG_MOVES_PER_PLY * 2)
         { }
 
         public void Sort(int n)

@@ -1,14 +1,16 @@
-﻿using Pedantic.Utilities;
+﻿using System.Runtime.CompilerServices;
+using System.Text.RegularExpressions;
+using Pedantic.Utilities;
 
 namespace Pedantic.Chess
 {
     public static class TtEval
     {
-        public enum ScoreType : byte
+        public enum TtFlag : byte
         {
             Exact,
-            GreaterOrEqual,
-            LessOrEqual
+            LowerBound,
+            UpperBound
         }
 
         public const int DEFAULT_SIZE_MB = 50;
@@ -17,17 +19,17 @@ namespace Pedantic.Chess
         public const int MB_SIZE = 1024 * 1024;
         public const int HISTORY_DEPTH = 255;
 
-        public readonly struct TtEvalItem
+        public struct TtEvalItem
         {
-            private readonly ulong hash;
-            private readonly ulong data;
+            private ulong hash;
+            private ulong data;
 
-            public TtEvalItem(ulong hash, short score, byte depth, ScoreType scoreType, ulong bestMove)
+            public TtEvalItem(ulong hash, short score, byte depth, TtFlag ttFlag, ulong bestMove)
             {
-                data = bestMove;
-                data = BitOps.BitFieldSet(data, score, 24, 16);
-                data = BitOps.BitFieldSet(data, (int)scoreType, 40, 2);
-                data = BitOps.BitFieldSet(data, depth, 42, 8);
+                data = (bestMove & 0x0fffffful) |
+                       (((ulong)score & 0x0fffful) << 24) |
+                       (((ulong)ttFlag & 0x03ul) << 40) |
+                       ((depth & 0x0fful) << 42);
 
                 this.hash = hash ^ data;
             }
@@ -42,12 +44,22 @@ namespace Pedantic.Chess
             public ulong Data => data;
             public ulong Move => (ulong)BitOps.BitFieldExtract(data, 0, 24);
             public short Score => (short)BitOps.BitFieldExtract(data, 24, 16);
-            public ScoreType ScoreType => (ScoreType)BitOps.BitFieldExtract(data, 40, 2);
+            public TtFlag Flag => (TtFlag)BitOps.BitFieldExtract(data, 40, 2);
             public byte Depth => (byte)BitOps.BitFieldExtract(data, 42, 8);
 
             public bool IsValid(ulong hash)
             {
                 return Hash == hash;
+            }
+
+            public static void SetValue(ref TtEvalItem item, ulong hash, short score, byte depth, TtFlag flag,
+                ulong bestMove)
+            {
+                item.data = (bestMove & 0x0fffffful) |
+                            (((ulong)score & 0x0fffful) << 24) |
+                            (((ulong)flag & 0x03ul) << 40) |
+                            ((depth & 0x0fful) << 42);
+                item.hash = hash ^ item.data;
             }
         }
 
@@ -68,56 +80,21 @@ namespace Pedantic.Chess
             return item.IsValid(hash);
         }
 
-        public static void Add(ulong hash, int depth, short alpha, short beta, short score, ulong move)
+        public static void Add(ulong hash, short depth, short alpha, short beta, short score, ulong move)
         {
             int index = GetIndex(hash);
-            TtEvalItem item = table[(int)(hash % (ulong)capacity)];
+            byte itemDepth = (byte)Math.Max((short)0, depth);
+            TtFlag flag = TtFlag.Exact;
 
-            ulong bestMove = !item.IsValid(hash) || move != 0ul ? move : item.Move;
-            byte itemDepth = depth < 0 ? (byte)0 : (byte)depth;
-            ScoreType scoreType = ScoreType.Exact;
-            short itemScore = score;
-
-            if (score >= beta)
+            if (score <= alpha)
             {
-                scoreType = ScoreType.GreaterOrEqual;
-                itemScore = beta;
+                flag = TtFlag.UpperBound;
             }
-            else if (score <= alpha)
+            else if (score >= beta)
             {
-                scoreType = ScoreType.LessOrEqual;
-                itemScore = alpha;
+                flag = TtFlag.LowerBound;
             }
-
-            table[index] = new TtEvalItem(hash, itemScore, itemDepth, scoreType, bestMove);
-        }
-
-        public static bool GetBestMove(ulong hash, out ulong bestMove)
-        {
-            TtEvalItem item = table[GetIndex(hash)];
-            if (item.IsValid(hash))
-            {
-                bestMove = item.Move;
-                return true;
-            }
-            bestMove = 0ul;
-            return false;
-        }
-
-        public static bool GetScore(ulong hash, int depth, short alpha, short beta, out short score)
-        {
-            score = 0;
-
-            TtEvalItem item = table[GetIndex(hash)];
-            if (item.IsValid(hash))
-            {
-                score = item.Score;
-                ScoreType type = item.ScoreType;
-                return (type == ScoreType.Exact) ||
-                    (type == ScoreType.LessOrEqual && score <= alpha) ||
-                    (type == ScoreType.GreaterOrEqual && score >= beta);
-            }
-            return false;
+            TtEvalItem.SetValue(ref table[index], hash, score, itemDepth, flag, move);
         }
 
         public static void Clear()

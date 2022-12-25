@@ -13,7 +13,7 @@ namespace Pedantic.Chess
         public const int MAX_PIECES = 6;
         public const int MAX_COORDS = 8;
         public const int MAX_GAME_LENGTH = 512;
-        public const int MAX_PLY = 32;
+        public const int MAX_PLY = 64;
         public const int AVG_MOVES_PER_PLY = 36;
         public const short CHECKMATE_SCORE = 20000;
 

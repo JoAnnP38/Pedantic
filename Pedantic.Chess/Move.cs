@@ -11,12 +11,13 @@ namespace Pedantic.Chess
             Util.Assert(Index.IsValid(from));
             Util.Assert(Index.IsValid(to));
             Util.Assert(score >= 0 && score <= short.MaxValue);
-            ulong move = BitOps.BitFieldSet(0ul, from, 0, 6);
-            move = BitOps.BitFieldSet(move, to, 6, 6);
-            move = BitOps.BitFieldSet(move, (int)type, 12, 4);
-            move = BitOps.BitFieldSet(move, (int)capture, 16, 4);
-            move = BitOps.BitFieldSet(move, (int)promote, 20, 4);
-            move = BitOps.BitFieldSet(move, score, 24, 16);
+            ulong move = ((ulong)from & 0x3f) |
+                         (((ulong)to & 0x3f) << 6) |
+                         (((ulong)type & 0x0f) << 12) |
+                         (((ulong)capture & 0x0f) << 16) |
+                         (((ulong)promote & 0x0f) << 20) |
+                         (((ulong)score & 0x0ffff) << 24);
+
             return move;
         }
 

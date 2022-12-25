@@ -16,7 +16,7 @@ namespace Pedantic.Chess
 
         public struct Counts
         {
-            public uint Nodes;
+            public uint Nodes ;
             public uint Captures;
             public uint EnPassants; 
             public uint Castles;
@@ -24,21 +24,19 @@ namespace Pedantic.Chess
             public uint Checkmates;
             public uint Promotions;
 
-            public static Counts Default
+            public Counts()
             {
-                get
-                {
-                    Counts counts;
-                    counts.Nodes = 0;
-                    counts.Captures = 0;
-                    counts.EnPassants = 0;
-                    counts.Castles = 0;
-                    counts.Checks = 0;
-                    counts.Checkmates = 0;
-                    counts.Promotions = 0;
-                    return counts;
-                }
+                Nodes = 0;
+                Captures = 0;
+                EnPassants = 0;
+                Castles = 0;
+                Checks = 0;
+                Checkmates = 0;
+                Promotions = 0;
             }
+
+            public static Counts Default { get; } = new Counts();
+
             public static Counts operator +(Counts c1, Counts c2)
             {
                 Counts counts;
@@ -63,7 +61,7 @@ namespace Pedantic.Chess
             board.LoadFenPosition(fen);
         }
 
-        public unsafe ulong Execute(int depth)
+        public ulong Execute(int depth)
         {
             if (depth == 0)
             {
@@ -96,7 +94,7 @@ namespace Pedantic.Chess
             return nodes;
         }
 
-        public unsafe Counts ExecuteWithDetails(int depth)
+        public Counts ExecuteWithDetails(int depth)
         {
             Counts counts = Counts.Default;
             MoveList moveList;
@@ -123,7 +121,7 @@ namespace Pedantic.Chess
             return counts;
         }
 
-        private unsafe Counts GetCounts()
+        private Counts GetCounts()
         {
             Counts counts = Counts.Default;
             counts.Nodes = 1;
