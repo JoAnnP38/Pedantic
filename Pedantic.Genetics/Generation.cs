@@ -328,11 +328,12 @@ namespace Pedantic.Genetics
 
                 for (int n = 0; n < 32; n++)
                 {
-                    if (round0[n].Loser == null)
+                    ChessWeights? loser = round0[n].Loser;
+                    if (loser == null)
                     {
                         throw new Exception($"Match data is corrupted -- winner not set ({Id}).");
                     }
-                    Match sdMatch = new Match(this, 6, round0[n].Loser, children[n]);
+                    Match sdMatch = new Match(this, 6, loser, children[n]);
                     rep.Matches.Insert(sdMatch);
                     suddenDeath.Add(sdMatch);
                 }

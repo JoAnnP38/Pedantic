@@ -1,11 +1,13 @@
 ﻿using System.Drawing;
 using System;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Transactions;
 using Pedantic.Collections;
 using Pedantic.Utilities;
 using System.Reflection;
+using System.Reflection.Metadata;
 
 namespace Pedantic.Chess
 {
@@ -16,6 +18,7 @@ namespace Pedantic.Chess
         private readonly BitBoardArray2D pieces = new(Constants.MAX_COLORS, Constants.MAX_PIECES);
         private readonly ulong[] units = new ulong[Constants.MAX_COLORS];
         private ulong all = 0ul;
+        private readonly short[] material = new short[Constants.MAX_COLORS];
 
         private Color sideToMove = Color.None;
         private CastlingRights castling = CastlingRights.None;
@@ -24,6 +27,7 @@ namespace Pedantic.Chess
         private int halfMoveClock = 0;
         private int fullMoveCounter = 0;
         private ulong hash = 0;
+        private bool[] castled = new bool[Constants.MAX_COLORS];
 
         public struct BoardState
         {
@@ -113,6 +117,8 @@ namespace Pedantic.Chess
         public int HalfMoveClock => halfMoveClock;
         public int FullMoveCounter => fullMoveCounter;
         public ulong Hash => hash;
+        public short[] Material => material;
+        public bool[] Castled => castled;
 
         public ulong LastMove
         {
@@ -142,6 +148,30 @@ namespace Pedantic.Chess
             fullMoveCounter = 0;
             hash = 0;
             gameStack.Clear();
+            Array.Clear(material);
+            Array.Clear(castled);
+        }
+
+        public bool IsLegalMove(ulong move)
+        {
+            bool legal = false;
+            MoveList moveList = new();
+            GenerateMoves(moveList);
+            for (int n = 0; n < moveList.Count; n++)
+            {
+                if (Move.Compare(move, moveList[n]) == 0)
+                {
+                    if (MakeMove(move))
+                    {
+                        UnmakeMove();
+                        legal = true;
+                    }
+
+                    break;
+                }
+            }
+
+            return legal;
         }
 
         public override string ToString()
@@ -169,9 +199,9 @@ namespace Pedantic.Chess
             return sb.ToString();
         }
 
-        public bool Repeat2(ulong currentHash)
+        public bool Repeat2()
         {
-            return gameStack.MatchCount(b => b.Hash.Equals(currentHash)) >= 2;
+            return gameStack.MatchCount(b => b.Hash.Equals(Hash)) >= 2;
         }
 
         public bool IsEnPassantValid(Color color)
@@ -263,6 +293,7 @@ namespace Pedantic.Chess
                     UpdatePiece(sideToMove, Piece.Rook, rookMove.RookFrom, rookMove.RookTo);
                     castling &= (CastlingRights)(castleMask[from] & castleMask[to]);
                     halfMoveClock++;
+                    castled[(int)sideToMove] = true;
                     break;
 
                 case MoveType.EnPassant:
@@ -326,6 +357,7 @@ namespace Pedantic.Chess
             hash = ZobristHash.HashCastling(hash, castling);
             hash = ZobristHash.HashActiveColor(hash, sideToMove);
             sideToMove = OpponentColor;
+            hash = ZobristHash.HashActiveColor(hash, sideToMove);
 
             if (IsChecked(sideToMove))
             {
@@ -364,6 +396,7 @@ namespace Pedantic.Chess
                     CastlingRookMove rookMove = LookupRookMove(to);
                     UpdatePiece(sideToMove, Piece.Rook, rookMove.RookTo, rookMove.RookFrom);
                     UpdatePiece(sideToMove, Piece.King, to, from);
+                    castled[(int)sideToMove] = false;
                     break;
 
                 case MoveType.EnPassant:
@@ -423,18 +456,27 @@ namespace Pedantic.Chess
             }
         }
 
+        [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
         public void PushBoardState(ulong move)
         {
-            BoardState state;
-            state.Castling = castling;
-            state.EnPassant = enPassant;
-            state.EnPassantValidated = enPassantValidated;
-            state.FullMoveCounter = fullMoveCounter;
-            state.HalfMoveClock = halfMoveClock;
-            state.Hash = hash;
-            state.SideToMove = sideToMove;
-            state.Move = move;
-            gameStack.Push(ref state);
+            if (gameStack.Count < Constants.MAX_GAME_LENGTH)
+            {
+                BoardState state;
+                state.Castling = castling;
+                state.EnPassant = enPassant;
+                state.EnPassantValidated = enPassantValidated;
+                state.FullMoveCounter = fullMoveCounter;
+                state.HalfMoveClock = halfMoveClock;
+                state.Hash = hash;
+                state.SideToMove = sideToMove;
+                state.Move = move;
+                gameStack.Push(ref state);
+            }
+            else
+            {
+                throw new IndexOutOfRangeException(
+                    @$"Maximum game lenth exceeded - Hash {hash} Move {Move.ToString(move)}");
+            }
         }
 
         #endregion
@@ -491,6 +533,24 @@ namespace Pedantic.Chess
 #endregion
 
         #region Move Generation
+
+        public short GetPieceMobility(Color color, Piece piece, int from)
+        {
+            short mobility = 0;
+            Color other = (Color)((int)color ^ 1);
+            ulong otherPawns = Pieces(other, Piece.Pawn);
+            ulong bb = BitOps.AndNot(GetPieceMoves(piece, from), Units(color));
+            for (; bb != 0; bb = BitOps.ResetLsb(bb))
+            {
+                int to = BitOps.TzCount(bb);
+                if ((PawnDefends(other, to) & otherPawns) == 0)
+                {
+                    mobility++;
+                }
+            }
+
+            return mobility;
+        }
 
         public void GenerateMoves(MoveList list, IHistory? history = null)
         {
@@ -593,17 +653,17 @@ namespace Pedantic.Chess
 
             if (sideToMove == Color.White)
             {
-                bb1 = pawns & (BitOps.AndNot(Units(OpponentColor), maskFiles[7]) >> 7);
-                bb2 = pawns & (BitOps.AndNot(Units(OpponentColor), maskFiles[0]) >> 9);
+                bb1 = pawns & (BitOps.AndNot(Units(OpponentColor), MaskFiles[7]) >> 7);
+                bb2 = pawns & (BitOps.AndNot(Units(OpponentColor), MaskFiles[0]) >> 9);
                 bb3 = BitOps.AndNot(pawns, All >> 8);
-                bb4 = BitOps.AndNot(bb3 & maskRanks[Index.A2], All >> 16);
+                bb4 = BitOps.AndNot(bb3 & MaskRanks[Index.A2], All >> 16);
             }
             else
             {
-                bb1 = pawns & (BitOps.AndNot(Units(OpponentColor), maskFiles[7]) << 9);
-                bb2 = pawns & (BitOps.AndNot(Units(OpponentColor), maskFiles[0]) << 7);
+                bb1 = pawns & (BitOps.AndNot(Units(OpponentColor), MaskFiles[7]) << 9);
+                bb2 = pawns & (BitOps.AndNot(Units(OpponentColor), MaskFiles[0]) << 7);
                 bb3 = BitOps.AndNot(pawns, All << 8);
-                bb4 = BitOps.AndNot(bb3 & maskRanks[Index.A7], All << 16);
+                bb4 = BitOps.AndNot(bb3 & MaskRanks[Index.A7], All << 16);
             }
 
             for (; bb1 != 0; bb1 = BitOps.ResetLsb(bb1))
@@ -644,13 +704,13 @@ namespace Pedantic.Chess
 
             if (sideToMove == Color.White)
             {
-                bb1 = pawns & (BitOps.AndNot(Units(OpponentColor), maskFiles[7]) >> 7);
-                bb2 = pawns & (BitOps.AndNot(Units(OpponentColor), maskFiles[0]) >> 9);
+                bb1 = pawns & (BitOps.AndNot(Units(OpponentColor), MaskFiles[7]) >> 7);
+                bb2 = pawns & (BitOps.AndNot(Units(OpponentColor), MaskFiles[0]) >> 9);
             }
             else
             {
-                bb1 = pawns & (BitOps.AndNot(Units(OpponentColor), maskFiles[7]) << 9);
-                bb2 = pawns & (BitOps.AndNot(Units(OpponentColor), maskFiles[0]) << 7);
+                bb1 = pawns & (BitOps.AndNot(Units(OpponentColor), MaskFiles[7]) << 9);
+                bb2 = pawns & (BitOps.AndNot(Units(OpponentColor), MaskFiles[0]) << 7);
             }
 
             for (; bb1 != 0; bb1 = BitOps.ResetLsb(bb1))
@@ -784,6 +844,7 @@ namespace Pedantic.Chess
             pieces[(int)color, (int)piece] = BitOps.SetBit(Pieces(color, piece), square);
             units[(int)color] = BitOps.SetBit(units[(int)color], square);
             all = BitOps.SetBit(all, square);
+            material[(int)color] += Evaluation.CanonicalPieceValues[(int)piece];
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -794,6 +855,7 @@ namespace Pedantic.Chess
             pieces[(int)color, (int)piece] = BitOps.ResetBit(Pieces(color, piece), square);
             units[(int)color] = BitOps.ResetBit(Units(color), square);
             all = BitOps.ResetBit(all, square);
+            material[(int)color] -= Evaluation.CanonicalPieceValues[(int)piece];
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -893,12 +955,12 @@ namespace Pedantic.Chess
         private static readonly int[][] captureScores = 
         {
             #region captureScores data
-            new [] {  1010,  1003,  1003,  1002,  1001,  1000 },
-            new [] {  1030,  1010,  1010,  1006,  1003,  1000 },
-            new [] {  1030,  1010,  1010,  1006,  1003,  1000 },
-            new [] {  1050,  1016,  1016,  1010,  1005,  1000 },
-            new [] {  1090,  1030,  1030,  1018,  1010,  1000 },
-            new [] {  2500,  1500,  1500,  1300,  1166,  1010 }
+            new [] {  10010,  10003,  10003,  10002,  10001,  10000 },
+            new [] {  10030,  10010,  10010,  10006,  10003,  10000 },
+            new [] {  10030,  10010,  10010,  10006,  10003,  10000 },
+            new [] {  10050,  10016,  10016,  10010,  10005,  10000 },
+            new [] {  10090,  10030,  10030,  10018,  10010,  10000 },
+            new [] {  11500,  10500,  10500,  10300,  10166,  10010 }
             #endregion
         };
 
@@ -2404,9 +2466,9 @@ namespace Pedantic.Chess
 
         private static readonly Ray[] revVectors = new Ray[Constants.MAX_SQUARES + 1];
 
-        private static readonly ulong[] maskFiles = new ulong[]
+        public static readonly ulong[] MaskFiles = new ulong[]
         {
-            #region maskFiles data
+            #region MaskFiles data
             0x0101010101010101ul, 0x0202020202020202ul, 0x0404040404040404ul, 0x0808080808080808ul,
             0x1010101010101010ul, 0x2020202020202020ul, 0x4040404040404040ul, 0x8080808080808080ul,
             0x0101010101010101ul, 0x0202020202020202ul, 0x0404040404040404ul, 0x0808080808080808ul,
@@ -2426,9 +2488,9 @@ namespace Pedantic.Chess
             #endregion
         };
 
-        private static readonly ulong[] maskRanks = new ulong[]
+        public static readonly ulong[] MaskRanks = new ulong[]
         {
-            #region maskRanks data
+            #region MaskRanks data
             0x00000000000000FFul, 0x00000000000000FFul, 0x00000000000000FFul, 0x00000000000000FFul,
             0x00000000000000FFul, 0x00000000000000FFul, 0x00000000000000FFul, 0x00000000000000FFul,
             0x000000000000FF00ul, 0x000000000000FF00ul, 0x000000000000FF00ul, 0x000000000000FF00ul,

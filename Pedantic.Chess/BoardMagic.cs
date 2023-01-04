@@ -42,7 +42,7 @@ namespace Pedantic.Chess
 
         private static void InitPieceMasks()
         {
-            ulong edgeSquares = maskRanks[0] | maskRanks[63] | maskFiles[0] | maskFiles[7];
+            ulong edgeSquares = MaskRanks[0] | MaskRanks[63] | MaskFiles[0] | MaskFiles[7];
 
             for (int sq = 0; sq < Constants.MAX_SQUARES; ++sq)
             {
@@ -50,8 +50,8 @@ namespace Pedantic.Chess
                 bishopMasks[sq] = ray.NorthEast | ray.NorthWest | ray.SouthEast | ray.SouthWest;
                 bishopMasks[sq] = BitOps.AndNot(bishopMasks[sq], edgeSquares);
 
-                rookMasks[sq] = BitOps.AndNot(ray.North, maskRanks[63]) | BitOps.AndNot(ray.South, maskRanks[0]) |
-                                BitOps.AndNot(ray.East, maskFiles[7]) | BitOps.AndNot(ray.West, maskFiles[0]);
+                rookMasks[sq] = BitOps.AndNot(ray.North, MaskRanks[63]) | BitOps.AndNot(ray.South, MaskRanks[0]) |
+                                BitOps.AndNot(ray.East, MaskFiles[7]) | BitOps.AndNot(ray.West, MaskFiles[0]);
             }
         }
 

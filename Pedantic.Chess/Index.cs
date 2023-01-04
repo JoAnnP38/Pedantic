@@ -77,6 +77,17 @@ namespace Pedantic.Chess
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int Distance(int index1, int index2)
+        {
+            Util.Assert(IsValid(index1));
+            Util.Assert(IsValid(index2));
+
+            var coord1 = Index.ToCoords(index1);
+            var coord2 = Index.ToCoords(index2);
+            return Math.Abs(coord1.File - coord2.File) + Math.Abs(coord1.Rank - coord2.Rank);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static string ToString(int index)
         {
             Util.Assert(IsValid(index));

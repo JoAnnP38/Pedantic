@@ -20,10 +20,20 @@ namespace Pedantic.Chess
         {
             int i = GetIndex(color, from, to);
             history[i] += value;
-            if (history[i] > 20000)
+            if (history[i] >= Constants.HISTORY_SCORE)
             {
                 Rescale();
             }
+        }
+
+        public void Update(int from, int to, short value)
+        {
+            Update(SideToMove, from, to, value);
+        }
+
+        public void Clear()
+        {
+            Array.Clear(history);
         }
 
         private int GetIndex(int from, int to)

@@ -23,16 +23,16 @@ namespace Pedantic.Chess
         public int TimeRemainingWithMargin => remaining - time_margin;
 
         private long Now => Stopwatch.GetTimestamp();
-        public int Elapsed => MilliSeconds(Now - t0);
-        public int ElapsedInterval => MilliSeconds(Now - tN);
+        public long Elapsed => MilliSeconds(Now - t0);
+        public long ElapsedInterval => MilliSeconds(Now - tN);
+        public bool Infinite { get; set; } = false;
 
-        private int MilliSeconds(long ticks)
+        private long MilliSeconds(long ticks)
         {
-            double dt = ticks / (double)Stopwatch.Frequency;
-            return (int)(1000 * dt);
+            return (ticks * 1000L) / Stopwatch.Frequency;
         }
 
-        private void Reset()
+        public void Reset()
         {
             movesToGo = 1;
             increment = 0;
@@ -48,6 +48,7 @@ namespace Pedantic.Chess
 
         public void Stop()
         {
+            Infinite = false;
             remaining = 0;
         }
 
@@ -67,25 +68,28 @@ namespace Pedantic.Chess
 
         public bool CanSearchDeeper()
         {
-            int elapsed = Elapsed;
+            long elapsed = Elapsed;
 
-            //estimate the branching factor, if only one move to go we yolo with a low estimate
-            int multi = (movesToGo == 1) ? 1 : branching_factor_estimate;
-            int estimate = multi * ElapsedInterval;
-            int total = elapsed + estimate;
+            if (!Infinite)
+            {
+                //estimate the branching factor, if only one move to go we yolo with a low estimate
+                int multi = (movesToGo == 1) ? 1 : branching_factor_estimate;
+                long estimate = multi * ElapsedInterval;
+                long total = elapsed + estimate;
 
-            //no increment... we need to stay within the per-move time budget
-            if (increment == 0 && total > TimePerMoveWithMargin)
-                return false;
-            //we have already exceeded the average move
-            if (elapsed > TimePerMoveWithMargin)
-                return false;
-            //shouldn't spend more then the 2x the average on a move
-            if (total > 2 * TimePerMoveWithMargin)
-                return false;
-            //can't afford the estimate
-            if (total > TimeRemainingWithMargin)
-                return false;
+                //no increment... we need to stay within the per-move time budget
+                if (increment == 0 && total > TimePerMoveWithMargin)
+                    return false;
+                //we have already exceeded the average move
+                if (elapsed > TimePerMoveWithMargin)
+                    return false;
+                //shouldn't spend more then the 2x the average on a move
+                if (total > 2 * TimePerMoveWithMargin)
+                    return false;
+                //can't afford the estimate
+                if (total > TimeRemainingWithMargin)
+                    return false;
+            }
 
             //all conditions fulfilled
             return true;
@@ -93,11 +97,17 @@ namespace Pedantic.Chess
 
         public bool CheckTimeBudget()
         {
-            if (increment == 0)
+            if (!Infinite)
             {
-                return Elapsed > TimePerMoveWithMargin;
+                if (increment == 0)
+                {
+                    return Elapsed > TimePerMoveWithMargin;
+                }
+
+                return Elapsed > TimeRemainingWithMargin;
             }
-            return Elapsed > TimeRemainingWithMargin;
+
+            return false;
         }
     }
 }

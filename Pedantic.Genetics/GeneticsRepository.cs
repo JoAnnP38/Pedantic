@@ -16,6 +16,7 @@ namespace Pedantic.Genetics
         public GeneticsRepository(bool readOnly = false)
         {
             db = new LiteDatabase(GetConnectionString(readOnly));
+            EnsureIndices();
         }
 
         public ILiteCollection<ChessWeights> Weights => db.GetCollection<ChessWeights>("weights");
@@ -64,6 +65,14 @@ namespace Pedantic.Genetics
 
                 throw;
             }
+        }
+
+        public void EnsureIndices()
+        {
+            Generations.EnsureIndex(g => g.Evolution.Id);
+            Matches.EnsureIndex(m => m.Generation.Id);
+            Matches.EnsureIndex(m => m.RoundNumber);
+            Games.EnsureIndex(g => g.Match.Id);
         }
           
         public void Dispose() => db.Dispose();

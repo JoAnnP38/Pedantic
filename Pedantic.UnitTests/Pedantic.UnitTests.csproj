@@ -44,6 +44,7 @@
     <ProjectReference Include="..\Pedantic.Collections\Pedantic.Collections.csproj" />
     <ProjectReference Include="..\Pedantic.Genetics\Pedantic.Genetics.csproj" />
     <ProjectReference Include="..\Pedantic.Utilities\Pedantic.Utilities.csproj" />
+    <ProjectReference Include="..\Pedantic\Pedantic.csproj" />
   </ItemGroup>
 
 </Project>

@@ -73,6 +73,42 @@ namespace Pedantic.Chess
         public static bool TryParseMove(Board board, string s, out ulong move)
         {
             move = 0;
+            if (s.Length < 4)
+            {
+                throw new ArgumentException(@"Parameter to short to represent a valid move.", nameof(s));
+            }
+
+            if (!Index.TryParse(s[..2], out int from))
+            {
+                throw new ArgumentException(@"Invalid from square in move.", nameof(s));
+            }
+
+            if (!Index.TryParse(s[2..4], out int to))
+            {
+                throw new ArgumentException(@"Invalid to square in move.", nameof(s));
+            }
+
+            Piece promote = s.Length > 4 ? Conversion.ParsePiece(s[4]) : Piece.None;
+
+            MoveList moveList = new();
+            board.GenerateMoves(moveList);
+
+            for (int n = 0; n < moveList.Count; ++n)
+            {
+                ulong mv = moveList[n];
+                string mvString = Move.ToString(mv);
+                if (from == GetFrom(mv) && to == GetTo(mv) && promote == GetPromote(mv))
+                {
+                    bool legal = board.MakeMove(mv);
+                    board.UnmakeMove();
+                    if (legal)
+                    {
+                        move = mv;
+                        return true;
+                    }
+                }
+            }
+
             return false;
         }
 
@@ -82,6 +118,14 @@ namespace Pedantic.Chess
             int to = GetTo(move);
             Piece promote = GetPromote(move);
             return $"{Index.ToString(from)}{Index.ToString(to)}{Conversion.PieceToString(promote)}";
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int Compare(ulong move1, ulong move2)
+        {
+            int moveNoScore1 = (int)(move1 & 0x0ffffff);
+            int moveNoScore2 = (int)(move2 & 0x0ffffff);
+            return moveNoScore1 - moveNoScore2;
         }
     }
 }

@@ -2,11 +2,12 @@
 using System.Diagnostics;
 using System.Runtime;
 using System.CommandLine;
+using System.Runtime.InteropServices.Marshalling;
 
 
 namespace Pedantic
 {
-    internal class Program
+    public class Program
     {
         public const string PROGRAM_NAME_VER = "Pedantic v0.0.1";
         public const string AUTHOR = "JoAnn D. Peeler";
@@ -64,7 +65,7 @@ namespace Pedantic
             }
         }
 
-        static void ParseCommand(string input)
+        public static void ParseCommand(string input)
         {
             input = input.Trim();
             string[] tokens = input.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
@@ -77,11 +78,12 @@ namespace Pedantic
                     Console.WriteLine(@"option name OwnBook type check default true");
                     Console.WriteLine($@"option name Hash type spin default {TtEval.DEFAULT_SIZE_MB} min 1 max {TtEval.MAX_SIZE_MB}");
                     Console.WriteLine(@"option name Clear Hash type button");
-                    Console.WriteLine($@"option name Search Threads type spin default 1 min 1 max {Environment.ProcessorCount}");
+                    Console.WriteLine($@"option name Threads type spin default 1 min 1 max {Environment.ProcessorCount}");
                     Console.WriteLine(@"uciok");
                     break;
 
                 case "isready":
+                    Engine.LoadBookEntries();
                     Console.WriteLine(@"readyok");
                     break;
 
@@ -107,6 +109,10 @@ namespace Pedantic
 
                 case "quit":
                     Engine.Quit();
+                    break;
+
+                case "debug":
+                    Debug(tokens);
                     break;
 
                 default:
@@ -168,9 +174,8 @@ namespace Pedantic
                         }
                         break;
 
-                    case "Search":
-                        if (tokens[3] == "Threads" && tokens[4] == "value" &&
-                            int.TryParse(tokens[5], out int searchThreads))
+                    case "Threads":
+                        if (tokens[3] == "value" && int.TryParse(tokens[4], out int searchThreads))
                         {
                             Engine.SearchThreads = searchThreads;
                         }
@@ -181,7 +186,7 @@ namespace Pedantic
 
         static void Go(string[] tokens)
         {
-            TryParse(tokens, "depth", out int maxDepth, 99);
+            TryParse(tokens, "depth", out int maxDepth, Constants.MAX_PLY);
             TryParse(tokens, "movetime", out int maxTime, int.MaxValue);
             TryParse(tokens, "nodes", out long maxNodes, long.MaxValue);
             TryParse(tokens, "movestogo", out int movesToGo, 40);
@@ -200,6 +205,11 @@ namespace Pedantic
             {
                 Engine.Go(maxDepth, maxTime, maxNodes);
             }
+        }
+
+        static void Debug(string[] tokens)
+        {
+            Engine.Debug = tokens[1] == "on";
         }
 
         static bool TryParse(string[] tokens, string name, out int value, int defaultValue = 0)

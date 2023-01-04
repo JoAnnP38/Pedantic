@@ -14,7 +14,7 @@ namespace Pedantic.Chess
         public MoveList() : base(Constants.AVG_MOVES_PER_PLY * 2)
         { }
 
-        public void Sort(int n)
+        public void Sort(int n, ulong bestmove = 0)
         {
             int largest = -1;
             int score = -1;
@@ -42,5 +42,24 @@ namespace Pedantic.Chess
 
         public ReadOnlySpan<ulong> ToSpan() => new ReadOnlySpan<ulong>(array, 0, Count);
 
+        public void UpdateScores(ulong pv, ulong[] killers)
+        {
+            for (int n = 0; n < insertIndex; ++n)
+            {
+                ulong fromto = array[n] & 0x0fff;
+                if (fromto == (pv & 0x0fff))
+                {
+                    array[n] = BitOps.BitFieldSet(array[n], Constants.PV_SCORE, 24, 16);
+                }
+                else if (fromto == (killers[0] & 0x0fff))
+                {
+                    array[n] = BitOps.BitFieldSet(array[n], Constants.KILLER_0_SCORE, 24, 16);
+                }
+                else if (fromto == (killers[1] & 0x0fff))
+                {
+                    array[n] = BitOps.BitFieldSet(array[n], Constants.KILLER_1_SCORE, 24, 16);
+                }
+            }
+        }
     }
 }

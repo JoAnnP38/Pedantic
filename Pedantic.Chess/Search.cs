@@ -6,12 +6,7 @@ using System.Threading.Tasks;
 
 namespace Pedantic.Chess
 {
-    public static class Eval
+    public class Search
     {
-        #region Weight IDs
-
-
-
-        #endregion
     }
 }
