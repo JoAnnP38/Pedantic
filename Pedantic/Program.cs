@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Runtime;
 using System.CommandLine;
 using System.Runtime.InteropServices.Marshalling;
+using System.Text;
 
 
 namespace Pedantic
@@ -32,7 +33,14 @@ namespace Pedantic
                 name: "--fen",
                 description: "Specifies the starting position if other than the default.",
                 getDefaultValue: () => null);
-            var uciCommand = new Command("uci", "Start the pedantic application in UCI mode.");
+            var commandFileOption = new Option<string>(
+                name: "--input",
+                description: "Specify a file read UCI commands from.",
+                getDefaultValue: () => string.Empty);
+            var uciCommand = new Command("uci", "Start the pedantic application in UCI mode.")
+            {
+                commandFileOption
+            };
             var perftCommand = new Command("perft", "Run a standard Perft test.")
             {
                 typeOption,
@@ -45,22 +53,46 @@ namespace Pedantic
                 perftCommand
             };
 
-            uciCommand.SetHandler(async () => await RunUci());
+            uciCommand.SetHandler(async (inFile) => await RunUci(inFile), commandFileOption);
             perftCommand.SetHandler((runType, depth, fen) => RunPerft(runType, depth, fen), typeOption, depthOption, fenOption);
 
             return rootCommand.InvokeAsync(args).Result;
         }
 
-        static async Task RunUci()
+        static async Task RunUci(string inFile)
         {
-            Console.WriteLine(PROGRAM_NAME_VER);
-            Engine.Start();
-            while (Engine.IsRunning)
+            TextReader stdin = null;
+
+            if (inFile != string.Empty && File.Exists(inFile))
             {
-                string? input = await Task.Run(Console.ReadLine);
-                if (input != null)
+                stdin = Console.In;
+                using StreamReader inStream = new StreamReader(inFile, Encoding.UTF8);
+                Console.SetIn(inStream);
+            }
+
+            try
+            {
+                Console.WriteLine(PROGRAM_NAME_VER);
+                Engine.Start();
+                while (Engine.IsRunning)
                 {
-                    ParseCommand(input);
+                    string? input = await Task.Run(Console.ReadLine);
+                    if (input != null)
+                    {
+                        ParseCommand(input);
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                Uci.Log(@$"Fatal error occurred in Pedantic: '{e.Message}'.");
+                await Console.Error.WriteLineAsync(e.ToString());
+            }
+            finally
+            {
+                if (stdin != null)
+                {
+                    Console.SetIn(stdin);
                 }
             }
         }

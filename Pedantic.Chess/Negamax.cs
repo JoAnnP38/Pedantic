@@ -1,267 +1,381 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
+using System.Net.Http.Headers;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using Pedantic.Collections;
+using System.Threading.Tasks.Sources;
+using Pedantic.Genetics;
 using Pedantic.Utilities;
 
 namespace Pedantic.Chess
 {
     public sealed class Negamax
     {
-        private const int CHECK_TC_NODES = 50;
-
-        private Board board;
-        private TimeControl time;
-        private long maxNodes;
-        private short maxSearchDepth;
-        private long nodesVisited = 0;
-        private ObjectPool<MoveList> moveListPool = new(Constants.MAX_PLY);
-        private PV pv = new();
-        private History history = new();
-        private ulong[][] killers = Mem.Allocate2D<ulong>(Constants.MAX_PLY, 2);
-
         public Negamax(Board board, TimeControl time, short maxSearchDepth, long maxNodes = long.MaxValue)
         {
             this.board = board;
             this.time = time;
             this.maxSearchDepth = maxSearchDepth;
             this.maxNodes = maxNodes;
-            WasAborted = false;
         }
 
-        public PV PV => pv;
+        public short Depth { get; private set; }
         public short Score { get; private set; }
-        public bool IsAborted =>
-            nodesVisited > maxNodes || ((nodesVisited % CHECK_TC_NODES == 0) && time.CheckTimeBudget());
+        public ulong[] PV { get; private set; } = emptyPV;
+        public bool MustAbort => nodesVisited > maxNodes || ((nodesVisited & CHECK_TC_NODES_MASK) == 0 && time.CheckTimeBudget());
 
-        public bool IsGameOver => Evaluation.IsCheckmate(Score);
-        public bool WasAborted { get; set; } = false;
-
-        public short Search()
+        public void Search()
         {
-            ulong bestmove = 0ul;
-            int mateIn = 0;
-            bool checkMate = false;
+            Depth = 0;
 
-            Mem.Clear(killers);
-            history.Clear();
-            pv.Clear();
+            if (board.OneLegalMove(out ulong bestMove))
+            {
+                Uci.BestMove(bestMove);
+                return;
+            }
 
-            short score = Evaluation.Compute(board);
-            short depth = 0;
-            WasAborted = false;
-            while (time.CanSearchDeeper() && depth++ < maxSearchDepth && !WasAborted && !checkMate)
+            (short score, ulong[] pv) = Search(-Constants.INFINITE_WINDOW, Constants.INFINITE_WINDOW, 0);
+            Score = (short)-score;
+
+            while (Depth++ < maxSearchDepth && time.CanSearchDeeper() && !Evaluation.IsCheckmate(Score) && !wasAborted)
             {
                 time.StartInterval();
-                short alpha = (short)(score - Constants.ALPHA_BETA_WINDOW);
-                short beta = (short)(score + Constants.ALPHA_BETA_WINDOW);
-                score = Search(alpha, beta, depth);
-                if (IsAborted)
+                history.Rescale();
+                UpdateTtWithPV(PV, Depth);
+
+                short alpha = (short)(Score - Constants.ALPHA_BETA_WINDOW);
+                short beta = (short)(Score + Constants.ALPHA_BETA_WINDOW);
+
+                (Score, PV) = Search(alpha, beta, Depth);
+
+                if (wasAborted)
                 {
-                    WasAborted = true;
                     break;
                 }
 
-                // TODO: Can it truly fail the opposite way after only expanding one side of search window?
-                while (score <= alpha || score >= beta)
+                if (Score <= alpha || Score >= beta)
                 {
-                    if (score <= alpha)
-                    {
-                        alpha = -Constants.INFINITE_WINDOW;
-                        score = Search(alpha, beta, depth);
-                    }
-                    else if (score >= beta)
-                    {
-                        beta = Constants.INFINITE_WINDOW;
-                        score = Search(alpha, beta, depth);
-                    }
-
-                    if (IsAborted)
-                    {
-                        WasAborted = true;
-                        break;
-                    }
+                    (Score, PV) = Search(-Constants.INFINITE_WINDOW, Constants.INFINITE_WINDOW, Depth);
                 }
 
-                ExtractRemainingPV();
-
-                if (IsAborted)
-                {
-                    WasAborted = true;
-                    break;
-                }
-
-                checkMate = IsCheckMate(score, out mateIn);
-
-                if (!WasAborted)
-                {
-                    if (!checkMate)
-                    {
-                        Uci.Info(depth, score, nodesVisited, time.Elapsed, PV);
-                    }
-                    else
-                    {
-                        Uci.InfoMate(depth, mateIn, nodesVisited, time.Elapsed, PV);
-                    }
-                    bestmove = PV.Moves[0][0];
-                }
+                ReportSearchResults(out bestMove);
             }
 
-            Uci.BestMove(bestmove);
-            return score;
+            Uci.BestMove(bestMove);
         }
 
-        public short Search(short alpha, short beta, short depthLeft, int ply = 0)
+        public void ReportSearchResults(out ulong bestMove)
         {
-            PV.Length[ply] = ply;
-
-            short originalAlpha = alpha;
-            nodesVisited++;
-
-            if (IsAborted)
+            PV = CollectPV(PV, Depth);
+            if (IsCheckmate(Score, out int mateIn))
             {
-                WasAborted = true;
-                return 0;
+                Uci.InfoMate(Depth, mateIn, nodesVisited, time.Elapsed, PV);
+            }
+            else
+            {
+                Uci.Info(Depth, Score, nodesVisited, time.Elapsed, PV);
             }
 
-            if (TtEval.TryLookup(board.Hash, out TtEval.TtEvalItem ttItem) && ttItem.Depth >= depthLeft)
-            {
-                if (ttItem.Flag == TtEval.TtFlag.Exact)
-                {
-                    return ttItem.Score;
-                }
+            bestMove = PV[0];
+        }
 
-                if (ttItem.Flag == TtEval.TtFlag.LowerBound)
-                {
-                    alpha = Math.Max(alpha, ttItem.Score);
-                }
-                else if (ttItem.Flag == TtEval.TtFlag.UpperBound)
-                {
-                    beta = Math.Min(beta, ttItem.Score);
-                }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public (short Score, ulong[] PV) NegSearchTT(short alpha, short beta, short depth, int ply)
+        {
+            var result = SearchTT((short)-beta, (short)-alpha, depth, ply);
+            return ((short)-result.Score, result.PV);
+        }
+        public (short Score, ulong[] PV) SearchTT(short alpha, short beta, short depth, int ply = 0)
+        {
+            if (TtEval.TryGetScore(board.Hash, depth, ply, alpha, beta, out short score))
+            {
+                return SearchResult(score);
+            }
+
+            var result = Search(alpha, beta, depth, ply);
+
+            TtEval.Add(board.Hash, depth, ply, alpha, beta, result.Score, result.PV.Length > 0 ? result.PV[0] : 0ul);
+            return result;
+        }
+
+        public (short Score, ulong[] PV) Search(short alpha, short beta, short depth, int ply = 0)
+        {
+            ulong[] pv = emptyPV;
+
+            if (MustAbort || wasAborted)
+            {
+                wasAborted = true;
+                return defaultResult;
+            }
+
+            if (ply > 0)
+            {
+                alpha = Math.Max(alpha, (short)-Constants.CHECKMATE_SCORE);
+                beta = Math.Min(beta, (short)(Constants.CHECKMATE_SCORE - 1));
 
                 if (alpha >= beta)
                 {
-                    return ttItem.Score;
+                    return SearchResult(alpha);
                 }
             }
 
-            if (ply > Constants.MAX_PLY - 1)
+            if (depth <= 0)
             {
-                return Evaluation.Compute(board);
+                return SearchResult(Quiesce(alpha, beta, ply));
             }
 
-            if (ply > 0 && board.Repeat2())
-            {
-                // the current position is repeated to times in the past
-                // return 0 (draw) for three-fold repetition
-                return 0;
-            }
+            nodesVisited++;
 
-            if (depthLeft <= 0)
-            {
-                return Quiesce(alpha, beta, ply);
-            }
-
-
+            int extension = 0;
+            
             bool inCheck = board.IsChecked();
-            MoveList moveList = moveListPool.Get();
-            history.SideToMove = board.SideToMove;
-            board.GenerateMoves(moveList, history);
-            moveList.UpdateScores(PV.Moves[0][ply], killers[ply]);
+            if (inCheck)
+            {
+                extension = 1;
+            }
+            short eval = Evaluation.Compute(board);
 
-            short value = short.MinValue;
-            int expandedNodes = 0;
+            if (ply > 0 && !inCheck && depth >= 3 && eval >= beta)
+            {
+                if (board.MakeMove(Move.NullMove))
+                {
+                    short R = (short)(depth <= 6 ? 2 : 3);
+                    //short score = NegZeroWindowSearch(beta, (short)(depth - 3), ply + 1);
+                    short score = (short)-ZwSearchTT((short)(-beta + 1), (short)(depth - R - 1), ply + 1);
+                    board.UnmakeMove();
+                    if (score >= beta)
+                    {
+                        return SearchResult(beta);
+                    }
+                }
+            }
+
+            bool futilityPruning = depth < 4 && Math.Abs(alpha) < Constants.CHECKMATE_BASE &&
+                                   eval + futilityMargin[depth] <= alpha;
+
+            history.SideToMove = board.SideToMove;
+            MoveList moveList = moveListPool.Get();
+            board.GenerateMoves(moveList, history);
+            TtEval.TryGetBestMove(board.Hash, out ulong bestMove);
+            moveList.UpdateScores(bestMove, killers[ply]);
+
+            bool raisedAlpha = false;
+
+            int legalMoves = 0;
 
             for (int n = 0; n < moveList.Count; n++)
             {
                 moveList.Sort(n);
-                if (board.MakeMove(moveList[n]))
+                ulong move = moveList[n];
+
+                if (!board.MakeMove(move))
                 {
-                    ulong move = moveList[n];
-                    string moveString = Move.ToString(move);
-                    bool isCapture = Move.GetCapture(move) != Piece.None;
-                    expandedNodes++;
-                    short d = RemainingDepth(depthLeft, board, move, expandedNodes, inCheck);
+                    continue;
+                }
 
-                    value = Math.Max(value, Neg(Search(Neg(beta), Neg(alpha), d, ply + 1)));
+                bool isCapture = Move.GetCapture(move) != Piece.None;
+                bool isPromote = Move.GetPromote(move) != Piece.None;
+
+                if (futilityPruning && legalMoves > 0 && !isCapture && !isPromote && !inCheck)
+                {
                     board.UnmakeMove();
+                    continue;
+                }
 
-                    if (value > alpha)
+                short newDepth = (short)(depth - 1 + extension);
+                short reduction = 0;
+                if (!inCheck && depth > 4 && legalMoves > 2 && !isCapture && !isPromote &&
+                    !board.IsChecked() &&
+                    Move.GetScore(move) < 50 &&
+                    (move & 0x0fff) != (killers[ply][0] & 0x0fff) &&
+                    (move & 0x0fff) != (killers[ply][1] & 0x0fff) &&
+                    (move & 0x0fff) != (bestMove & 0x0fff))
+                {
+                    reduction = (short)(legalMoves <= 6 ? 1 : 2);
+                    newDepth -= reduction;
+                }
+
+                (short Score, ulong[] PV) value = (-short.MaxValue, emptyPV);
+                for (;;)
+                {
+                    if (!raisedAlpha)
                     {
-                        alpha = value;
-                        pv.Merge(ply, move);
-
-                        if (!isCapture)
+                        value = NegSearchTT(alpha, beta, newDepth, ply + 1);
+                    }
+                    else
+                    {
+                        if ((short)-ZwSearchTT((short)-alpha, newDepth, ply + 1) > alpha)
                         {
-                            history.Update(Move.GetFrom(move), Move.GetTo(move), depthLeft);
-                        }
-
-                        if (value >= beta)
-                        {
-                            if (!isCapture)
-                            {
-                                killers[ply][1] = killers[ply][0];
-                                killers[ply][0] = move;
-                            }
-                            break; // cutoff
+                            value = NegSearchTT(alpha, beta, newDepth, ply + 1);
                         }
                     }
-                }
-            }
-            moveListPool.Return(moveList);
 
-            if (expandedNodes == 0)
+                    if (reduction > 0 && value.Score > alpha)
+                    {
+                        newDepth += reduction;
+                        reduction = 0;
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+
+                board.UnmakeMove();
+                legalMoves++;
+
+
+                if (value.Score > alpha)
+                {
+                    alpha = value.Score;
+                    raisedAlpha = true;
+                    pv = MergeMove(value.PV, move);
+
+                    if (!isCapture)
+                    {
+                        history.Update(Move.GetFrom(move), Move.GetTo(move), depth);
+                    }
+
+                    if (value.Score >= beta)
+                    {
+                        if (!isCapture)
+                        {
+                            killers[ply][1] = killers[ply][0];
+                            killers[ply][0] = move;
+                        }
+
+                        moveListPool.Return(moveList);
+                        return (beta, pv);
+                    }
+                }
+                
+            }
+
+            moveListPool.Return(moveList);
+            if (legalMoves == 0)
             {
                 if (inCheck)
                 {
-                    return (short)(-Constants.CHECKMATE_SCORE + ply);
+                    return SearchResult((short)(-Constants.CHECKMATE_SCORE + ply));
                 }
 
-                return 0;
+                return defaultResult;
             }
 
-            TtEval.Add(board.Hash, depthLeft, originalAlpha, beta, value, pv.Moves[ply][0]);
+            return (alpha, pv);
+        }
 
+        public ulong[] MergeMove(ulong[] pv, ulong move)
+        {
+            Array.Resize(ref pv, pv.Length + 1);
+            Array.Copy(pv, 0, pv, 1, pv.Length - 1);
+            pv[0] = move;
+            return pv;
+        }
+
+        public void UpdateTtWithPV(ulong[] pv, int depth)
+        {
+            Board bd = board.Clone();
+            for (int n = 0; n < pv.Length; n++)
+            {
+                ulong move = pv[n];
+                TtEval.Add(bd.Hash, (short)--depth, n, -short.MaxValue, short.MaxValue, Score, move);
+                bd.MakeMove(move);
+            }
+        }
+
+        public short ZwSearchTT(short beta, short depth, int ply)
+        {
+            short alpha = (short)(beta - 1);
+            if (TtEval.TryGetScore(board.Hash, depth, ply, alpha, beta, out short score))
+            {
+                return score;
+            }
+
+            score = ZeroWindowSearch(beta, depth, ply);
+
+            TtEval.Add(board.Hash, depth, ply, alpha, beta, score, 0ul);
+            return score;
+        }
+        public short ZeroWindowSearch(short beta, short depth, int ply)
+        {
+            short alpha = (short)(beta - 1);
+
+            if (MustAbort || wasAborted)
+            {
+                wasAborted = true;
+                return 0;//??
+            }
+
+            if (depth <= 0)
+            {
+                return Quiesce(alpha, beta, ply);
+            }
+
+            nodesVisited++;
+
+            MoveList moveList = moveListPool.Get();
+            board.GenerateMoves(moveList);
+            for (int n = 0; n < moveList.Count; n++)
+            {
+                if (board.MakeMove(moveList[n]))
+                {
+                    //short score = NegZeroWindowSearch(beta, (short)(depth - 1), ply + 1);
+                    short score = (short)-ZwSearchTT((short)-beta, (short)(depth - 1), ply + 1);
+                    board.UnmakeMove();
+                    if (score > beta)
+                    {
+                        moveListPool.Return(moveList);
+                        return beta;
+                    }
+                }
+            }
+
+            moveListPool.Return(moveList);
             return alpha;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public short NegQuiesce(short alpha, short beta, int ply)
+        {
+            return (short)-Quiesce((short)-beta, (short)-alpha, ply);
         }
 
         public short Quiesce(short alpha, short beta, int ply)
         {
-            PV.Length[ply] = ply;
             nodesVisited++;
 
-            if (IsAborted)
+            if (MustAbort || wasAborted)
             {
-                WasAborted = true;
+                wasAborted = true;
                 return 0;
             }
 
+            if (board.HalfMoveClock >= Constants.MAX_PLY_WITHOUT_PAWN_MOVE_OR_CAPTURE)
+            {
+                return 0;
+            }
+
+            short standPat = Evaluation.Compute(board);
             if (ply >= Constants.MAX_PLY - 1)
             {
-                return Evaluation.Compute(board);
+                return standPat;
             }
 
             bool inCheck = board.IsChecked();
             if (!inCheck)
             {
-                short standPat = Evaluation.Compute(board);
                 if (standPat >= beta)
                 {
                     return beta;
                 }
-
-                if (alpha < standPat)
-                {
-                    alpha = standPat;
-                }
+                alpha = Math.Max(alpha, standPat);
             }
 
-            int expandedNodes = 0;
             MoveList moveList = moveListPool.Get();
 
             if (inCheck)
@@ -273,127 +387,117 @@ namespace Pedantic.Chess
                 board.GenerateCaptures(moveList);
             }
 
-            short score = short.MinValue;
-            for (int n = 0; n < moveList.Count; ++n)
+            int legalMoves = 0;
+            for (int n = 0; n < moveList.Count; n++)
             {
                 moveList.Sort(n);
-                if (board.MakeMove(moveList[n]))
+                ulong move = moveList[n];
+
+                // "delta" pruning https://www.chessprogramming.org/Delta_Pruning
+                Piece capture = Move.GetCapture(move);
+                bool isCapture = capture != Piece.None;
+                bool isPromote = Move.GetPromote(move) != Piece.None;
+                short pieceValue = (short)(capture != Piece.None ? Evaluation.CanonicalPieceValues[(int)capture] : 0);
+
+                if (!inCheck && !isPromote && !isCapture &&
+                    (board.TotalMaterial - pieceValue > Evaluation.EndGamePhaseMaterial) &&
+                    standPat + pieceValue + DELTA_PRUNING_MARGIN < alpha)
                 {
-                    ++expandedNodes;
-                    score = Neg(Quiesce(Neg(beta), Neg(alpha), ply + 1));
+                    continue;
+                }
+
+                if (board.MakeMove(move))
+                {
+                    short score = NegQuiesce(alpha, beta, ply + 1);
                     board.UnmakeMove();
-
-                    if (score > alpha)
+                    
+                    if (score >= beta)
                     {
-                        alpha = score;
-                        pv.Merge(ply, moveList[n]);
-
-                        if (score >= beta)
-                        {
-                            break;
-                        }
+                        moveListPool.Return(moveList);
+                        return beta;
                     }
+
+                    alpha = Math.Max(alpha, score);
+                    legalMoves++;
                 }
             }
 
             moveListPool.Return(moveList);
 
-            if (expandedNodes == 0)
+            if (inCheck)
             {
-                if (inCheck)
+                if (legalMoves == 0)
                 {
                     return (short)(-Constants.CHECKMATE_SCORE + ply);
                 }
 
                 return 0;
             }
-
-            return score;
+            return alpha;
         }
 
-        private static short RemainingDepth(short depthLeft, Board board, ulong move, int expandedNodes, bool inCheck)
+        public ulong[] CollectPV(ulong[] pv, int depth)
         {
-            short d;
-            int score = Move.GetScore(move);
-            Piece promote = Move.GetPromote(move);
-            if (board.IsChecked())
+            List<ulong> result = new(pv);
+            if (result.Count < depth)
             {
-                d = depthLeft;
-            }
-            // TODO: Implement reductions when PVS or ZWS is implemented (full depth for now)
-            /*else if (depthLeft >= 3 && expandedNodes >= 4 && !inCheck && score == 0 && promote == Piece.None)
-            {
-                d = Dec(depthLeft, 2);
-            }*/
-            else
-            {
-                d = Dec(depthLeft);
-            }
-            return d;
-        }
-
-        public void ExtractRemainingPV()
-        {
-            int takeBackCount = 0;
-            for (int n = 0; n < PV.Length[0]; n++)
-            {
-                board.MakeMove(PV.Moves[0][n]);
-                takeBackCount++;
-            }
-            MoveList moveList = new();
-            while (PV.Length[0] < Constants.MAX_PLY && TtEval.TryLookup(board.Hash, out TtEval.TtEvalItem ttItem) && ttItem.Flag == TtEval.TtFlag.Exact)
-            {
-                board.GenerateMoves(moveList);
-                bool legalMove = false;
-                for (int n = 0; n < moveList.Count; n++)
+                Board bd = board.Clone();
+                foreach (ulong move in pv)
                 {
-                    if (Move.Compare(ttItem.Move, moveList[n]) == 0)
+                    if (!bd.IsLegalMove(move))
                     {
-                        legalMove = true;
-                        break;
+                        throw new ArgumentException($"Invalid move in PV '{Move.ToString(move)}'.");
                     }
+
+                    bd.MakeMove(move);
                 }
 
-                if (!legalMove)
+                while (result.Count < depth && TtEval.TryGetBestMove(bd.Hash, out ulong bestMove) && bd.IsLegalMove(bestMove))
                 {
-                    break;
+                    bd.MakeMove(bestMove);
+                    result.Add(bestMove);
                 }
-                if (!board.MakeMove(ttItem.Move))
-                {
-                    Uci.Log($"Bad move found int transposition table: {Move.ToString(ttItem.Move)}");
-                    board.UnmakeMove();
-                    break;
-                }
-                PV.Moves[0][PV.Length[0]] = ttItem.Move;
-                PV.Length[0]++;
-                takeBackCount++;
             }
 
-            while (takeBackCount-- > 0)
-            {
-                board.UnmakeMove();
-            }
+            return result.ToArray();
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static short Neg(short value) => (short)-value;
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static short Dec(short value) => (short)(value - 1);
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static short Dec(short value, short dec) => (short)(value - dec);
-
-        private static bool IsCheckMate(short score, out int mateIn)
+        private static bool IsCheckmate(short score, out int mateIn)
         {
             mateIn = 0;
-            bool checkMate = Math.Abs(score) >= Constants.CHECKMATE_SCORE - Constants.MAX_PLY;
+            short absScore = Math.Abs(score);
+            bool checkMate = absScore >= Constants.CHECKMATE_SCORE - Constants.MAX_PLY;
             if (checkMate)
             {
-                mateIn = (Constants.CHECKMATE_SCORE - Math.Abs(score)) * Math.Sign(score);
+                mateIn = (Constants.CHECKMATE_SCORE - absScore) * Math.Sign(score);
             }
 
             return checkMate;
         }
+
+        private static readonly ulong[] emptyPV = Array.Empty<ulong>();
+        private static readonly (short Score, ulong[] PV) defaultResult = (0, emptyPV);
+        private static (short Score, ulong[] PV) SearchResult(short score) => (score, emptyPV);
+
+        private const int CHECK_TC_NODES_MASK = 0x03f;
+        private const short DELTA_PRUNING_MARGIN = 200;
+        
+        private readonly Board board;
+        private readonly TimeControl time;
+        private readonly long maxNodes;
+        private short maxSearchDepth;
+        private long nodesVisited = 0L;
+        private readonly ObjectPool<MoveList> moveListPool = new(Constants.MAX_PLY);
+        private History history = new();
+        private readonly ulong[][] killers = Mem.Allocate2D<ulong>(Constants.MAX_PLY, 2);
+        private bool wasAborted = false;
+
+        private static readonly short[] futilityMargin =
+        {
+            0,
+            Evaluation.CanonicalPieceValues[(int)Piece.Pawn],
+            Evaluation.CanonicalPieceValues[(int)Piece.Knight],
+            Evaluation.CanonicalPieceValues[(int)Piece.Rook]
+        };
     }
 }

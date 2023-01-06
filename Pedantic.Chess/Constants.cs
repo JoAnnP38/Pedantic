@@ -16,6 +16,7 @@ namespace Pedantic.Chess
         public const int MAX_PLY = 64;
         public const int AVG_MOVES_PER_PLY = 36;
         public const short CHECKMATE_SCORE = 20000;
+        public const short CHECKMATE_BASE = 19000;
         public const short TOTAL_STARTING_MATERIAL = 7800;
         public const int MINOR_PIECE_COUNT = 4;
         public const int MAJOR_MINOR_PIECE_COUNT = 6;
@@ -26,11 +27,13 @@ namespace Pedantic.Chess
         public const short HISTORY_SCORE = 5000;
         public const short ALPHA_BETA_WINDOW = 200;
         public const short INFINITE_WINDOW = short.MaxValue;
+        public const int MAX_PLY_WITHOUT_PAWN_MOVE_OR_CAPTURE = 100;
 
         public const string REGEX_FEN = @"^\s*([rnbqkpRNBQKP1-8]+/){7}[rnbqkpRNBQKP1-8]+\s[bw]\s(-|K?Q?k?q?)\s(-|[a-h][36])\s\d+\s\d+\s*$";
         public const string REGEX_MOVE = @"^[a-h][1-8][a-h][1-8](n|b|r|q)?$";
         public const string REGEX_INDEX = @"^[a-h][1-8]$";
         public const string FEN_EMPTY = @"8/8/8/8/8/8/8/8 w - - 0 0";
         public const string FEN_START_POS = @"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+        public const string APP_NAME = "Pedantic";
     }
 }

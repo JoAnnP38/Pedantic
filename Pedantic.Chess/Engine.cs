@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Collections.Specialized;
+using System.Runtime.InteropServices;
 using System.Runtime.Serialization.Formatters.Binary;
 using Pedantic.Utilities;
 
@@ -9,7 +10,7 @@ namespace Pedantic.Chess
         private static readonly Board board = new();
         private static readonly TimeControl time = new();
         private static int searchThreads = 1;
-        private static Task<short>? search = null;
+        private static Task? search = null;
         private static PolyglotEntry[]? bookEntries = null;
 
         public static bool Debug { get; set; } = false;
@@ -167,7 +168,7 @@ namespace Pedantic.Chess
         public static bool LookupBookMoves(ulong hash, out ReadOnlySpan<PolyglotEntry> bookMoves)
         {
             int first = FindFirstBookMove(hash);
-            if (BookEntries[first].Key == hash)
+            if (first >= 0 && first < BookEntries.Length && BookEntries[first].Key == hash)
             {
                 int last = first;
                 while (BookEntries[++last].Key == hash) {}
@@ -242,6 +243,17 @@ namespace Pedantic.Chess
                             int to = Index.ToIndex(toFile, toRank);
                             Piece promote = pc == 0 ? Piece.None : (Piece)(pc + 1);
 
+                            if (Index.GetFile(from) == 4 && board.PieceBoard[from] == Piece.King && board.PieceBoard[to] == Piece.Rook && promote == Piece.None)
+                            {
+                                foreach (Board.CastlingRookMove rookMove in Board.CastlingRookMoves)
+                                {
+                                    if (rookMove.KingFrom == from && rookMove.RookFrom == to && (board.Castling & rookMove.CastlingMask) != 0)
+                                    {
+                                        to = rookMove.KingTo;
+                                        break;
+                                    }
+                                }
+                            }
                             move = $@"{Index.ToString(from)}{Index.ToString(to)}{Conversion.PieceToString(promote)}";
                             break;
                         }

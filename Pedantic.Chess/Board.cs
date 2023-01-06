@@ -118,6 +118,7 @@ namespace Pedantic.Chess
         public int FullMoveCounter => fullMoveCounter;
         public ulong Hash => hash;
         public short[] Material => material;
+        public short TotalMaterial => (short)(material[0] + material[1]);
         public bool[] Castled => castled;
 
         public ulong LastMove
@@ -439,16 +440,16 @@ namespace Pedantic.Chess
             switch (kingTo)
             {
                 case Index.C1:
-                    return castlingRookMoves[0];
+                    return CastlingRookMoves[0];
 
                 case Index.G1:
-                    return castlingRookMoves[1];
+                    return CastlingRookMoves[1];
 
                 case Index.C8:
-                    return castlingRookMoves[2];
+                    return CastlingRookMoves[2];
 
                 case Index.G8:
-                    return castlingRookMoves[3];
+                    return CastlingRookMoves[3];
 
                 default:
                     Util.Fail($"Invalid castling move with king moving to {kingTo}.");
@@ -475,7 +476,7 @@ namespace Pedantic.Chess
             else
             {
                 throw new IndexOutOfRangeException(
-                    @$"Maximum game lenth exceeded - Hash {hash} Move {Move.ToString(move)}");
+                    @$"Maximum game lenth exceeded - Hash {hash} BestMove {Move.ToString(move)}");
             }
         }
 
@@ -533,6 +534,28 @@ namespace Pedantic.Chess
 #endregion
 
         #region Move Generation
+
+        public bool OneLegalMove(out ulong legalMove)
+        {
+            int legalCount = 0;
+            legalMove = 0;
+            MoveList moveList = new();
+            GenerateMoves(moveList);
+            for (int n = 0; n < moveList.Count && legalCount <= 1; n++)
+            {
+                if (MakeMove(moveList[n]))
+                {
+                    if (legalCount == 0)
+                    {
+                        legalMove = moveList[n];
+                    }
+                    UnmakeMove();
+                    legalCount++;
+                }
+            }
+
+            return legalCount == 1;
+        }
 
         public short GetPieceMobility(Color color, Piece piece, int from)
         {
@@ -867,7 +890,7 @@ namespace Pedantic.Chess
 
         #endregion
 
-        #region Static Data Used by Move Generation
+        #region Static Data Used by BestMove Generation
 
         private class FakeHistory : IHistory
         {
@@ -933,8 +956,9 @@ namespace Pedantic.Chess
             public readonly int KingMoveThrough;
             public readonly int RookFrom;
             public readonly int RookTo;
+            public readonly CastlingRights CastlingMask;
 
-            public CastlingRookMove(int kingFrom, int kingTo, int kingMoveThrough, int rookFrom, int rookTo)
+            public CastlingRookMove(int kingFrom, int kingTo, int kingMoveThrough, int rookFrom, int rookTo, CastlingRights mask)
             {
                 KingFrom = kingFrom;
                 KingTo = kingTo;
@@ -944,12 +968,12 @@ namespace Pedantic.Chess
             }
         }
 
-        private static readonly CastlingRookMove[] castlingRookMoves =
+        public static readonly CastlingRookMove[] CastlingRookMoves =
         {
-            new(Index.E1, Index.C1, Index.D1, Index.A1, Index.D1),
-            new(Index.E1, Index.G1, Index.F1, Index.H1, Index.F1),
-            new(Index.E8, Index.C8, Index.D8, Index.A8, Index.D8),
-            new(Index.E8, Index.G8, Index.F8, Index.H8, Index.F8)
+            new(Index.E1, Index.C1, Index.D1, Index.A1, Index.D1, CastlingRights.WhiteQueenSide),
+            new(Index.E1, Index.G1, Index.F1, Index.H1, Index.F1, CastlingRights.WhiteKingSide),
+            new(Index.E8, Index.C8, Index.D8, Index.A8, Index.D8, CastlingRights.BlackQueenSide),
+            new(Index.E8, Index.G8, Index.F8, Index.H8, Index.F8, CastlingRights.BlackKingSide)
         };
 
         private static readonly int[][] captureScores = 

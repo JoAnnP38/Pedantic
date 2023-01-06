@@ -11,6 +11,7 @@ namespace Pedantic.UnitTests
         [TestMethod]
         public void SearchTest()
         {
+            TtEval.Resize(128);
             Board bd = new(Constants.FEN_START_POS);
             TimeControl time = new()
             {
@@ -20,13 +21,14 @@ namespace Pedantic.UnitTests
 
 
             Negamax search = new(bd, time, 8);
-            Task<short> task = Task.Run(() => search.Search());
+            Task task = Task.Run(() => search.Search());
             task.Wait();
         }
 
         [TestMethod]
         public void SearchTest2()
         {
+            TtEval.Resize(128);
             Board bd = new(Constants.FEN_START_POS);
             TimeControl time = new()
             {
@@ -34,15 +36,16 @@ namespace Pedantic.UnitTests
             };
             time.Reset();
 
-            Negamax search = new(bd, time, 8);
-            Task<short> task = Task.Run(() => search.Search());
+            Negamax search = new(bd, time, 4);
+            Task task = Task.Run(() => search.Search());
             task.Wait();
 
-            bd.MakeMove(search.PV.Moves[0][0]);
+            bd.MakeMove(search.PV[0]);
             Console.WriteLine();
 
             TtEval.Clear();
             time.Reset();
+            search = new(bd, time, 3);
             task = Task.Run(() => search.Search());
             task.Wait();
         }

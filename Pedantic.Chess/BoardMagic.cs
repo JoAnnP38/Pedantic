@@ -5,7 +5,7 @@ namespace Pedantic.Chess
 {
     public sealed partial class Board
     {
-        #region Magic Bitboards for Sliding Move Generation
+        #region Magic Bitboards for Sliding BestMove Generation
 
         public static ulong GetBishopAttacksMagic(int square, ulong blockers)
         {

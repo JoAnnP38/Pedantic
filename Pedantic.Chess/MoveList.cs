@@ -44,19 +44,25 @@ namespace Pedantic.Chess
 
         public void UpdateScores(ulong pv, ulong[] killers)
         {
-            for (int n = 0; n < insertIndex; ++n)
+            byte flags = 0;
+            for (int n = 0; n < insertIndex && flags < 7; ++n)
             {
                 ulong fromto = array[n] & 0x0fff;
+                bool isCapture = Move.GetCapture(array[n]) != Piece.None;
+
                 if (fromto == (pv & 0x0fff))
                 {
+                    flags |= 1;
                     array[n] = BitOps.BitFieldSet(array[n], Constants.PV_SCORE, 24, 16);
                 }
-                else if (fromto == (killers[0] & 0x0fff))
+                else if (fromto == (killers[0] & 0x0fff) && !isCapture)
                 {
+                    flags |= 2; 
                     array[n] = BitOps.BitFieldSet(array[n], Constants.KILLER_0_SCORE, 24, 16);
                 }
-                else if (fromto == (killers[1] & 0x0fff))
+                else if (fromto == (killers[1] & 0x0fff) && !isCapture)
                 {
+                    flags |= 4;
                     array[n] = BitOps.BitFieldSet(array[n], Constants.KILLER_1_SCORE, 24, 16);
                 }
             }

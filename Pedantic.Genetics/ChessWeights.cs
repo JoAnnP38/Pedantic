@@ -311,7 +311,7 @@ namespace Pedantic.Genetics
             2, // attacks to squares 3 squares from king
 
             /* OpeningDevelopmentWeight */
-            10,
+            15,
 
             /* EndGameDevelopmentWeight */
             0,

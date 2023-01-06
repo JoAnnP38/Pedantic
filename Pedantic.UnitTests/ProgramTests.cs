@@ -59,7 +59,7 @@ namespace Pedantic.UnitTests
         [TestMethod]
         public void GoBookMove4Test()
         {
-            //Engine.UseOwnBook = false;
+            Engine.UseOwnBook = false;
             Program.ParseCommand("position startpos moves e2e4 c7c5 g1f3 b8c6 d2d4 c5d4 f3d4 g8f6 b1c3 e7e5 d4b5 d7d6 c1g5 a7a6 b5a3 b7b5 g5f6 g7f6 c3d5 f6f5 f1d3 c8e6 e1g1 f8g7 d1h5 f5f4 c2c4 b5c4 d3c4");
             Console.WriteLine(Engine.Board.ToString());
             Console.WriteLine(Engine.Board.ToFenString());
@@ -111,6 +111,7 @@ namespace Pedantic.UnitTests
         [TestMethod]
         public void BadBookMoveTest()
         {
+            Engine.UseOwnBook = true;
             Engine.LoadBookEntries();
             Program.ParseCommand("position startpos moves d2d4 g8f6 g1f3 e7e6 c2c4 b7b6 g2g3 c8b7 f1g2 f8e7 b1c3 f6e4 c1d2 e7f6 e1g1");
             Console.WriteLine($"FEN: {Engine.Board.ToFenString()}");
@@ -152,6 +153,23 @@ namespace Pedantic.UnitTests
             Engine.UseOwnBook = false;
             Program.ParseCommand(@$"position fen {fen}");
             Program.ParseCommand("go wtime 300000 btime 300000 winc 0 binc 0");
+            Engine.Wait();
+        }
+
+        [TestMethod]
+        public void ShortenedPVTest()
+        {
+            //Engine.Infinite = true;
+            Program.ParseCommand("position startpos moves e2e4 c7c5 g1f3 e7e6 d2d4 c5d4 f3d4 a7a6 f1d3 b8c6 d4c6 d7c6 b1c3 d8c7 c1e3 g8f6 c3a4 c6c5 c2c4 f8d6 d1b3 f6d7 h2h3 e8g8 e1g1 b7b6 f2f4 c8b7");
+            Program.ParseCommand("go wtime 120152 btime 150887 winc 6000 binc 6000");
+            Engine.Wait();
+        }
+
+        [TestMethod]
+        public void InfiniteLoop2Test()
+        {
+            Program.ParseCommand("position startpos moves d2d4 g8f6 c2c4 g7g6 b1c3 f8g7 e2e4 d7d6 f1e2 e8g8 c1g5 a7a6 g1f3 c7c6 h2h3 b7b5 a2a3 b5c4 e4e5 d6e5 d4e5 f6d5 e2c4 c8e6 d1d2 b8d7 c3d5 c6d5");
+            Program.ParseCommand("go wtime 129205 btime 145079 winc 6000 binc 6000");
             Engine.Wait();
         }
     }

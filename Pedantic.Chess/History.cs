@@ -46,7 +46,7 @@ namespace Pedantic.Chess
             return ((int)color << 12) + (from << 6) + to;
         }
 
-        private void Rescale()
+        public void Rescale()
         {
             for (int i = 0; i < history.Length; ++i)
             {

@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Pedantic": {
+      "commandName": "Project",
+      "commandLineArgs": "book"
+    }
+  }
+}

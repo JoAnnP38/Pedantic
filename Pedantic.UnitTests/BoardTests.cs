@@ -189,10 +189,10 @@ namespace Pedantic.UnitTests
                 }
                 MoveList mvList = moveListPool.Get();
                 bd.GenerateMoves(mvList);
-                Assert.AreEqual(moveList.Count, mvList.Count, $"Move arrays differ after move: {Move.ToString(mvList[i])}");
+                Assert.AreEqual(moveList.Count, mvList.Count, $"BestMove arrays differ after move: {Move.ToString(mvList[i])}");
                 for (int n = 0; n < mvList.Count; ++n)
                 {
-                    Assert.AreEqual(mvList[n], moveList[n], $"Move arrays differ after move: {Move.ToString(mvList[i])}");
+                    Assert.AreEqual(mvList[n], moveList[n], $"BestMove arrays differ after move: {Move.ToString(mvList[i])}");
                 }
 
                 moveListPool.Return(mvList);

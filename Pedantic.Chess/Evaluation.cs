@@ -11,6 +11,7 @@ using Pedantic.Genetics;
 using LiteDB;
 using Pedantic.Collections;
 using Pedantic.Utilities;
+using System.Runtime.CompilerServices;
 
 namespace Pedantic.Chess
 {
@@ -28,9 +29,10 @@ namespace Pedantic.Chess
             LoadWeights();
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsCheckmate(short score)
         {
-            return Math.Abs(score) == Constants.CHECKMATE_SCORE;
+            return Math.Abs(score) > Constants.CHECKMATE_BASE;
         }
 
         public static void LoadWeights(string? id = null)

@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿#undef DEBUG
+using System.Diagnostics;
 
 namespace Pedantic.Utilities
 {
@@ -33,7 +34,11 @@ namespace Pedantic.Utilities
             }
         }
 
-        public static TraceSwitch TraceSwitch = new("General", "Entire Application");
+        public static TraceSwitch TraceSwitch = new("General", "Entire Application")
+        {
+            Level = TraceLevel.Verbose
+        };
+
 
         [Conditional("DEBUG")]
         public static void Assert(bool condition)

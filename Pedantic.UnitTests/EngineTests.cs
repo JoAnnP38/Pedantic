@@ -19,7 +19,7 @@ namespace Pedantic.UnitTests
                 {
                     count++;
                     Console.WriteLine($@"Book entry at ({n}) has weight of zero.");
-                    Console.WriteLine($@"Key: 0x{entry.Key:X16}ul, Move: 0x{entry.Move:X8}");
+                    Console.WriteLine($@"Key: 0x{entry.Key:X16}ul, BestMove: 0x{entry.Move:X8}");
                 }
             }
             Assert.AreEqual(0, count);

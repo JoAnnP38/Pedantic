@@ -20,7 +20,7 @@ namespace Pedantic.Chess
         private long tN = -1;
 
         public int TimePerMoveWithMargin => (remaining + (movesToGo - 1) * increment) / movesToGo - time_margin;
-        public int TimeRemainingWithMargin => remaining - time_margin;
+        public int TimeRemainingWithMargin => Math.Min(remaining - time_margin,  TimePerMoveWithMargin * 2);
 
         private long Now => Stopwatch.GetTimestamp();
         public long Elapsed => MilliSeconds(Now - t0);
@@ -84,7 +84,7 @@ namespace Pedantic.Chess
                 if (elapsed > TimePerMoveWithMargin)
                     return false;
                 //shouldn't spend more then the 2x the average on a move
-                if (total > 2 * TimePerMoveWithMargin)
+                if (total > (3 * TimePerMoveWithMargin) / 2)
                     return false;
                 //can't afford the estimate
                 if (total > TimeRemainingWithMargin)

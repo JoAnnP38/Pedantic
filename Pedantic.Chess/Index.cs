@@ -77,21 +77,26 @@ namespace Pedantic.Chess
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int Distance(int index1, int index2)
-        {
-            Util.Assert(IsValid(index1));
-            Util.Assert(IsValid(index2));
-
-            var coord1 = Index.ToCoords(index1);
-            var coord2 = Index.ToCoords(index2);
-            return Math.Abs(coord1.File - coord2.File) + Math.Abs(coord1.Rank - coord2.Rank);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static string ToString(int index)
         {
             Util.Assert(IsValid(index));
             return algebraicIndices[index];
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool IsBetween(int index, int i1, int i2)
+        {
+            (int start, int end) range = i1 < i2 ? (i1, i2) : (i2, i1);
+            return index > range.start && index < range.end;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int Distance(int index1, int index2)
+        {
+            (int File, int Rank) coord1 = (GetFile(index1), GetRank(index1));
+            (int File, int Rank) coord2 = (GetFile(index2), GetRank(index2));
+
+            return Math.Max(Math.Abs(coord1.File - coord2.File), Math.Abs(coord1.Rank - coord2.Rank));
         }
 
         private static readonly string[] algebraicIndices =

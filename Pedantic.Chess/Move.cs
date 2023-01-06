@@ -5,6 +5,7 @@ namespace Pedantic.Chess
 {
     public static class Move
     {
+        public static readonly ulong NullMove = PackMove(0, 0, MoveType.Null);
         public static ulong PackMove(int from, int to, MoveType type = MoveType.Normal, Piece capture = Piece.None, 
             Piece promote = Piece.None, int score = 0)
         {
@@ -19,6 +20,12 @@ namespace Pedantic.Chess
                          (((ulong)score & 0x0ffff) << 24);
 
             return move;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static ulong ClearScore(ulong move)
+        {
+            return move & 0x0ffffff;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -123,9 +130,7 @@ namespace Pedantic.Chess
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int Compare(ulong move1, ulong move2)
         {
-            int moveNoScore1 = (int)(move1 & 0x0ffffff);
-            int moveNoScore2 = (int)(move2 & 0x0ffffff);
-            return moveNoScore1 - moveNoScore2;
+            return (int)ClearScore(move1) - (int)ClearScore(move2);
         }
     }
 }
