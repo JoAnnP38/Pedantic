@@ -143,6 +143,10 @@ namespace Pedantic
                     Engine.Quit();
                     break;
 
+                case "wait":
+                    Engine.Wait();
+                    break;
+
                 case "debug":
                     Debug(tokens);
                     break;
