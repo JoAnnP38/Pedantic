@@ -94,7 +94,7 @@ namespace Pedantic.Genetics
             public int ValueStart => valueStart;
             public int ValueEnd => valueEnd;
 
-            public static WtInfo Empty = new WtInfo();
+            public static WtInfo Empty = new();
         }
 
         [BsonCtor]
@@ -284,7 +284,7 @@ namespace Pedantic.Genetics
             return false;
         }
 
-        private static Random rand = new();
+        private static readonly Random rand = new();
 
         private static readonly short[] paragonWeights =
         {

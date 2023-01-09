@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Reflection.Metadata.Ecma335;
 using System.Text;
@@ -27,6 +28,7 @@ namespace Pedantic.Collections
             sp = other.sp;
         }
 
+        public IEnumerable<T> Enumerable() => stack;
         public int Count => sp;
 
         public bool IsReadOnly => false;

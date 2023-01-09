@@ -9,7 +9,7 @@ namespace Pedantic.Chess
 {
     public sealed class TimeControl
     {
-        const int time_margin = 20;
+        const int time_margin = 25;
         const int branching_factor_estimate = 3;
         const int max_time_remaining = int.MaxValue / 3;
 
@@ -20,7 +20,7 @@ namespace Pedantic.Chess
         private long tN = -1;
 
         public int TimePerMoveWithMargin => (remaining + (movesToGo - 1) * increment) / movesToGo - time_margin;
-        public int TimeRemainingWithMargin => Math.Min(remaining - time_margin,  TimePerMoveWithMargin * 2);
+        public int TimeRemainingWithMargin => remaining - time_margin;
 
         private long Now => Stopwatch.GetTimestamp();
         public long Elapsed => MilliSeconds(Now - t0);

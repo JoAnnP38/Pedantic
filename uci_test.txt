@@ -1,6 +1,7 @@
 uci
 setoption name Hash value 128
 isready
+ucinewgame
 position startpos moves e2e4 c7c5 g1f3 d7d6 f1b5 b8d7 b1c3 e7e5 d2d3
 go wtime 102275 btime 130984 winc 6000 binc 6000
 wait

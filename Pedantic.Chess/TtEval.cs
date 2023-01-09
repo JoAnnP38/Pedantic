@@ -14,7 +14,7 @@ namespace Pedantic.Chess
             UpperBound
         }
 
-        public const int DEFAULT_SIZE_MB = 50;
+        public const int DEFAULT_SIZE_MB = 45;
         public const int MAX_SIZE_MB = 2047;
         public const int ITEM_SIZE = 16;
         public const int MB_SIZE = 1024 * 1024;
@@ -33,12 +33,6 @@ namespace Pedantic.Chess
                        ((depth & 0x0fful) << 42);
 
                 this.hash = hash ^ data;
-            }
-
-            public TtEvalItem(ulong hash, ulong data)
-            {
-                this.hash = hash;
-                this.data = data;
             }
 
             public ulong Hash => hash ^ data;
@@ -134,7 +128,7 @@ namespace Pedantic.Chess
         public static void Resize(int sizeMb)
         {
             // resizing also clears the hash table. No attempt to rehash.
-            capacity = (sizeMb * MB_SIZE) / ITEM_SIZE;
+            capacity = (Math.Min(sizeMb, MAX_SIZE_MB) * MB_SIZE) / ITEM_SIZE;
             table = new TtEvalItem[capacity];
         }
 

@@ -55,32 +55,19 @@ namespace Pedantic.UnitTests
         }
 
         [TestMethod]
-        [DataRow("r6r/pp4kp/3B1p2/3P2p1/B1P1q1n1/2Q3P1/PP6/5RK1 w - - 0 13", -5)]
-        [DataRow("8/4pR1P/4p3/4b1Kp/1k2PpP1/4B2P/1p3P2/3Q4 b - - 0 13", -5)]
-        public void CalculateOpeningPawnsTest(string fen, int expectedScore)
+        [DataRow("r6r/pp4kp/3B1p2/3P2p1/B1P1q1n1/2Q3P1/PP6/5RK1 w - - 0 13", 9, -16)]
+        [DataRow("8/4pR1P/4p3/4b1Kp/1k2PpP1/4B2P/1p3P2/3Q4 b - - 0 13", 85, 60)]
+        public void CalculateOpeningPawnsTest(string fen, int expectedScore1, int expectedScore2)
         {
             Board board = new(fen);
-            short score = Evaluation.CalculateOpeningPawns(board, Evaluation.GamePhase.MidGame, board.SideToMove);
-            Assert.AreEqual(expectedScore, score);
-        }
-
-        [TestMethod]
-        [DataRow(Constants.FEN_START_POS, Piece.Pawn, 12, 62)]
-        [DataRow("r6r/pp4kp/3B1p2/3P2p1/B1P1q1n1/2Q3P1/PP6/5RK1 w - - 0 13", Piece.Queen, 18, 1144)]
-        [DataRow("8/4pR1P/4p3/4b1Kp/1k2PpP1/4B2P/1p3P2/3Q4 b - - 0 13", Piece.Bishop, 36, 479)]
-        [DataRow("r6r/pp4kp/3B1p2/3P2p1/B1P1q1n1/2Q3P1/PP6/5RK1 w - - 0 13", Piece.Pawn, 35, 133)]
-        [DataRow("r6r/pp4kp/3B1p2/3P2p1/B1P1q1n1/2Q3P1/PP6/5RK1 w - - 0 13", Piece.Pawn, 22, 105)]
-        public void CalculateOpeningScoreTest(string fen, Piece piece, int square, int expectedScore)
-        {
-            Board board = new(fen);
-            short score =
-                Evaluation.CalculateOpeningScore(board, Evaluation.GamePhase.MidGame, board.SideToMove, piece, square);
-            Assert.AreEqual(expectedScore, score);
+            short[] score = Evaluation.CalculateOpeningPawns(board, Evaluation.GamePhase.MidGame);
+            Assert.AreEqual(expectedScore1, score[0]);
+            Assert.AreEqual(expectedScore2, score[1]);
         }
 
         [TestMethod]
         [DataRow(Constants.FEN_START_POS, 0)]
-        [DataRow("r6r/pp4kp/3B1p2/3P2p1/B1P1q1n1/2Q3P1/PP6/5RK1 w - - 0 13", -98)]
+        [DataRow("r6r/pp4kp/3B1p2/3P2p1/B1P1q1n1/2Q3P1/PP6/5RK1 w - - 0 13", -79)]
         public void ComputeTest(string fen, int expectedScore)
         {
             Board board = new(fen);

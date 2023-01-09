@@ -83,7 +83,7 @@ namespace Pedantic.Utilities
         public static int BitFieldExtract(ulong bits, byte start, byte length)
         {
             Util.Assert(start < 64);
-            Util.Assert(length < 64 - start);
+            Util.Assert(length <= 64 - start);
 #if X64
             return (int)Bmi1.X64.BitFieldExtract(bits, start, length);
 #else

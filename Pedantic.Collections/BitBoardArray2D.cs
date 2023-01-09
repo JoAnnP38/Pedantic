@@ -94,7 +94,7 @@ namespace Pedantic.Collections
             pArray[GetIndex(i, j)] = value;
         }
 
-        public Span<ulong> Span => new Span<ulong>((void*)memory, Length);
+        public Span<ulong> Span => new((void*)memory, Length);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Copy(BitBoardArray2D other)

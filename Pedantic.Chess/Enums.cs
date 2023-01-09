@@ -1,13 +1,13 @@
 ﻿namespace Pedantic.Chess
 {
-    public enum Color 
+    public enum Color : sbyte
     {
         None = -1,
         White,
         Black
     }
 
-    public enum Piece 
+    public enum Piece : sbyte
     {
         None = -1,
         Pawn,
@@ -19,7 +19,7 @@
     }
 
     [Flags]
-    public enum CastlingRights
+    public enum CastlingRights : byte
     {
         None,
         WhiteKingSide = 1,
@@ -29,7 +29,7 @@
         All = WhiteKingSide | WhiteQueenSide | BlackKingSide | BlackQueenSide
     }
 
-    public enum MoveType 
+    public enum MoveType : byte
     {
         Normal, 
         Capture, 

@@ -162,7 +162,7 @@ namespace Pedantic.Genetics
                 }
                 else
                 {
-                    Generation gen = new Generation(this);
+                    Generation gen = new(this);
                     rep.Generations.Insert(gen);
                     gen.MessageHandler(Message.Start, rep);
                 }

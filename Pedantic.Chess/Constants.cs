@@ -22,10 +22,9 @@ namespace Pedantic.Chess
         public const int MAJOR_MINOR_PIECE_COUNT = 6;
         public const short PV_SCORE = 20000;
         public const short CAPTURE_SCORE = 10000;
-        public const short KILLER_0_SCORE = 7000;
-        public const short KILLER_1_SCORE = 6000;
+        public const short KILLER_SCORE = 7000;
         public const short HISTORY_SCORE = 5000;
-        public const short ALPHA_BETA_WINDOW = 200;
+        public const short ALPHA_BETA_WINDOW = 75;
         public const short INFINITE_WINDOW = short.MaxValue;
         public const int MAX_PLY_WITHOUT_PAWN_MOVE_OR_CAPTURE = 100;
 

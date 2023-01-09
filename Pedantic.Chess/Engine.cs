@@ -10,14 +10,15 @@ namespace Pedantic.Chess
         private static readonly Board board = new();
         private static readonly TimeControl time = new();
         private static int searchThreads = 1;
-        private static Task? search = null;
+        private static Thread? search = null;
         private static PolyglotEntry[]? bookEntries = null;
 
         public static bool Debug { get; set; } = false;
         public static bool IsRunning { get; private set; } = true;
         public static bool UseOwnBook { get; set; } = true;
         public static Board Board => board;
-
+        public static Color Color { get; set; } = Color.White;
+  
         public static PolyglotEntry[] BookEntries
         {
             get
@@ -27,7 +28,7 @@ namespace Pedantic.Chess
                     LoadBookEntries();
                 }
 
-                return bookEntries;
+                return bookEntries ?? Array.Empty<PolyglotEntry>();
             }
         }
 
@@ -55,7 +56,7 @@ namespace Pedantic.Chess
             if (search != null)
             {
                 time.Stop();
-                search.Wait();
+                search.Join();
                 search = null;
             }
         }
@@ -83,11 +84,16 @@ namespace Pedantic.Chess
         public static void ClearHashTable()
         {
             TtEval.Clear();
+            TtPawnEval.Clear();
         }
 
         public static void ResizeHashTable(int sizeMb)
         {
-            TtEval.Resize(sizeMb);
+            // use 80% of hash table memory for normal transposition table
+            // the remaining 20% use for the pawn eval table
+            int transpositionSize = (sizeMb * 8) / 10;
+            TtEval.Resize(transpositionSize);
+            TtPawnEval.Resize(sizeMb - transpositionSize);
         }
 
         public static bool SetupPosition(string fen)
@@ -139,7 +145,7 @@ namespace Pedantic.Chess
         {
             if (search != null)
             {
-                search.Wait();
+                search.Join();
                 search = null;
             }
         }
@@ -243,7 +249,7 @@ namespace Pedantic.Chess
                             int to = Index.ToIndex(toFile, toRank);
                             Piece promote = pc == 0 ? Piece.None : (Piece)(pc + 1);
 
-                            if (Index.GetFile(from) == 4 && board.PieceBoard[from] == Piece.King && board.PieceBoard[to] == Piece.Rook && promote == Piece.None)
+                            if (Index.GetFile(from) == 4 && board.PieceBoard[from].Piece == Piece.King && board.PieceBoard[to].Piece == Piece.Rook && promote == Piece.None)
                             {
                                 foreach (Board.CastlingRookMove rookMove in Board.CastlingRookMoves)
                                 {
@@ -275,11 +281,21 @@ namespace Pedantic.Chess
                     return;
                 }
             }
-            Uci.Log($"Search scheduled to take {time.TimePerMoveWithMargin}ms.");
-            TtEval.Clear();
+
+            // add all history positions that have already been repeated two to assist
+            // the search in finding drawn positions by three repeats.
+            foreach (ulong drawPosition in board.DrawnPositions())
+            {
+                TtEval.Add(drawPosition, TtEval.HISTORY_DEPTH, 0, -Constants.INFINITE_WINDOW, Constants.INFINITE_WINDOW,
+                    0, 0);
+            }
 
             Negamax negamax = new(board, time, (short)maxDepth, maxNodes);
-            search = Task.Run(() => negamax.Search());
+            search = new Thread(negamax.Search)
+            {
+                Priority = ThreadPriority.Highest
+            };
+            search.Start();
         }
     }
 }

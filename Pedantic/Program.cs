@@ -2,7 +2,6 @@
 using System.Diagnostics;
 using System.Runtime;
 using System.CommandLine;
-using System.Runtime.InteropServices.Marshalling;
 using System.Text;
 
 
@@ -33,13 +32,18 @@ namespace Pedantic
                 name: "--fen",
                 description: "Specifies the starting position if other than the default.",
                 getDefaultValue: () => null);
-            var commandFileOption = new Option<string>(
+            var commandFileOption = new Option<string?>(
                 name: "--input",
                 description: "Specify a file read UCI commands from.",
-                getDefaultValue: () => string.Empty);
+                getDefaultValue: () => null);
+            var errorFileOption = new Option<string?>(
+                name: "--error",
+                description: "Output errors to specified file.",
+                getDefaultValue: () => null);
             var uciCommand = new Command("uci", "Start the pedantic application in UCI mode.")
             {
-                commandFileOption
+                commandFileOption,
+                errorFileOption
             };
             var perftCommand = new Command("perft", "Run a standard Perft test.")
             {
@@ -53,21 +57,29 @@ namespace Pedantic
                 perftCommand
             };
 
-            uciCommand.SetHandler(async (inFile) => await RunUci(inFile), commandFileOption);
+            uciCommand.SetHandler(async (inFile, errFile) => await RunUci(inFile, errFile), commandFileOption, errorFileOption);
             perftCommand.SetHandler((runType, depth, fen) => RunPerft(runType, depth, fen), typeOption, depthOption, fenOption);
 
             return rootCommand.InvokeAsync(args).Result;
         }
 
-        static async Task RunUci(string inFile)
+        static async Task RunUci(string? inFile, string? errFile)
         {
-            TextReader stdin = null;
+            TextReader? stdin = null;
+            TextWriter? stderr = null;
 
-            if (inFile != string.Empty && File.Exists(inFile))
+            if (inFile != null && File.Exists(inFile))
             {
                 stdin = Console.In;
-                using StreamReader inStream = new StreamReader(inFile, Encoding.UTF8);
+                StreamReader inStream = new StreamReader(inFile, Encoding.UTF8);
                 Console.SetIn(inStream);
+            }
+
+            if (errFile != null)
+            {
+                stderr = Console.Error;
+                StreamWriter errStream = File.AppendText(errFile);
+                Console.SetError(errStream);
             }
 
             try
@@ -86,13 +98,25 @@ namespace Pedantic
             catch (Exception e)
             {
                 Uci.Log(@$"Fatal error occurred in Pedantic: '{e.Message}'.");
+                await Console.Error.WriteAsync(Environment.NewLine);
+                await Console.Error.WriteLineAsync($@"[{DateTime.Now}]");
                 await Console.Error.WriteLineAsync(e.ToString());
             }
             finally
             {
+                var input = Console.In;
+                var error = Console.Error;
+
                 if (stdin != null)
                 {
                     Console.SetIn(stdin);
+                    input.Close();
+                }
+
+                if (stderr != null)
+                {
+                    Console.SetError(stderr);
+                    error.Close();
                 }
             }
         }

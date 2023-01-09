@@ -28,7 +28,7 @@ namespace Pedantic.Chess
 
         public Fen(Board board)
         {
-            (Color Color, Piece Piece)[] fenSquares = board.GetSquares();
+            ReadOnlySpan<Square> fenSquares = board.GetSquares();
             for (int sq = 0; sq < Constants.MAX_SQUARES; ++sq)
             {
                 squares.Add((fenSquares[sq].Color, fenSquares[sq].Piece, sq));
@@ -132,7 +132,7 @@ namespace Pedantic.Chess
             enPassant = fenEnPassant[0] == '-' ? Index.None : Index.ToIndex(fenEnPassant[0] - 'a', fenEnPassant[1] - '1');
         }
 
-        private static void FormatPieces(StringBuilder sb, (Color Color, Piece Piece)[] fenSquares)
+        private static void FormatPieces(StringBuilder sb, ReadOnlySpan<Square> fenSquares)
         {
             for (int rank = Coord.MaxValue; rank >= 0; --rank)
             {
