@@ -132,6 +132,7 @@ namespace Pedantic
                     Console.WriteLine($@"id name {PROGRAM_NAME_VER}");
                     Console.WriteLine($@"id author {AUTHOR}");
                     Console.WriteLine(@"option name OwnBook type check default true");
+                    Console.WriteLine(@"option name Ponder type check default true");
                     Console.WriteLine($@"option name Hash type spin default {TtEval.DEFAULT_SIZE_MB} min 1 max {TtEval.MAX_SIZE_MB}");
                     Console.WriteLine(@"option name Clear Hash type button");
                     Console.WriteLine($@"option name Threads type spin default 1 min 1 max {Environment.ProcessorCount}");
@@ -173,6 +174,10 @@ namespace Pedantic
 
                 case "debug":
                     Debug(tokens);
+                    break;
+
+                case "ponderhit":
+                    Engine.PonderHit();
                     break;
 
                 default:
@@ -240,6 +245,14 @@ namespace Pedantic
                             Engine.SearchThreads = searchThreads;
                         }
                         break;
+
+                    case "Ponder":
+                        if (tokens[3] == "value" && bool.TryParse(tokens[4], out bool canPonder))
+                        {
+                            Engine.CanPonder = canPonder;
+                        }
+
+                        break;
                 }
             }
         }
@@ -250,20 +263,21 @@ namespace Pedantic
             TryParse(tokens, "movetime", out int maxTime, int.MaxValue);
             TryParse(tokens, "nodes", out long maxNodes, long.MaxValue);
             TryParse(tokens, "movestogo", out int movesToGo, 40);
+            bool ponder = Array.Exists(tokens, item => item.Equals("ponder"));
 
             if (Engine.SideToMove == Color.White && TryParse(tokens, "wtime", out int whiteTime))
             {
                 TryParse(tokens, "winc", out int whiteIncrement);
-                Engine.Go(whiteTime, whiteIncrement, movesToGo, maxDepth, maxNodes);
+                Engine.Go(whiteTime, whiteIncrement, movesToGo, maxDepth, maxNodes, ponder);
             }
             else if (Engine.SideToMove == Color.Black && TryParse(tokens, "btime", out int blackTime))
             {
                 TryParse(tokens, "binc", out int blackIncrement);
-                Engine.Go(blackTime, blackIncrement, movesToGo, maxDepth, maxNodes);
+                Engine.Go(blackTime, blackIncrement, movesToGo, maxDepth, maxNodes, ponder);
             }
             else
             {
-                Engine.Go(maxDepth, maxTime, maxNodes);
+                Engine.Go(maxDepth, maxTime, maxNodes, ponder);
             }
         }
 

@@ -11,6 +11,27 @@ namespace Pedantic.Chess
 {
     public static class Uci
     {
+        private static bool disableOutput = false;
+        private static object lockObject = new();
+
+        public static bool DisableOutput
+        {
+            get
+            {
+                lock (lockObject)
+                {
+                    return disableOutput;
+                }
+            }
+            set
+            {
+                lock (lockObject)
+                {
+                    disableOutput = value;
+                }
+            }
+        }
+
         public static void Log(string message)
         {
             Console.WriteLine($@"info string {message}");
@@ -28,7 +49,11 @@ namespace Pedantic.Chess
             }
 
             string output = sb.ToString();
-            Console.WriteLine(output);
+
+            if (!DisableOutput)
+            {
+                Console.WriteLine(output);
+            }
             Util.WriteLine(output);
         }
 
@@ -43,20 +68,45 @@ namespace Pedantic.Chess
             }
 
             string output = sb.ToString();
-            Console.WriteLine(output);
+            if (!DisableOutput)
+            {
+                Console.WriteLine(output);
+            }
             Util.WriteLine(output);
         }
 
-        public static void BestMove(ulong bestmove)
+        public static void BestMove(ulong bestmove, ulong? suggestedPonder = null)
         {
-            Console.WriteLine(@$"bestmove {Move.ToString(bestmove)}");
-            Util.WriteLine(@$"bestmove {Move.ToString(bestmove)}");
+            Console.Write(@$"bestmove {Move.ToString(bestmove)}");
+            Util.Write(@$"bestmove {Move.ToString(bestmove)}");
+            if (suggestedPonder.HasValue)
+            {
+                Console.WriteLine(@$" ponder {Move.ToString(suggestedPonder.Value)}");
+                Util.WriteLine(@$" ponder {Move.ToString(suggestedPonder.Value)}");
+            }
+            else
+            {
+                Console.WriteLine();
+                Util.WriteLine();
+            }
         }
 
-        public static void BestMove(string bestmove)
+        public static void BestMove(string bestmove, string? suggestedPonder = null)
         {
-            Console.WriteLine(@$"bestmove {bestmove}");
-            Util.WriteLine(@$"bestmove {bestmove}");
+            Console.Write(@$"bestmove {bestmove}");
+            Util.Write(@$"bestmove {bestmove}");
+
+            if (suggestedPonder != null)
+            {
+                Console.WriteLine(@$" ponder {suggestedPonder}");
+                Util.WriteLine(@$" ponder {suggestedPonder}");
+            }
+            else
+            {
+                Console.WriteLine();
+                Util.WriteLine();
+            }
         }
+
     }
 }

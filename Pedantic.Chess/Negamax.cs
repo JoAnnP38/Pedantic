@@ -27,12 +27,14 @@ namespace Pedantic.Chess
         public short Depth { get; private set; }
         public short Score { get; private set; }
         public ulong[] PV { get; private set; } = emptyPV;
+        
         public bool MustAbort => nodesVisited > maxNodes || ((nodesVisited & CHECK_TC_NODES_MASK) == 0 && time.CheckTimeBudget());
 
         public void Search()
         { 
             Engine.Color = board.SideToMove;
             Depth = 0;
+            ulong? ponderMove = null;
 
             if (board.OneLegalMove(out ulong bestMove))
             {
@@ -54,13 +56,24 @@ namespace Pedantic.Chess
                     break;
                 }
 
-                ReportSearchResults(out bestMove);
+                ReportSearchResults(out bestMove, out ponderMove);
             }
 
-            Uci.BestMove(bestMove);
+            bool waiting = false;
+            while (time.CanSearchDeeper() && !wasAborted)
+            {
+                waiting = true;
+                Thread.Sleep(WAIT_TIME);
+            }
+
+            if (waiting)
+            {
+                ReportSearchResults(out bestMove, out ponderMove);
+            }
+            Uci.BestMove(bestMove, ponderMove);
         }
 
-        public void ReportSearchResults(out ulong bestMove)
+        public void ReportSearchResults(out ulong bestMove, out ulong? ponderMove)
         {
             PV = ExtractPv(PV, Depth);
             if (IsCheckmate(Score, out int mateIn))
@@ -73,6 +86,14 @@ namespace Pedantic.Chess
             }
 
             bestMove = PV[0];
+            if (PV.Length > 1)
+            {
+                ponderMove = PV[1];
+            }
+            else
+            {
+                ponderMove = null;
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -336,6 +357,7 @@ namespace Pedantic.Chess
                 }
                 legalMoves++;
 
+#if false
                 // "delta" pruning https://www.chessprogramming.org/Delta_Pruning
                 Piece capture = Move.GetCapture(move);
                 Piece promote = Move.GetPromote(move);
@@ -355,7 +377,9 @@ namespace Pedantic.Chess
                 {
                     score = NegQuiesce(alpha, beta, ply + 1);
                 }
-
+#else
+                short score = NegQuiesce(alpha, beta, ply + 1);
+#endif
                 board.UnmakeMove();
                 
                 if (score >= beta)
@@ -430,11 +454,12 @@ namespace Pedantic.Chess
         private const int CHECK_TC_NODES_MASK = 31;
         private const short DELTA_PRUNING_MARGIN = 200;
         private const int MAX_GAIN_PER_PLY = 100;
+        private const int WAIT_TIME = 50;
         
         private readonly Board board;
         private readonly TimeControl time;
-        private readonly long maxNodes;
-        private readonly short maxSearchDepth;
+        private long maxNodes;
+        private short maxSearchDepth;
         private long nodesVisited = 0L;
         private readonly ObjectPool<MoveList> moveListPool = new(Constants.MAX_PLY);
         private readonly History history = new();

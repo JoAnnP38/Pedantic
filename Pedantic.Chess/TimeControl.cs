@@ -18,14 +18,32 @@ namespace Pedantic.Chess
         private int remaining;
         private long t0 = -1;
         private long tN = -1;
+        private bool infinite;
+        private readonly object lockObject = new();
 
         public int TimePerMoveWithMargin => (remaining + (movesToGo - 1) * increment) / movesToGo - time_margin;
         public int TimeRemainingWithMargin => remaining - time_margin;
-
         private long Now => Stopwatch.GetTimestamp();
         public long Elapsed => MilliSeconds(Now - t0);
         public long ElapsedInterval => MilliSeconds(Now - tN);
-        public bool Infinite { get; set; } = false;
+
+        public bool Infinite
+        {
+            get
+            {
+                lock (lockObject)
+                {
+                    return infinite;
+                }
+            }
+            set
+            {
+                lock (lockObject)
+                {
+                    infinite = value;
+                }
+            }
+        }
 
         private long MilliSeconds(long ticks)
         {
@@ -91,7 +109,7 @@ namespace Pedantic.Chess
                     return false;
             }
 
-            //all conditions fulfilled
+                //all conditions fulfilled
             return true;
         }
 

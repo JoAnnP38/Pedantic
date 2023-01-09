@@ -1,4 +1,5 @@
 ﻿using System.Collections.Specialized;
+using System.ComponentModel.Design;
 using System.Runtime.InteropServices;
 using System.Runtime.Serialization.Formatters.Binary;
 using Pedantic.Utilities;
@@ -15,6 +16,8 @@ namespace Pedantic.Chess
 
         public static bool Debug { get; set; } = false;
         public static bool IsRunning { get; private set; } = true;
+        public static bool IsPondering { get; private set; } = false;
+        public static bool CanPonder { get; set; } = true;
         public static bool UseOwnBook { get; set; } = true;
         public static Board Board => board;
         public static Color Color { get; set; } = Color.White;
@@ -67,16 +70,30 @@ namespace Pedantic.Chess
             IsRunning = false;
         }
 
-        public static void Go(int maxDepth, int maxTime, long maxNodes)
+        public static void Go(int maxDepth, int maxTime, long maxNodes, bool ponder = false)
         {
             Stop();
+            IsPondering = ponder;
+            if (ponder)
+            {
+                Infinite = true;
+                //Uci.DisableOutput = true;
+            }
+
             time.Go(maxTime);
             StartSearch(maxDepth, maxNodes);
         }
 
-        public static void Go(int maxTime, int increment, int movesToGo, int maxDepth, long maxNodes)
+        public static void Go(int maxTime, int increment, int movesToGo, int maxDepth, long maxNodes, bool ponder = false)
         {
             Stop();
+            IsPondering = ponder;
+            if (ponder)
+            {
+                time.Infinite = true;
+                //Uci.DisableOutput = true;
+            }
+                
             time.Go(maxTime, increment, movesToGo);
             StartSearch(maxDepth, maxNodes);
         }
@@ -147,6 +164,23 @@ namespace Pedantic.Chess
             {
                 search.Join();
                 search = null;
+            }
+        }
+
+        public static void PonderHit()
+        {
+            if (IsRunning)
+            {
+                if (IsPondering)
+                {
+                    //Uci.DisableOutput = false;
+                    IsPondering = false;
+                    Infinite = false;
+                }
+                else
+                {
+                    Stop();
+                }
             }
         }
 
@@ -295,6 +329,7 @@ namespace Pedantic.Chess
             {
                 Priority = ThreadPriority.Highest
             };
+            IsRunning = true;
             search.Start();
         }
     }

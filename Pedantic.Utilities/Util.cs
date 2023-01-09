@@ -183,6 +183,15 @@ namespace Pedantic.Utilities
         }
 
         [Conditional("TRACE")]
+        public static void WriteLine()
+        {
+            if (TraceSwitch.TraceVerbose)
+            {
+                Trace.Write(Environment.NewLine);
+            }
+        }
+
+        [Conditional("TRACE")]
         public static void WriteLine(string message)
         {
             if (TraceSwitch.TraceVerbose)

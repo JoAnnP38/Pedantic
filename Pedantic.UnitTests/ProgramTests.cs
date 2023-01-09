@@ -238,5 +238,19 @@ namespace Pedantic.UnitTests
             Program.ParseCommand("go wtime 86615 btime 227701 winc 12000 binc 12000");
             Engine.Wait();
         }
+
+        [TestMethod]
+        public void PonderTest()
+        {
+            //Engine.Infinite = true;
+            Program.ParseCommand("setoption name Hash value 128");
+            Program.ParseCommand("position startpos moves e2e4 e7e6 d2d4 d7d5 b1c3 f8b4 e4e5 c7c5 a2a3 b4c3 b2c3 b8c6 d1g4 g7g6 g1f3 d8a5 c1d2 a5a4 f1e2");
+            Console.WriteLine(Engine.Board.ToString());
+            Program.ParseCommand("go ponder wtime 86615 btime 227701 winc 12000 binc 12000");
+            Thread.Sleep(35000);
+            Program.ParseCommand("ponderhit");
+            Engine.Wait();
+            Program.ParseCommand("isready");
+        }
     }
 }
