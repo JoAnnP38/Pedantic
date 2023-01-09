@@ -118,10 +118,10 @@ namespace Pedantic.Chess
             {
                 extension = 1;
             }
-            short eval = Evaluation.Compute(board);
+
             bool allowNullMove = !Evaluation.IsCheckmate(Score) || ply > (Depth / 4);
 
-            if (allowNullMove && ply > 0 && !inCheck && depth >= 2 && eval >= beta)
+            if (allowNullMove && ply > 0 && !inCheck && depth >= 2 && beta < Constants.INFINITE_WINDOW)
             {
                 if (board.MakeMove(Move.NullMove))
                 {
@@ -135,9 +135,6 @@ namespace Pedantic.Chess
                     }
                 }
             }
-
-            bool futilityPruning = depth < 4 && Math.Abs(alpha) < Constants.CHECKMATE_BASE &&
-                                   eval + futilityMargin[depth] <= alpha;
 
             history.SideToMove = board.SideToMove;
             MoveList moveList = moveListPool.Get();
@@ -153,10 +150,14 @@ namespace Pedantic.Chess
                 legalMoves++;
                 bool interesting = legalMoves == 1 || board.IsChecked() || inCheck;
 
-                if (depth <= 4 && !interesting && futilityPruning)
+                if (depth <= 4 && !interesting)
                 {
-                    board.UnmakeMove();
-                    continue;
+                    short eval = Evaluation.Compute(board);
+                    if (depth * MAX_GAIN_PER_PLY + eval <= alpha)
+                    {
+                        board.UnmakeMove();
+                        continue;
+                    }
                 }
 
                 short newDepth = (short)(depth - 1 + extension);
@@ -165,7 +166,6 @@ namespace Pedantic.Chess
                 {
                     short reduction = (short)((interesting || legalMoves <= 4) ? 0 : 2);
                     newDepth -= reduction;
-                    //if ((short)-ZwSearchTT((short)-alpha, newDepth, ply + 1) <= alpha)
                     if (NegSearchTT(alpha, (short)(alpha + 1), newDepth, ply + 1).Score <= alpha)
                     {
                         board.UnmakeMove();
@@ -302,8 +302,7 @@ namespace Pedantic.Chess
                 return 0;
             }
 
-            if (board.HalfMoveClock >= Constants.MAX_PLY_WITHOUT_PAWN_MOVE_OR_CAPTURE || 
-                board.GameDrawnByRepetition())
+            if (board.HalfMoveClock >= Constants.MAX_PLY_WITHOUT_PAWN_MOVE_OR_CAPTURE)
             {
                 return 0;
             }
@@ -430,6 +429,7 @@ namespace Pedantic.Chess
 
         private const int CHECK_TC_NODES_MASK = 31;
         private const short DELTA_PRUNING_MARGIN = 200;
+        private const int MAX_GAIN_PER_PLY = 100;
         
         private readonly Board board;
         private readonly TimeControl time;
