@@ -34,7 +34,7 @@ namespace Pedantic.UnitTests
             };
             time.Reset();
 
-            OldSearch search = new(bd, time, 4);
+            SimpleSearch search = new(bd, time, 4);
             Task task = Task.Run(() => search.Search());
             task.Wait();
 

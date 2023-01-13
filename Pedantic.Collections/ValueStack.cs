@@ -145,6 +145,11 @@ namespace Pedantic.Collections
             return matches;
         }
 
+        public ReadOnlySpan<T> AsSpan()
+        {
+            return new ReadOnlySpan<T>(stack, 0, sp);
+        }
+
         IEnumerator IEnumerable.GetEnumerator()
         {
             return GetEnumerator();

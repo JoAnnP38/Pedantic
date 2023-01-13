@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Schema;
@@ -88,6 +89,19 @@ namespace Pedantic.Chess
 
         public abstract SearchResult Search(int alpha, int beta, int depth, int ply, bool canNull = true);
 
+        protected virtual int QuiesceTt(int alpha, int beta, int ply)
+        {
+            if (TtEval.TryGetScore(board.Hash, 0, ply, alpha, beta, out int score))
+            {
+                return score;
+            }
+
+            score = Quiesce(alpha, beta, ply);
+
+            TtEval.Add(board.Hash, 0, ply, alpha, beta, score, 0ul);
+            return score;
+        }
+
         protected virtual int Quiesce(int alpha, int beta, int ply)
         {
             NodesVisited++;
@@ -103,7 +117,7 @@ namespace Pedantic.Chess
                 return evaluation.Compute(board);
             }
 
-            if (board.HalfMoveClock >= 100)
+            if (board.HalfMoveClock >= 100 || board.GameDrawnByRepetition())
             {
                 return 0;
             }
@@ -135,7 +149,7 @@ namespace Pedantic.Chess
                 }
 
                 expandedNodes++;
-                int score = -Quiesce(-beta, -alpha, ply + 1);
+                int score = -QuiesceTt(-beta, -alpha, ply + 1);
                 board.UnmakeMove();
 
                 if (score > alpha)
@@ -167,6 +181,79 @@ namespace Pedantic.Chess
 
             MoveListPool.Return(moveList);
             return alpha;
+        }
+
+        protected virtual int ZwSearch(int beta, int depth, int ply)
+        {
+            if (MustAbort || wasAborted)
+            {
+                wasAborted = true;
+                return beta - 1;
+            }
+
+            if (board.HalfMoveClock >= 100 || board.GameDrawnByRepetition())
+            {
+                return 0;
+            }
+
+            if (depth <= 0)
+            {
+                return QuiesceTt(beta - 1, beta, ply);
+            }
+
+            NodesVisited++;
+            bool inCheck = board.IsChecked();
+            bool allowNull = !Evaluation.IsCheckmate(Result.Score) || (ply > Depth / 4);
+            if (allowNull && depth >= 2 && !inCheck && beta < Constants.INFINITE_WINDOW)
+            {
+                int R = depth <= 6 ? 1 : 2;
+                if (board.MakeMove(Move.NullMove))
+                {
+                    int score = -ZwSearchTt(-beta + 1, depth - R - 1, ply + 1);
+                    board.UnmakeMove();
+                    if (score >= beta)
+                    {
+                        return beta;
+                    }
+                }
+            }
+
+            history.SideToMove = board.SideToMove;
+            MoveList moveList = MoveListPool.Get();
+            int expandedNodes = 0;
+
+            foreach (ulong move in board.Moves(ply, killerMoves, history, moveList))
+            {
+                if (!board.MakeMove(move))
+                {
+                    continue;
+                }
+
+                expandedNodes++;
+
+                int score = -ZwSearchTt(-beta + 1, depth - 1, ply + 1);
+                board.UnmakeMove();
+
+                if (score >= beta)
+                {
+                    return beta;
+                }
+            }
+
+            return beta - 1;
+        }
+
+        protected virtual int ZwSearchTt(int beta, int depth, int ply)
+        {
+            if (TtEval.TryGetScore(board.Hash, 0, ply, beta - 1, beta, out int score))
+            {
+                return score;
+            }
+
+            score = ZwSearch(beta, depth, ply);
+
+            TtEval.Add(board.Hash, 0, ply, beta - 1, beta, score, 0ul);
+            return score;
         }
 
         protected ulong[] MergeMove(ulong[] pv, ulong move)
@@ -269,6 +356,6 @@ namespace Pedantic.Chess
         protected readonly ObjectPool<MoveList> MoveListPool = new(Constants.MAX_PLY);
         protected static readonly ulong[] EmptyPv = Array.Empty<ulong>();
         protected static readonly SearchResult DefaultResult = new(0, EmptyPv);
-        protected static readonly int[] window = { 50, 200, Constants.INFINITE_WINDOW };
+        protected static readonly int[] window = { 25, 75, 200, Constants.INFINITE_WINDOW };
     }
 }

@@ -226,38 +226,19 @@ namespace Pedantic.Chess
             return sb.ToString();
         }
 
-        public IEnumerable<ulong> DrawnPositions()
-        {
-            // If these positions are encountered again the game will be drawn
-            // by three-fold repetition.
-            var result = gameStack.Enumerable()
-                .GroupBy(g => g.Hash)
-                .Select(g => new
-                {
-                    Count = g.Count(),
-                    Hash = g.Key
-                })
-                .OrderByDescending(g => g.Count);
-
-            return result.Where(x => x.Count >= 2)
-                         .Select(x => x.Hash);
-        }
-
         public bool GameDrawnByRepetition()
         {
-            int found = 0;
-            foreach (var state in gameStack.Enumerable())
+            int matchCount = 1;
+            ReadOnlySpan<BoardState> stackSpan = gameStack.AsSpan();
+            for (int n = stackSpan.Length - 1; n >= stackSpan.Length - halfMoveClock && matchCount < 3; n--)
             {
-                if (state.Hash == Hash)
+                if (hash == stackSpan[n].Hash)
                 {
-                    if (++found >= 2)
-                    {
-                        return true;
-                    }
+                    matchCount++;
                 }
             }
 
-            return false;
+            return matchCount == 3;
         }
 
         public bool IsEnPassantValid(Color color)
@@ -606,6 +587,17 @@ namespace Pedantic.Chess
                 yield return moveList[n];
             }
 
+            moveList.Clear();
+            GeneratePromotions(moveList);
+            for (int n = 0; n < moveList.Count; n++)
+            {
+                moveList.Sort(n);
+                if (Move.Compare(moveList[n], bestMove) != 0)
+                {
+                    yield return moveList[n];
+                }
+            }
+
             foreach (ulong move in killerMoves.GetKillers(ply))
             {
                 int from = Move.GetFrom(move);
@@ -848,12 +840,12 @@ namespace Pedantic.Chess
 
             if (sideToMove == Color.White)
             {
-                bb1 = BitOps.AndNot(pawns, All >> 8);
+                bb1 = BitOps.AndNot(BitOps.AndNot(pawns, MaskRanks[Index.A7]), All >> 8);
                 bb2 = BitOps.AndNot(bb1 & MaskRanks[Index.A2], All >> 16);
             }
             else
             {
-                bb1 = BitOps.AndNot(pawns, All << 8);
+                bb1 = BitOps.AndNot(BitOps.AndNot(pawns, MaskRanks[Index.A2]), All << 8);
                 bb2 = BitOps.AndNot(bb1 & MaskRanks[Index.A7], All << 16);
             }
 

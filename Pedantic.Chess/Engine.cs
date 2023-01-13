@@ -324,14 +324,6 @@ namespace Pedantic.Chess
                 }
             }
 
-            // add all history positions that have already been repeated two to assist
-            // the searchThread in finding drawn positions by three repeats.
-            foreach (ulong drawPosition in board.DrawnPositions())
-            {
-                TtEval.Add(drawPosition, TtEval.HISTORY_DEPTH, 0, -Constants.INFINITE_WINDOW, Constants.INFINITE_WINDOW,
-                    0, 0);
-            }
-
             ISearch search = new SimpleSearch(board, time, maxDepth, maxNodes)
             {
                 Pondering = IsPondering

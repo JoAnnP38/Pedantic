@@ -22,14 +22,14 @@ namespace Pedantic.Chess
                 return DefaultResult;
             }
 
-            if (board.HalfMoveClock >= 100)
+            if (board.HalfMoveClock >= 100 || board.GameDrawnByRepetition())
             {
                 return DefaultResult;
             }
 
             if (depth <= 0)
             {
-                return new SearchResult(Quiesce(alpha, beta, ply), EmptyPv);
+                return new SearchResult(QuiesceTt(alpha, beta, ply), EmptyPv);
             }
 
             NodesVisited++;
@@ -40,7 +40,7 @@ namespace Pedantic.Chess
 
             if (allowNullMove && depth >= 2 && !inCheck && beta < Constants.INFINITE_WINDOW)
             {
-                int R = depth <= 6 ? 2 : 3;
+                int R = depth <= 6 ? 1 : 2;
                 if (board.MakeMove(Move.NullMove))
                 {
                     SearchResult result = -SearchTt(-beta, -beta + 1, depth - R - 1, ply + 1, true);
@@ -72,23 +72,16 @@ namespace Pedantic.Chess
                 if (ply > 0 && depth >= 2 && raisedAlpha)
                 {
                     int R = (interesting || expandedNodes <= 4) ? 0 : 2;
-                    SearchResult r = -SearchTt(-alpha - 1, -alpha, depth - R - 1, ply + 1);
-                    if (r.Score <= alpha)
+                    //SearchResult r = -SearchTt(-alpha - 1, -alpha, depth - R - 1, ply + 1);
+                    int score = -ZwSearchTt(-alpha, depth - R - 1, ply + 1);
+                    if (score <= alpha)
                     {
                         board.UnmakeMove();
                         continue;
                     }
                 }
 
-                
-                int lmr = 0;
-                /*
-                if (ply > 0 && depth >= 3 && expandedNodes >= 4 && raisedAlpha && !interesting)
-                {
-                    lmr = expandedNodes >= 8 ? 2 : 1;
-                }
-                */
-                SearchResult result = -SearchTt(-beta, -alpha, depth + extension - lmr - 1, ply + 1);
+                SearchResult result = -SearchTt(-beta, -alpha, depth + extension - 1, ply + 1);
                 board.UnmakeMove();
 
                 if (result.Score > alpha)
@@ -132,10 +125,7 @@ namespace Pedantic.Chess
         {
             if (TtEval.TryGetScore(board.Hash, depth, ply, alpha, beta, out int score))
             {
-                if (score > alpha && score < beta)
-                {
-                    return new SearchResult(score, EmptyPv);
-                }
+                return new SearchResult(score, EmptyPv);
             }
 
             SearchResult result = Search(alpha, beta, depth, ply, canNull);
