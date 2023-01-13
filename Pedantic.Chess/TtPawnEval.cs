@@ -56,20 +56,13 @@ namespace Pedantic.Chess
                 return Hash == hash;
             }
 
-            public static void SetValue(ref TtPawnItem item, ulong hash, short[]? opScores, short[]? egScores)
+            public static void SetValue(ref TtPawnItem item, ulong hash, Span<short> opScores, Span<short> egScores)
             {
 
-                ulong op1 = opScores != null ? 
-                    (ushort)opScores[(int)Color.White] : (ushort)item.GetOpeningScore(Color.White);
-
-                ulong op2 = opScores != null ? 
-                    (ushort)opScores[(int)Color.Black] : (ushort)item.GetOpeningScore(Color.Black);
-
-                ulong op3 = egScores != null ? 
-                    (ushort)egScores[(int)Color.White] : (ushort)item.GetEndGameScore(Color.White);
-
-                ulong op4 = egScores != null ? 
-                    (ushort)egScores[(int)Color.Black] : (ushort)item.GetEndGameScore(Color.Black);
+                ulong op1 = (ushort)opScores[(int)Color.White];
+                ulong op2 = (ushort)opScores[(int)Color.Black];
+                ulong op3 = (ushort)egScores[(int)Color.White];
+                ulong op4 = (ushort)egScores[(int)Color.Black];
 
                 item.data = op1 | (op2 << 16) | (op3 << 32) | (op4 << 48);
                 item.hash = hash ^ item.data;
@@ -91,7 +84,7 @@ namespace Pedantic.Chess
             return item.IsValid(hash);
         }
 
-        public static void Add(ulong hash, short[]? opScores, short[]? egScores)
+        public static void Add(ulong hash, Span<short> opScores, Span<short> egScores)
         {
             int index = GetIndex(hash);
             ref TtPawnItem item = ref table[index];

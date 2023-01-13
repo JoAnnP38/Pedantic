@@ -13,10 +13,12 @@ using Pedantic.Collections;
 using Pedantic.Utilities;
 using System.Runtime.CompilerServices;
 using static System.Formats.Asn1.AsnWriter;
+using System.Drawing;
+using System.Reflection.Emit;
 
 namespace Pedantic.Chess
 {
-    public static class Evaluation
+    public sealed class Evaluation
     {
         public enum GamePhase
         {
@@ -33,7 +35,7 @@ namespace Pedantic.Chess
         public static bool Debug { get; set; } = false;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool IsCheckmate(short score)
+        public static bool IsCheckmate(int score)
         {
             return Math.Abs(score) > Constants.CHECKMATE_BASE;
         }
@@ -94,72 +96,76 @@ namespace Pedantic.Chess
             egAdjPawn = new(endGameAdjacentPawns);
         }
 
-        public static short Compute(Board board)
+        public short Compute(Board board)
         {
             short score = 0;
 
-            short[] opScore = new short[Constants.MAX_COLORS];
-            short[] egScore = new short[Constants.MAX_COLORS];
+            Span<short> opScore = stackalloc short[2];
+            opScore.Clear();
+
+            Span<short> egScore = stackalloc short[2];
+            egScore.Clear();
 
             GetGamePhase(board, out GamePhase gamePhase, out int opWt, out int egWt);
-            short[] opPawnScore = CalculateOpeningPawns(board, gamePhase);
-            short[] egPawnScore = CalculateEndGamePawns(board, gamePhase);
+            CalculateDevelopment(board, opScore, egScore);
+            CalculateKingAttacks(board, opScore, egScore);
+            CalculatePawns(board, opScore, egScore);
+            CalculateMisc(board, opScore, egScore);
 
             for (Color color = Color.White; color <= Color.Black; ++color)
             {
                 int n = (int)color;
                 opScore[n] += (short)(board.OpeningMaterial[n] + board.OpeningPieceSquare[n]);
                 egScore[n] += (short)(board.EndGameMaterial[n] + board.EndGamePieceSquare[n]);
-
-                opScore[n] += CalculateOpeningDevelopment(board, gamePhase, color);
-                egScore[n] += CalculateEndGameDevelopment(board, gamePhase, color);
-
-                opScore[n] += CalculateOpeningKingAttacks(board, gamePhase, color);
-                egScore[n] += CalculateEndGameKingAttacks(board, gamePhase, color);
-
-                opScore[n] += opPawnScore[n];
-                egScore[n] += egPawnScore[n];
-
-                opScore[n] += CalculateOpeningMisc(board, gamePhase, color);
-                egScore[n] += CalculateEndGameMisc(board, gamePhase, color);
-
-                /*
-                for (Piece piece = Piece.Knight; piece <= Piece.Queen; piece++)
-                {
-                    ulong pieceMap = board.Pieces(color, piece);
-
-                    for (ulong bb = pieceMap; bb != 0; bb = BitOps.ResetLsb(bb))
-                    {
-                        int sq = BitOps.TzCount(bb);
-                        short mobility = board.GetPieceMobility(color, piece, sq);
-                        opScore[n] += (short)(mobility * OpeningMobilityWeight);
-                        egScore[n] += (short)(mobility * EndGameMobilityWeight);
-                    }
-                }
-                */
+                //opScore[n] += (short)(board.GetPieceMobility(color) * OpeningMobilityWeight);
+                //egScore[n] += (short)(board.GetPieceMobility(color) * EndGameMobilityWeight);
             }
 
             score = (short)((((opScore[0] - opScore[1]) * opWt) >> 7 /* / 128 */) + 
                             (((egScore[0] - egScore[1]) * egWt) >> 7 /* / 128 */));
 
-            return board.SideToMove == Color.White ? score : (short)-score;
+            return board.SideToMove == Color.White ? (short)score : (short)-score;
         }
 
-        public static short[] CalculateOpeningPawns(Board board, GamePhase gamePhase)
+        public short ComputeMobility(Board board)
         {
-            short[] score = { 0, 0 };
-            int[] offset = { 8, -8 };
-            if (gamePhase == GamePhase.EndGame)
+            Span<short> opScore = stackalloc short[2];
+            opScore.Clear();
+
+            Span<short> egScore = stackalloc short[2];
+            egScore.Clear();
+
+            GetGamePhase(board, out GamePhase gamePhase, out int opWt, out int egWt);
+            for (Color color = Color.White; color <= Color.Black; color++)
             {
-                return score;
+                int n = (int)color;
+                opScore[n] = (short)(board.GetPieceMobility(color) * OpeningMobilityWeight);
+                egScore[n] = (short)(board.GetPieceMobility(color) * EndGameMobilityWeight);
             }
 
-            bool foundInHash = TtPawnEval.TryLookup(board.PawnHash, out TtPawnEval.TtPawnItem item);
-            bool updated = foundInHash && (item.GetOpeningScore(Color.White) != 0 || item.GetOpeningScore(Color.Black) != 0);
-            short[] opScores = { 0, 0 };
+            short score = (short)((((opScore[0] - opScore[1]) * opWt) >> 7 /* / 128 */) +
+                                 (((egScore[0] - egScore[1]) * egWt) >> 7 /* / 128 */));
+
+            return score;
+        }
+
+        public void CalculatePawns(Board board, Span<short> opScores, Span<short> egScores)
+        {
+            if (TtPawnEval.TryLookup(board.PawnHash, out TtPawnEval.TtPawnItem item))
+            {
+                opScores[0] += item.GetOpeningScore(Color.White);
+                opScores[1] += item.GetOpeningScore(Color.Black);
+                egScores[0] += item.GetEndGameScore(Color.White);
+                egScores[1] += item.GetEndGameScore(Color.Black);
+            }
+            else
+            {
+                CalculateHashablePawns(board, opScores, egScores);
+            }
 
             for (Color color = Color.White; color <= Color.Black; color++)
             {
+                int n = (int)color;
                 ulong pawns = board.Pieces(color, Piece.Pawn);
                 if (BitOps.PopCount(pawns) == 0)
                 {
@@ -183,238 +189,122 @@ namespace Pedantic.Chess
                 for (; bb1 != 0; bb1 = BitOps.ResetLsb(bb1))
                 {
                     int square = BitOps.TzCount(bb1);
-                    int normalSq = Index.NormalizedIndex[(int)color][square];
-                    int blockerSquare = square + offset[(int)color];
+                    int normalSq = Index.NormalizedIndex[n][square];
+                    int normalRank = Index.GetRank(normalSq);
+                    int blockerSquare = square + pawnOffset[n];
                     Piece piece = board.PieceBoard[blockerSquare].Piece;
-                    score[(int)color] += OpeningBlockedPawnTable[(int)piece][Index.GetRank(normalSq)];
+                    opScores[n] += OpeningBlockedPawnTable[(int)piece][normalRank];
+                    egScores[n] += EndGameBlockedPawnTable[(int)piece][normalRank];
                 }
 
-                score[(int)color] += (short)(BitOps.PopCount(bb2) * EndGameBlockedPawnDoubleMove);
-
-                if (updated)
-                {
-                    score[(int)color] += item.GetEndGameScore(color);
-                }
-                else
-                {
-                    Color other = (Color)((int)color ^ 1);
-                    ulong otherPawns = board.Pieces(other, Piece.Pawn);
-
-                    for (ulong p = pawns; p != 0; p = BitOps.ResetLsb(p))
-                    {
-                        int sq = BitOps.TzCount(p);
-                        int normalSq = Index.NormalizedIndex[(int)color][sq];
-
-                        if ((otherPawns & passedPawnMasks[(int)color][sq]) == 0ul)
-                        {
-                            opScores[(int)color] += OpeningPassedPawn[Index.GetRank(normalSq)];
-                        }
-
-                        if ((pawns & isolatedPawnMasks[sq]) == 0)
-                        {
-                            opScores[(int)color] += OpeningIsolatedPawn;
-                        }
-
-                        if ((pawns & backwardPawnMasks[(int)color][sq]) == 0)
-                        {
-                            opScores[(int)color] += OpeningBackwardPawn;
-                        }
-
-                        if ((pawns & adjacentPawnMasks[sq]) != 0)
-                        {
-                            opScores[(int)color] += OpeningAdjacentPawn[Index.GetRank(normalSq)];
-                        }
-                    }
-
-                    for (int file = 0; file <= Constants.MAX_COORDS; file++)
-                    {
-                        if (BitOps.PopCount(pawns & Board.MaskFiles[file]) > 1)
-                        {
-                            opScores[(int)color] += EndGameDoubledPawn;
-                        }
-                    }
-                }
-
-                score[(int)color] += opScores[(int)color];
+                int count = BitOps.PopCount(bb2);
+                opScores[n] += (short)(count * OpeningBlockedPawnDoubleMove);
+                egScores[n] += (short)(count * EndGameBlockedPawnDoubleMove);
             }
-
-            TtPawnEval.Add(board.PawnHash, opScores, foundInHash ? null : defaultScores);
-            return score;
         }
 
-        public static short[] CalculateEndGamePawns(Board board, GamePhase gamePhase)
+        public void CalculateHashablePawns(Board board, Span<short> opScores, Span<short> egScores)
         {
-            short[] score = { 0, 0 };
-            int[] offset = { 8, -8 };
-            if (gamePhase == GamePhase.Opening)
-            {
-                return score;
-            }
+            Span<short> openingScores = stackalloc short[2];
+            openingScores.Clear();
 
-            bool foundInHash = TtPawnEval.TryLookup(board.PawnHash, out TtPawnEval.TtPawnItem item);
-            bool updated = foundInHash && (item.GetEndGameScore(Color.White) != 0 || item.GetEndGameScore(Color.Black) != 0);
-            short[] egScores = { 0, 0 };
+            Span<short> endgameScores = stackalloc short[2];
+            openingScores.Clear();
 
             for (Color color = Color.White; color <= Color.Black; color++)
             {
+                int n = (int)color;
+
                 ulong pawns = board.Pieces(color, Piece.Pawn);
-                if (BitOps.PopCount(pawns) == 0)
-                {
-                    continue;
-                }
+                Color other = (Color)(n ^ 1);
+                ulong otherPawns = board.Pieces(other, Piece.Pawn);
 
-                ulong bb1, bb2;
-                if (color == Color.White)
+                for (ulong p = pawns; p != 0; p = BitOps.ResetLsb(p))
                 {
-                    bb1 = pawns & (board.Units(color) >> 8);
-                    bb2 = BitOps.AndNot(pawns, board.All >> 8) & Board.MaskRanks[Index.A2];
-                    bb2 &= board.Units(color) >> 16;
-                }
-                else
-                {
-                    bb1 = pawns & (board.Units(color) << 8);
-                    bb2 = BitOps.AndNot(pawns, board.All << 8) & Board.MaskRanks[Index.A7];
-                    bb2 &= board.Units(color) << 16;
-                }
+                    int sq = BitOps.TzCount(p);
+                    int normalSq = Index.NormalizedIndex[n][sq];
+                    int normalRank = Index.GetRank(normalSq);
 
-                for (; bb1 != 0; bb1 = BitOps.ResetLsb(bb1))
-                {
-                    int square = BitOps.TzCount(bb1);
-                    int normalSq = Index.NormalizedIndex[(int)color][square];
-                    int blockerSquare = square + offset[(int)color];
-                    Piece piece = board.PieceBoard[blockerSquare].Piece;
-                    score[(int)color] += EndGameBlockedPawnTable[(int)piece][Index.GetRank(normalSq)];
-                }
-
-                score[(int)color] += (short)(BitOps.PopCount(bb2) * EndGameBlockedPawnDoubleMove);
-
-                if (updated)
-                {
-                    score[(int)color] += item.GetEndGameScore(color);
-                }
-                else
-                {
-                    Color other = (Color)((int)color ^ 1);
-                    ulong otherPawns = board.Pieces(other, Piece.Pawn);
-
-                    for (ulong p = pawns; p != 0; p = BitOps.ResetLsb(p))
+                    if ((otherPawns & passedPawnMasks[n][sq]) == 0ul)
                     {
-                        int sq = BitOps.TzCount(p);
-                        int normalSq = Index.NormalizedIndex[(int)color][sq];
-
-                        if ((otherPawns & passedPawnMasks[(int)color][sq]) == 0ul)
-                        {
-                            egScores[(int)color] += EndGamePassedPawn[Index.GetRank(normalSq)];
-                        }
-
-                        if ((pawns & isolatedPawnMasks[sq]) == 0)
-                        {
-                            egScores[(int)color] += EndGameIsolatedPawn;
-                        }
-
-                        if ((pawns & backwardPawnMasks[(int)color][sq]) == 0)
-                        {
-                            egScores[(int)color] += EndGameBackwardPawn;
-                        }
-
-                        if ((pawns & adjacentPawnMasks[sq]) != 0)
-                        {
-                            egScores[(int)color] += EndGameAdjacentPawn[Index.GetRank(normalSq)];
-                        }
+                        openingScores[n] += OpeningPassedPawn[normalRank];
+                        endgameScores[n] += EndGamePassedPawn[normalRank];
                     }
 
-                    for (int file = 0; file <= Constants.MAX_COORDS; file++)
+                    if ((pawns & isolatedPawnMasks[sq]) == 0)
                     {
-                        if (BitOps.PopCount(pawns & Board.MaskFiles[file]) > 1)
-                        {
-                            egScores[(int)color] += EndGameDoubledPawn;
-                        }
+                        openingScores[n] += OpeningIsolatedPawn;
+                        endgameScores[n] += EndGameIsolatedPawn;
+                    }
+
+                    if ((pawns & backwardPawnMasks[n][sq]) == 0)
+                    {
+                        openingScores[n] += OpeningBackwardPawn;
+                        endgameScores[n] += EndGameBackwardPawn;
+                    }
+
+                    if ((pawns & adjacentPawnMasks[sq]) != 0)
+                    {
+                        openingScores[n] += OpeningAdjacentPawn[normalRank];
+                        endgameScores[n] += EndGameAdjacentPawn[normalRank];
                     }
                 }
 
-                score[(int)color] += egScores[(int)color];
+                for (int file = 0; file <= Constants.MAX_COORDS; file++)
+                {
+                    if (BitOps.PopCount(pawns & Board.MaskFiles[file]) > 1)
+                    {
+                        openingScores[n] += OpeningDoubledPawn;
+                        endgameScores[n] += EndGameDoubledPawn;
+
+                    }
+                }
             }
 
-            TtPawnEval.Add(board.PawnHash, foundInHash ? null : defaultScores, egScores);
-            return score;
+            TtPawnEval.Add(board.PawnHash, openingScores, endgameScores);
+            opScores[0] += openingScores[0];
+            opScores[1] += openingScores[1];
+            egScores[0] += endgameScores[0];
+            egScores[1] += endgameScores[1];
+        }
+        
+        public static void CalculateDevelopment(Board board, Span<short> opScores, Span<short> egScores)
+        {
+            for (Color color = Color.White; color <= Color.Black; color++)
+            {
+                int n = (int)color;
+                CalcDevelopmentParameters(board, color, out int d, out int u, out int k, out int c);
+                opScores[n] += (short)((d - u - (k * c)) * OpeningDevelopmentWeight);
+                egScores[n] += (short)((d - u - (k * c)) * EndGameDevelopmentWeight);
+            }
         }
 
-        public static short CalculateOpeningDevelopment(Board board, GamePhase gamePhase, Color color)
+        public static void CalculateKingAttacks(Board board, Span<short> opScores, Span<short> egScores)
         {
-            short score = 0;
-            if (gamePhase == GamePhase.EndGame)
+            for (Color color = Color.White; color <= Color.Black; color++)
             {
-                return score;
+                int n = (int)color;
+                CalcKingProximityAttacks(board, color, out int d1, out int d2, out int d3);
+                opScores[n] +=
+                    (short)(d1 * OpeningKingAttack[0] + d2 * OpeningKingAttack[1] + d3 * OpeningKingAttack[2]);
+                egScores[n] +=
+                    (short)(d1 * EndGameKingAttack[0] + d2 * EndGameKingAttack[1] + d3 * EndGameKingAttack[2]);
             }
-
-            CalcDevelopmentParameters(board, color, out int d, out int u, out int k, out int c);
-
-            return (short)((d - u - (k * c)) * OpeningDevelopmentWeight);
         }
 
-        public static short CalculateEndGameDevelopment(Board board, GamePhase gamePhase, Color color)
+        public static void CalculateMisc(Board board, Span<short> opScores, Span<short> egScores)
         {
-            short score = 0;
-            if (gamePhase == GamePhase.Opening)
+            for (Color color = Color.White; color <= Color.Black; color++)
             {
-                return score;
+                int n = (int)color;
+
+                int count = BitOps.PopCount(board.Pieces(color, Piece.Bishop));
+                if (count >= 2)
+                {
+                    opScores[n] += OpeningBishopPair;
+                    egScores[n] += EndGameBishopPair;
+                }
             }
-
-            CalcDevelopmentParameters(board, color, out int d, out int u, out int k, out int c);
-
-            return (short)((d - u - (k * c)) * EndGameDevelopmentWeight);
-        }
-
-        public static short CalculateOpeningKingAttacks(Board board, GamePhase gamePhase, Color color)
-        {
-            if (gamePhase == GamePhase.EndGame)
-            {
-                return 0;
-            }
-
-            CalcKingProximityAttacks(board, color, out int d1, out int d2, out int d3);
-            return (short)(d1 * OpeningKingAttack[0] + d2 * OpeningKingAttack[1] + d3 * OpeningKingAttack[2]);
-        }
-
-        public static short CalculateEndGameKingAttacks(Board board, GamePhase gamePhase, Color color)
-        {
-            if (gamePhase == GamePhase.Opening)
-            {
-                return 0;
-            }
-
-            CalcKingProximityAttacks(board, color, out int d1, out int d2, out int d3);
-            return (short)(d1 * EndGameKingAttack[0] + d2 * EndGameKingAttack[1] + d3 * EndGameKingAttack[2]);
-        }
-
-        public static short CalculateOpeningMisc(Board board, GamePhase gamePhase, Color color)
-        {
-            if (gamePhase == GamePhase.EndGame)
-            {
-                return 0;
-            }
-
-            if (BitOps.PopCount(board.Pieces(color, Piece.Bishop)) >= 2)
-            {
-                return OpeningBishopPair;
-            }
-
-            return 0;
-        }
-
-        public static short CalculateEndGameMisc(Board board, GamePhase gamePhase, Color color)
-        {
-            if (gamePhase == GamePhase.Opening)
-            {
-                return 0;
-            }
-
-            if (BitOps.PopCount(board.Pieces(color, Piece.Bishop)) >= 2)
-            {
-                return EndGameBishopPair;
-            }
-
-            return 0;
         }
 
         public static void GetGamePhase(Board board, out GamePhase gamePhase, out int opWt, out int egWt)
@@ -446,11 +336,8 @@ namespace Pedantic.Chess
         public static void CalcDevelopmentParameters(Board board, Color color, out int d, out int u, out int k, out int c)
         {
             Color other = (Color)((int)color ^ 1);
-
-            d = 0;
             u = 0;
             k = 0;
-            c = 0;
 
             int notMoved = 0;
             ulong bb = board.Pieces(color, Piece.Knight) & homeLocations[(int)color][(int)Piece.Knight];
@@ -500,7 +387,6 @@ namespace Pedantic.Chess
         }
 
         private static readonly short[] sign = { 1, -1 };
-
         public static readonly short[] CanonicalPieceValues = { 100, 300, 300, 500, 900, 0 };
         public static short OpeningPhaseThruTurn => weights.Weights[ChessWeights.OPENING_PHASE_WEIGHT_OFFSET];
         public static short EndGamePhaseMaterial => weights.Weights[ChessWeights.ENDGAME_PHASE_WEIGHT_OFFSET];
@@ -780,5 +666,6 @@ namespace Pedantic.Chess
         };
 
         private static readonly short[] defaultScores = { 0, 0 };
+        private static readonly int[] pawnOffset = { 8, -8 };
     }
 }

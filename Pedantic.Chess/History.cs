@@ -16,7 +16,7 @@ namespace Pedantic.Chess
 
         public int this[Color color, int from, int to] => history[GetIndex(color, from, to)];
 
-        public void Update(Color color, int from, int to, short value)
+        public void Update(Color color, int from, int to, int value)
         {
             int i = GetIndex(color, from, to);
             history[i] += value;
@@ -26,7 +26,7 @@ namespace Pedantic.Chess
             }
         }
 
-        public void Update(int from, int to, short value)
+        public void Update(int from, int to, int value)
         {
             Update(SideToMove, from, to, value);
         }

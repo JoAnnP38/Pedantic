@@ -311,7 +311,7 @@ namespace Pedantic.Genetics
             2, // attacks to squares 3 squares from king
 
             /* OpeningDevelopmentWeight */
-            15,
+            5,
 
             /* EndGameDevelopmentWeight */
             0,
@@ -648,12 +648,12 @@ namespace Pedantic.Genetics
             #region opening passed pawns table
 
             /* passed pawns */
-            10, // rank 2
-            10, // rank 3
-            15, // rank 4
-            30, // rank 5
-            60, // rank 6
-            100, // rank 7
+            5, // rank 2
+            5, // rank 3
+            5, // rank 4
+            10, // rank 5
+            10, // rank 6
+            15, // rank 7
 
             #endregion
 
@@ -662,12 +662,12 @@ namespace Pedantic.Genetics
             #region end game passed pawns table
 
             /* passed pawns */
-            10, // rank 2
-            10, // rank 3
-            15, // rank 4
-            30, // rank 5
-            60, // rank 6
-            100, // rank 7
+            5, // rank 2
+            5, // rank 3
+            5, // rank 4
+            10, // rank 5
+            10, // rank 6
+            15, // rank 7
 
             #endregion
 
@@ -678,10 +678,10 @@ namespace Pedantic.Genetics
             /* adjacent pawns */
             2, // rank 2
             2, // rank 3
-            4, // rank 4
-            4, // rank 5
-            100, // rank 6
-            200, // rank 7
+            5, // rank 4
+            5, // rank 5
+            10, // rank 6
+            20, // rank 7
 
             #endregion
 
@@ -692,10 +692,10 @@ namespace Pedantic.Genetics
             /* adjacent pawns */
             2, // rank 2
             2, // rank 3
-            4, // rank 4
-            4, // rank 5
-            100, // rank 6
-            200, // rank 7
+            5, // rank 4
+            5, // rank 5
+            10, // rank 6
+            20, // rank 7
 
             #endregion
 

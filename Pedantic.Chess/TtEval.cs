@@ -1,4 +1,5 @@
-﻿using System.Net.Http.Headers;
+﻿using System.Diagnostics.Tracing;
+using System.Net.Http.Headers;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using Pedantic.Utilities;
@@ -9,9 +10,9 @@ namespace Pedantic.Chess
     {
         public enum TtFlag : byte
         {
-            Exact,
-            LowerBound,
-            UpperBound
+            TtExact,
+            TtAlpha,
+            TtBeta
         }
 
         public const int DEFAULT_SIZE_MB = 45;
@@ -68,56 +69,49 @@ namespace Pedantic.Chess
             table = new TtEvalItem[capacity];
         }
 
-        public static bool TryLookup(ulong hash, out TtEvalItem item)
-        {
-            int index = GetIndex(hash);
-            item = table[index];
-            return item.IsValid(hash);
-        }
-
-        public static bool FindItem(ulong hash, out int index)
-        {
-            index = GetIndex(hash);
-            return table[index].IsValid(hash);
-        }
-
-        public static void Add(ulong hash, short depth, int ply, short alpha, short beta, short score, ulong move)
+        public static void Add(ulong hash, int depth, int ply, int alpha, int beta, int score, ulong move)
         {
             int index = GetIndex(hash);
             ref TtEvalItem item = ref table[index];
 
-            if (item.IsValid(hash))
+            if (item.IsValid(hash) && item.Depth > depth)
             {
-                move = move != 0 ? move : item.BestMove;
+                return; // don't replace
+            }
+
+            ulong bestMove = item.BestMove;
+            if (!item.IsValid(hash) || move != 0)
+            {
+                bestMove = move;
             }
 
             if (Evaluation.IsCheckmate(score))
             {
                 if (score < 0)
                 {
-                    score -= (short)ply;
+                    score -= ply;
                 }
                 else
                 {
-                    score += (short)ply;
+                    score += ply;
                 }
             }
 
-            byte itemDepth = (byte)Math.Max((short)0, depth);
-            TtFlag flag = TtFlag.Exact;
+            byte itemDepth = (byte)Math.Max(0, depth);
+            TtFlag flag = TtFlag.TtExact;
 
-            if (score >= beta)
+            if (score <= alpha)
             {
-                flag = TtFlag.UpperBound;
-                score = beta;
-            }
-            else if (score <= alpha)
-            {
-                flag = TtFlag.LowerBound;
+                flag = TtFlag.TtAlpha;
                 score = alpha;
             }
+            else if (score >= beta)
+            {
+                flag = TtFlag.TtBeta;
+                score = beta;
+            }
 
-            TtEvalItem.SetValue(ref item, hash, score, itemDepth, flag, move);
+            TtEvalItem.SetValue(ref item, hash, (short)score, itemDepth, flag, bestMove);
         }
 
         public static void Clear()
@@ -134,24 +128,45 @@ namespace Pedantic.Chess
 
         public static int Capacity => capacity;
 
+        public static bool FindSlot(ulong hash, out int index)
+        {
+            index = (int)(hash % (ulong)capacity);
+            if (!table[index].IsValid(hash))
+            {
+                index ^= 1;
+            }
+
+            if (!table[index].IsValid(hash))
+            {
+                return false;
+            }
+
+            return true;
+        }
         public static bool TryGetBestMove(ulong hash, out ulong bestMove)
         {
             bestMove = 0ul;
-            if (TryLookup(hash, out TtEvalItem item))
+            if (FindSlot(hash, out int index))
             {
-                bestMove = item.BestMove != 0ul ? item.BestMove : 0ul;
+                bestMove = table[index].BestMove;
+                return bestMove != 0;
             }
 
-            return bestMove != 0ul;
+            return false;
         }
 
-        public static bool TryGetScore(ulong hash, short depth, int ply, short alpha, short beta, out short score)
+        public static bool TryGetScore(ulong hash, int depth, int ply, int alpha, int beta, out int score)
         {
             score = 0;
-            int index = GetIndex(hash);
+
+            if (!FindSlot(hash, out int index))
+            {
+                return false;
+            }
 
             ref TtEvalItem item = ref table[index];
-            if (!item.IsValid(hash) || item.Depth < depth)
+
+            if (item.Depth <= depth)
             {
                 return false;
             }
@@ -160,21 +175,23 @@ namespace Pedantic.Chess
 
             if (Evaluation.IsCheckmate(score))
             {
-                score -= (short)(Math.Sign(score) * ply);
+                score -= Math.Sign(score) * ply;
             }
 
-            if (item.Flag == TtFlag.Exact)
+            if (item.Flag == TtFlag.TtExact)
             {
                 return true;
             }
 
-            if (item.Flag == TtFlag.LowerBound && score <= alpha)
+            if (item.Flag == TtFlag.TtAlpha && score <= alpha)
             {
+                score = alpha;
                 return true;
             }
 
-            if (item.Flag == TtFlag.UpperBound && score >= beta)
+            if (item.Flag == TtFlag.TtBeta && score >= beta)
             {
+                score = beta;
                 return true;
             }
 
@@ -183,7 +200,21 @@ namespace Pedantic.Chess
 
         private static int GetIndex(ulong hash)
         {
-            return (int)(hash % (ulong)capacity);
+            int index = (int)(hash % (ulong)capacity);
+            ref TtEvalItem item0 = ref table[index];
+            ref TtEvalItem item1 = ref table[index ^ 1];
+
+            if (item0.IsValid(hash))
+            {
+                return index;
+            }
+
+            if (item1.IsValid(hash))
+            {
+                return index ^ 1;
+            }
+
+            return (item0.Depth <= item1.Depth) ? index : index ^ 1;
         }
     }
 }

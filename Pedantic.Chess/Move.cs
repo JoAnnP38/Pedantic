@@ -1,4 +1,5 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using Pedantic.Utilities;
 
 namespace Pedantic.Chess
@@ -25,7 +26,7 @@ namespace Pedantic.Chess
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong ClearScore(ulong move)
         {
-            return move & 0x0ffffff;
+            return move & 0x0fffffful;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -64,6 +65,18 @@ namespace Pedantic.Chess
         public static int GetScore(ulong move)
         {
             return BitOps.BitFieldExtract(move, 24, 16);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool IsCapture(ulong move)
+        {
+            return GetCapture(move) != Piece.None;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool IsPromote(ulong move)
+        {
+            return GetPromote(move) != Piece.None;
         }
 
         public static void UnpackMove(ulong move, out int from, out int to, out MoveType type, out Piece capture,
@@ -125,6 +138,15 @@ namespace Pedantic.Chess
             int to = GetTo(move);
             Piece promote = GetPromote(move);
             return $"{Index.ToString(from)}{Index.ToString(to)}{Conversion.PieceToString(promote)}";
+        }
+
+        public static string ToLongString(ulong move)
+        {
+            Move.UnpackMove(move, out int from, out int to, out MoveType type, out Piece capture, out Piece promote,
+                out int score);
+
+            return
+                $"(From = {Index.ToString(from)}, To = {Index.ToString(to)}, Type = {type}, Capture = {capture}, Promote = {promote}, Score = {score})";
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

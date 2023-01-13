@@ -22,7 +22,7 @@ namespace Pedantic.Chess
         private readonly object lockObject = new();
 
         public int TimePerMoveWithMargin => (remaining + (movesToGo - 1) * increment) / movesToGo - time_margin;
-        public int TimeRemainingWithMargin => remaining - time_margin;
+        public int TimeRemainingWithMargin => Math.Min(remaining - time_margin, TimePerMoveWithMargin * 3);
         private long Now => Stopwatch.GetTimestamp();
         public long Elapsed => MilliSeconds(Now - t0);
         public long ElapsedInterval => MilliSeconds(Now - tN);
@@ -70,13 +70,13 @@ namespace Pedantic.Chess
             remaining = 0;
         }
 
-        internal void Go(int timePerMove)
+        public void Go(int timePerMove)
         {
             Reset();
             remaining = Math.Min(timePerMove, max_time_remaining);
         }
 
-        internal void Go(int time, int increment, int movesToGo)
+        public void Go(int time, int increment, int movesToGo)
         {
             Reset();
             remaining = Math.Min(time, max_time_remaining);

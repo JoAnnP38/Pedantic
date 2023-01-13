@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -34,8 +35,7 @@ namespace Pedantic.Chess
 
         public static void Log(string message)
         {
-            Console.WriteLine($@"info string {message}");
-            Util.WriteLine($@"info string {message}");
+            Console.Out.WriteLineAsync($@"info string {message}");
         }
 
         public static void Info(int depth, int score, long nodes, long timeMs, ulong[] pv)
@@ -52,7 +52,7 @@ namespace Pedantic.Chess
 
             if (!DisableOutput)
             {
-                Console.WriteLine(output);
+                Console.Out.WriteLineAsync(output);
             }
             Util.WriteLine(output);
         }
@@ -70,7 +70,7 @@ namespace Pedantic.Chess
             string output = sb.ToString();
             if (!DisableOutput)
             {
-                Console.WriteLine(output);
+                Console.Out.WriteLineAsync(output);
             }
             Util.WriteLine(output);
         }
@@ -98,15 +98,19 @@ namespace Pedantic.Chess
 
             if (suggestedPonder != null)
             {
-                Console.WriteLine(@$" ponder {suggestedPonder}");
+                Console.Out.WriteLineAsync(@$" ponder {suggestedPonder}");
                 Util.WriteLine(@$" ponder {suggestedPonder}");
             }
             else
             {
-                Console.WriteLine();
+                Console.Out.WriteLineAsync();
                 Util.WriteLine();
             }
         }
 
+        public static void CurrentMove(int depth, ulong move, int moveNumber)
+        {
+            Console.Out.WriteLineAsync($@"info depth {depth} currmove {Move.ToString(move)} currmovenumber {moveNumber}");
+        }
     }
 }

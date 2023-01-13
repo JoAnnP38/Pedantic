@@ -11,7 +11,7 @@ namespace Pedantic.Chess
         private static readonly Board board = new();
         private static readonly TimeControl time = new();
         private static int searchThreads = 1;
-        private static Thread? search = null;
+        private static Thread? searchThread = null;
         private static PolyglotEntry[]? bookEntries = null;
 
         public static bool Debug { get; set; } = false;
@@ -56,11 +56,11 @@ namespace Pedantic.Chess
 
         public static void Stop(bool force = false)
         {
-            if (search != null)
+            if (searchThread != null)
             {
                 time.Stop();
-                search.Join();
-                search = null;
+                searchThread.Join();
+                searchThread = null;
             }
         }
 
@@ -77,7 +77,6 @@ namespace Pedantic.Chess
             if (ponder)
             {
                 Infinite = true;
-                //Uci.DisableOutput = true;
             }
 
             time.Go(maxTime);
@@ -91,7 +90,6 @@ namespace Pedantic.Chess
             if (ponder)
             {
                 time.Infinite = true;
-                //Uci.DisableOutput = true;
             }
                 
             time.Go(maxTime, increment, movesToGo);
@@ -160,10 +158,10 @@ namespace Pedantic.Chess
 
         public static void Wait()
         {
-            if (search != null)
+            if (searchThread != null)
             {
-                search.Join();
-                search = null;
+                searchThread.Join();
+                searchThread = null;
             }
         }
 
@@ -173,7 +171,6 @@ namespace Pedantic.Chess
             {
                 if (IsPondering)
                 {
-                    //Uci.DisableOutput = false;
                     IsPondering = false;
                     Infinite = false;
                 }
@@ -207,13 +204,24 @@ namespace Pedantic.Chess
 
         public static bool LookupBookMoves(ulong hash, out ReadOnlySpan<PolyglotEntry> bookMoves)
         {
-            int first = FindFirstBookMove(hash);
-            if (first >= 0 && first < BookEntries.Length && BookEntries[first].Key == hash)
+            int first = 0;
+            try
             {
-                int last = first;
-                while (BookEntries[++last].Key == hash) {}
-                bookMoves = new ReadOnlySpan<PolyglotEntry>(BookEntries, first, last - first);
-                return true;
+                first = FindFirstBookMove(hash);
+                if (first >= 0 && first < BookEntries.Length - 1 && BookEntries[first].Key == hash)
+                {
+                    int last = first;
+                    while (++last < BookEntries.Length && BookEntries[last].Key == hash)
+                    { }
+
+                    bookMoves = new ReadOnlySpan<PolyglotEntry>(BookEntries, first, last - first);
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                Util.TraceError(ex.Message);
+                throw;
             }
 
             bookMoves = new ReadOnlySpan<PolyglotEntry>();
@@ -317,20 +325,23 @@ namespace Pedantic.Chess
             }
 
             // add all history positions that have already been repeated two to assist
-            // the search in finding drawn positions by three repeats.
+            // the searchThread in finding drawn positions by three repeats.
             foreach (ulong drawPosition in board.DrawnPositions())
             {
                 TtEval.Add(drawPosition, TtEval.HISTORY_DEPTH, 0, -Constants.INFINITE_WINDOW, Constants.INFINITE_WINDOW,
                     0, 0);
             }
 
-            Negamax negamax = new(board, time, (short)maxDepth, maxNodes);
-            search = new Thread(negamax.Search)
+            ISearch search = new SimpleSearch(board, time, maxDepth, maxNodes)
+            {
+                Pondering = IsPondering
+            };
+            searchThread = new Thread(search.Search)
             {
                 Priority = ThreadPriority.Highest
             };
             IsRunning = true;
-            search.Start();
+            searchThread.Start();
         }
     }
 }

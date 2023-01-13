@@ -101,7 +101,7 @@ namespace Pedantic.Chess
             sideToMove = other.sideToMove;
             castling = other.castling;
             enPassant = other.enPassant;
-            enPassant = other.enPassantValidated;
+            enPassantValidated = other.enPassantValidated;
             halfMoveClock = other.halfMoveClock;
             fullMoveCounter = other.fullMoveCounter;
             hash = other.hash;
@@ -169,7 +169,7 @@ namespace Pedantic.Chess
             halfMoveClock = 0;
             fullMoveCounter = 0;
             hash = 0;
-            gameStack.Clear(); 
+            gameStack.Clear();
             Array.Clear(material);
             Array.Clear(castled);
             Array.Clear(opMaterial);
@@ -643,6 +643,7 @@ namespace Pedantic.Chess
             GeneratePromotions(moveList);
             for (int n = 0; n < moveList.Count; n++)
             {
+                moveList.Sort(n);
                 yield return moveList[n];
             }
         }
@@ -686,18 +687,17 @@ namespace Pedantic.Chess
             return legalCount == 1;
         }
 
-        public short GetPieceMobility(Color color, Piece piece, int from)
+        public short GetPieceMobility(Color color)
         {
             short mobility = 0;
             Color other = (Color)((int)color ^ 1);
-            ulong otherPawns = Pieces(other, Piece.Pawn);
-            ulong bb = BitOps.AndNot(GetPieceMoves(piece, from), Units(color));
-            for (; bb != 0; bb = BitOps.ResetLsb(bb))
+
+            for (Piece piece = Piece.Knight; piece <= Piece.King; piece++)
             {
-                int to = BitOps.TzCount(bb);
-                if ((PawnDefends(other, to) & otherPawns) == 0)
+                for (ulong pcLoc = Pieces(color, piece); pcLoc != 0; pcLoc = BitOps.ResetLsb(pcLoc))
                 {
-                    mobility++;
+                    int from = BitOps.TzCount(pcLoc);
+                    mobility += (short)BitOps.PopCount(BitOps.AndNot(GetPieceMoves(piece, from), Units(color)));
                 }
             }
 
@@ -790,7 +790,8 @@ namespace Pedantic.Chess
                 int to = pawnPlus[(int)sideToMove, from];
                 for (Piece p = Piece.Knight; p <= Piece.Queen; ++p)
                 {
-                    list.Add(from, to, MoveType.Promote, promote: p);
+                    int score = Constants.PROMOTE_SCORE + Evaluation.CanonicalPieceValues[(int)p];
+                    list.Add(from, to, MoveType.Promote, promote: p, score: score);
                 }
             }
         }
@@ -963,6 +964,7 @@ namespace Pedantic.Chess
                 flags = flags == MoveType.Capture ? MoveType.PromoteCapture : MoveType.Promote;
                 for (Piece p = Piece.Knight; p <= Piece.Queen; ++p)
                 {
+                    score = Constants.PROMOTE_SCORE + Evaluation.CanonicalPieceValues[(int)p];
                     list.Add(from, to, flags, capture, p, score);
                 }
             }

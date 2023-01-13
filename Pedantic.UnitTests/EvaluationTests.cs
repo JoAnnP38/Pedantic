@@ -45,33 +45,13 @@ namespace Pedantic.UnitTests
         }
 
         [TestMethod]
-        [DataRow("r6r/pp4kp/3B1p2/1B1P2p1/2P1q1n1/2Q3P1/PP6/5RK1 b - - 0 1", 4)]
-        [DataRow("8/4pR1P/4p3/4b1Kp/1k2PpP1/4B2P/1p3P2/3Q4 b - - 0 1", 28)]
-        public void CalculateOpeningKingAttacks(string fen, int expectedScore)
-        {
-            Board board = new(fen);
-            short score = Evaluation.CalculateOpeningKingAttacks(board, Evaluation.GamePhase.Opening, board.SideToMove);
-            Assert.AreEqual(expectedScore, score);
-        }
-
-        [TestMethod]
-        [DataRow("r6r/pp4kp/3B1p2/3P2p1/B1P1q1n1/2Q3P1/PP6/5RK1 w - - 0 13", 9, -16)]
-        [DataRow("8/4pR1P/4p3/4b1Kp/1k2PpP1/4B2P/1p3P2/3Q4 b - - 0 13", 85, 60)]
-        public void CalculateOpeningPawnsTest(string fen, int expectedScore1, int expectedScore2)
-        {
-            Board board = new(fen);
-            short[] score = Evaluation.CalculateOpeningPawns(board, Evaluation.GamePhase.MidGame);
-            Assert.AreEqual(expectedScore1, score[0]);
-            Assert.AreEqual(expectedScore2, score[1]);
-        }
-
-        [TestMethod]
         [DataRow(Constants.FEN_START_POS, 0)]
-        [DataRow("r6r/pp4kp/3B1p2/3P2p1/B1P1q1n1/2Q3P1/PP6/5RK1 w - - 0 13", -79)]
+        [DataRow("r6r/pp4kp/3B1p2/3P2p1/B1P1q1n1/2Q3P1/PP6/5RK1 w - - 0 13", -68)]
         public void ComputeTest(string fen, int expectedScore)
         {
             Board board = new(fen);
-            int score = Evaluation.Compute(board);
+            Evaluation eval = new();
+            int score = eval.Compute(board);
             Assert.AreEqual(expectedScore, score);
         }
 
@@ -79,12 +59,26 @@ namespace Pedantic.UnitTests
         public void ComputeTest2()
         {
             Board board = new(Constants.FEN_START_POS);
-            int scoreWhite = Evaluation.Compute(board);
+            Evaluation eval = new();
+            int scoreWhite = eval.Compute(board);
 
             board.LoadFenPosition(@"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1");
-            int scoreBlack = Evaluation.Compute(board);
+            int scoreBlack = eval.Compute(board);
 
             Assert.AreEqual(Math.Abs(scoreWhite), Math.Abs(scoreBlack));
+        }
+
+        [TestMethod]
+        public void ComputeTest3()
+        {
+            Board board = new("    r2n2k1/3P3p/1R4p1/2B5/4p3/2P1P2P/p4rP1/2KR4 w - - 0 40");
+            Evaluation eval = new();
+
+            int scoreWhite = eval.Compute(board);
+            board.LoadFenPosition("    r2n2k1/3P3p/1R4p1/2B5/4p3/2P1P2P/p4rP1/2KR4 b - - 0 40");
+            int scoreBlack = eval.Compute(board);
+
+            Assert.AreEqual(scoreWhite, -scoreBlack);
         }
 
     }

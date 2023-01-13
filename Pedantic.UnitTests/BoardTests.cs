@@ -28,7 +28,7 @@ namespace Pedantic.UnitTests
             Board board = new();
             board.AddPiece(Color.White, Piece.Pawn, Index.A2);
 
-            Assert.AreEqual(Piece.Pawn, board.PieceBoard[Index.A2]);
+            Assert.AreEqual(Square.WhitePawn, board.PieceBoard[Index.A2]);
             
             ulong bb = board.Pieces(Color.White, Piece.Pawn);
             Assert.AreEqual(Index.A2, BitOps.TzCount(bb));
@@ -49,7 +49,7 @@ namespace Pedantic.UnitTests
             board.AddPiece(Color.White, Piece.Pawn, Index.E2);
             board.RemovePiece(Color.White, Piece.Pawn, Index.E2);
 
-            Assert.AreEqual(Piece.None, board.PieceBoard[Index.E2]);
+            Assert.AreEqual(Square.Empty, board.PieceBoard[Index.E2]);
 
             ulong bb = board.Pieces(Color.White, Piece.Pawn);
             Assert.AreEqual(0ul, bb);
@@ -70,8 +70,8 @@ namespace Pedantic.UnitTests
             board.AddPiece(Color.White, Piece.Pawn, Index.D2);
             board.UpdatePiece(Color.White, Piece.Pawn, Index.D2, Index.D4);
 
-            Assert.AreEqual(Piece.None, board.PieceBoard[Index.D2]);
-            Assert.AreEqual(Piece.Pawn, board.PieceBoard[Index.D4]);
+            Assert.AreEqual(Square.Empty, board.PieceBoard[Index.D2]);
+            Assert.AreEqual(Square.WhitePawn, board.PieceBoard[Index.D4]);
 
             ulong bb = board.Pieces(Color.White, Piece.Pawn);
             Assert.AreEqual(Index.D4, BitOps.TzCount(bb));
@@ -111,10 +111,11 @@ namespace Pedantic.UnitTests
         [DataRow("rnbqkbnr/p1pppppp/8/8/PpP4P/8/1P1PPPP1/RNBQKBNR b KQkq c3 0 3", 0x3c8123ea7b067637UL)]
         [DataRow("rnbqkbnr/p1pppppp/8/8/P6P/R1p5/1P1PPPP1/1NBQKBNR b Kkq - 0 4", 0x5c3f9b829b279560UL)]
         [DataRow("rnbqkbnr/ppp1p1pp/8/3pPp2/8/8/PPPPKPPP/RNBQ1BNR b kq - 0 3", 0x652a607ca3f242c1UL)]
-        [DataRow("rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 0 1", 0x2bf65946a9355d94UL)]
+        [DataRow("rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 0 1", 0x2BF65946A9355D94UL)]
         public void LoadFenPosition2Test(string fenString, ulong hash)
         {
             Board board = new(fenString);
+            Console.WriteLine(board.Hash);
             Assert.AreEqual(hash, board.Hash);
         }
 
@@ -126,6 +127,7 @@ namespace Pedantic.UnitTests
         public void LoadFenPositionHashTest(string fenString, ulong hash)
         {
             Board board = new(fenString);
+            Console.WriteLine(board.Hash);
             ulong diff = board.Hash ^ hash;
             Assert.AreEqual(0ul, diff);
         }
@@ -202,14 +204,48 @@ namespace Pedantic.UnitTests
         }
 
         [TestMethod]
-        [DataRow("r5rk/2p1Nppp/3p3P/pp2p1P1/4P3/2qnPQK1/8/R6R w - - 1 0", Color.White, Piece.Rook, 0, 9)]
-        [DataRow("1r2k1r1/pbppnp1p/1b3P2/8/Q7/B1PB1q2/P4PPP/3R2K1 w - - 1 0", Color.White, Piece.Bishop, 16, 5)]
-        [DataRow("Q7/p1p1q1pk/3p2rp/4n3/3bP3/7b/PP3PPK/R1B2R2 b - - 0 1", Color.Black, Piece.Bishop, 27, 4)]
-        public void GetPieceMobilityTest(string fen, Color color, Piece piece, int from, int expectedMobility)
+        [DataRow("r5rk/2p1Nppp/3p3P/pp2p1P1/4P3/2qnPQK1/8/R6R w - - 1 0", Color.White, 44)]
+        [DataRow("1r2k1r1/pbppnp1p/1b3P2/8/Q7/B1PB1q2/P4PPP/3R2K1 w - - 1 0", Color.White, 40)]
+        [DataRow("Q7/p1p1q1pk/3p2rp/4n3/3bP3/7b/PP3PPK/R1B2R2 b - - 0 1", Color.Black, 36)]
+        public void GetPieceMobilityTest(string fen, Color color, int expectedMobility)
         {
             Board bd = new(fen);
-            int mobility = bd.GetPieceMobility(color, piece, from);
+            int mobility = bd.GetPieceMobility(color);
             Assert.AreEqual(expectedMobility, mobility);
+        }
+
+        [TestMethod]
+        public void MoveCapturesTest()
+        {
+            Board bd = new("7r/P7/1K2k3/8/8/8/7p/1R6 b - - 0 1");
+            foreach (ulong move in bd.CaptureMoves(new MoveList()))
+            {
+                Console.WriteLine(Move.ToString(move));
+            }
+        }
+
+        [TestMethod]
+        [DataRow("rnbq1rk1/4p1bp/2p3p1/1p2Pp2/3PpP2/1P2B1NP/PP4P1/R2Q1RK1 w - f6 0 15")]
+        [DataRow("7r/P7/1K2k3/8/8/8/7p/1R6 b - - 0 1")]
+        public void MovesTest(string fen)
+        {
+            Board bd = new(fen);
+            foreach (ulong move in bd.Moves(0, new KillerMoves(), new History(), new MoveList()))
+            {
+                Console.WriteLine(Move.ToLongString(move));
+            }
+        }
+
+        [TestMethod]
+        public void GenerateMoves2Test()
+        {
+            Board bd = new("rnbq1rk1/4p1bp/2p3p1/1p2Pp2/3PpP2/1P2B1NP/PP4P1/R2Q1RK1 w - f6 0 15");
+            MoveList moveList = new();
+            bd.GenerateMoves(moveList);
+            for (int n = 0; n < moveList.Count; n++)
+            {
+                Console.WriteLine(Move.ToLongString(moveList[n]));
+            }
         }
     }
 }
