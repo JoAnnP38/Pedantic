@@ -71,15 +71,51 @@ namespace Pedantic.UnitTests
         [TestMethod]
         public void ComputeTest3()
         {
-            Board board = new("    r2n2k1/3P3p/1R4p1/2B5/4p3/2P1P2P/p4rP1/2KR4 w - - 0 40");
+            Board board = new("r2n2k1/3P3p/1R4p1/2B5/4p3/2P1P2P/p4rP1/2KR4 w - - 0 40");
             Evaluation eval = new();
 
             int scoreWhite = eval.Compute(board);
-            board.LoadFenPosition("    r2n2k1/3P3p/1R4p1/2B5/4p3/2P1P2P/p4rP1/2KR4 b - - 0 40");
+            board.LoadFenPosition("r2n2k1/3P3p/1R4p1/2B5/4p3/2P1P2P/p4rP1/2KR4 b - - 0 40");
             int scoreBlack = eval.Compute(board);
 
             Assert.AreEqual(scoreWhite, -scoreBlack);
         }
 
+        [TestMethod]
+        [DataRow(Constants.FEN_START_POS, 4039, 4039, 3868, 3868, 3900, 3900)]
+        [DataRow("r2n2k1/3P3p/1R4p1/2B5/4p3/2P1P2P/p4rP1/2KR4 w - - 0 40", 1729, 1619, 1791, 1681, 1800, 1700)]
+        public void CorrectMaterialTest(string fen, int opWhiteMaterial, int opBlackMaterial, int egWhiteMaterial,
+            int egBlackMaterial, int whiteMaterial, int blackMaterial)
+        {
+            Board board = new(fen);
+            Assert.AreEqual(opWhiteMaterial, board.OpeningMaterial[(int)Color.White]);
+            Assert.AreEqual(opBlackMaterial, board.OpeningMaterial[(int)Color.Black]);
+            Assert.AreEqual(egWhiteMaterial, board.EndGameMaterial[(int)Color.White]);
+            Assert.AreEqual(egBlackMaterial, board.EndGameMaterial[(int)Color.Black]);
+            Assert.AreEqual(whiteMaterial, board.Material[(int)Color.White]);
+            Assert.AreEqual(blackMaterial, board.Material[(int)Color.Black]);
+        }
+
+        [TestMethod]
+        [DataRow(Constants.FEN_START_POS, -147, -147, -193, -193)]
+        [DataRow("r2n2k1/3P3p/1R4p1/2B5/4p3/2P1P2P/p4rP1/2KR4 w - - 0 40", 187, 171, 119, 123)]
+        public void CorrectPcSquareTest(string fen, int opWhite, int opBlack, int egWhite, int egBlack)
+        {
+            Board board = new(fen);
+            Assert.AreEqual(opWhite, board.OpeningPieceSquare[(int)Color.White]);
+            Assert.AreEqual(opBlack, board.OpeningPieceSquare[(int)Color.Black]);
+            Assert.AreEqual(egWhite, board.EndGamePieceSquare[(int)Color.White]);
+            Assert.AreEqual(egBlack, board.EndGamePieceSquare[(int)Color.Black]);
+        }
+
+        [TestMethod]
+        [DataRow(Constants.FEN_START_POS, 4, 4)]
+        [DataRow("r2n2k1/3P3p/1R4p1/2B5/4p3/2P1P2P/p4rP1/2KR4 w - - 0 40", 28, 24)]
+        public void CorrectPieceMobilityTest(string fen, int whiteMobility, int blackMobility)
+        {
+            Board board = new(fen);
+            Assert.AreEqual(whiteMobility, board.GetPieceMobility(Color.White));
+            Assert.AreEqual(blackMobility, board.GetPieceMobility(Color.Black));
+        }
     }
 }

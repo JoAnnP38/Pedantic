@@ -11,6 +11,7 @@ namespace Pedantic
     {
         public const string PROGRAM_NAME_VER = "Pedantic v0.0.1";
         public const string AUTHOR = "JoAnn D. Peeler";
+        public const string PROGRAM_URL = "https://github.com/JoAnnP38/Pedantic";
 
         enum PerftRunType
         {
@@ -135,7 +136,8 @@ namespace Pedantic
                     Console.WriteLine(@"option name Ponder type check default true");
                     Console.WriteLine($@"option name Hash type spin default {TtEval.DEFAULT_SIZE_MB} min 1 max {TtEval.MAX_SIZE_MB}");
                     Console.WriteLine(@"option name Clear Hash type button");
-                    Console.WriteLine($@"option name Threads type spin default 1 min 1 max {Environment.ProcessorCount}");
+                    Console.WriteLine($@"option name MaxThreads type spin default 1 min 1 max {Math.Max(Environment.ProcessorCount - 2, 1)}");
+                    Console.WriteLine($@"option name UCI_EngineAbout type string default {PROGRAM_NAME_VER} by {AUTHOR}, see {PROGRAM_URL}");
                     Console.WriteLine(@"uciok");
                     break;
 
@@ -239,7 +241,7 @@ namespace Pedantic
                         }
                         break;
 
-                    case "Threads":
+                    case "MaxThreads":
                         if (tokens[3] == "value" && int.TryParse(tokens[4], out int searchThreads))
                         {
                             Engine.SearchThreads = searchThreads;

@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace Pedantic.Chess
 {
-    public sealed class TimeControl
+    public sealed class TimeControl : ICloneable
     {
         const int time_margin = 25;
         const int branching_factor_estimate = 3;
@@ -20,6 +20,19 @@ namespace Pedantic.Chess
         private long tN = -1;
         private bool infinite;
         private readonly object lockObject = new();
+
+        public TimeControl()
+        {}
+
+        private TimeControl(TimeControl other)
+        {
+            movesToGo = other.movesToGo;
+            increment = other.increment;
+            remaining = other.remaining;
+            t0 = other.t0;
+            tN = other.tN;
+            infinite = other.infinite;
+        }
 
         public int TimePerMoveWithMargin => (remaining + (movesToGo - 1) * increment) / movesToGo - time_margin;
         public int TimeRemainingWithMargin => Math.Min(remaining - time_margin, TimePerMoveWithMargin * 3);
@@ -126,6 +139,16 @@ namespace Pedantic.Chess
             }
 
             return false;
+        }
+
+        public TimeControl Clone()
+        {
+            return new(this);
+        }
+
+        object ICloneable.Clone()
+        {
+            return Clone();
         }
     }
 }

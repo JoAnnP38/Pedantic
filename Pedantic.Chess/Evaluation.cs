@@ -117,8 +117,9 @@ namespace Pedantic.Chess
                 int n = (int)color;
                 opScore[n] += (short)(board.OpeningMaterial[n] + board.OpeningPieceSquare[n]);
                 egScore[n] += (short)(board.EndGameMaterial[n] + board.EndGamePieceSquare[n]);
-                //opScore[n] += (short)(board.GetPieceMobility(color) * OpeningMobilityWeight);
-                //egScore[n] += (short)(board.GetPieceMobility(color) * EndGameMobilityWeight);
+                /*short mobility = board.GetPieceMobility(color);
+                opScore[n] += (short)(mobility * OpeningMobilityWeight);
+                egScore[n] += (short)(mobility * EndGameMobilityWeight);*/
             }
 
             score = (short)((((opScore[0] - opScore[1]) * opWt) >> 7 /* / 128 */) + 

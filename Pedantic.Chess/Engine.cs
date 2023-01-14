@@ -8,10 +8,26 @@ namespace Pedantic.Chess
 {
     public static class Engine
     {
+        public readonly struct Scout
+        {
+            private readonly TimeControl time;
+            private readonly Thread thread;
+
+            public Scout(TimeControl time, Thread thread)
+            {
+                this.time = time;
+                this.thread = thread;
+            }
+
+            public TimeControl Time => time;
+            public Thread Thread => thread;
+        }
+
         private static readonly Board board = new();
         private static readonly TimeControl time = new();
         private static int searchThreads = 1;
         private static Thread? searchThread = null;
+        private static List<Scout> scouts = new();
         private static PolyglotEntry[]? bookEntries = null;
 
         public static bool Debug { get; set; } = false;
@@ -54,6 +70,17 @@ namespace Pedantic.Chess
             IsRunning = true;
         }
 
+        public static void StopScouts()
+        {
+            foreach (Scout scout in scouts)
+            {
+                scout.Time.Stop();
+                scout.Thread.Join();
+            }
+
+            scouts.Clear();
+        }
+
         public static void Stop(bool force = false)
         {
             if (searchThread != null)
@@ -62,6 +89,8 @@ namespace Pedantic.Chess
                 searchThread.Join();
                 searchThread = null;
             }
+
+            StopScouts();
         }
 
         public static void Quit()
@@ -163,7 +192,10 @@ namespace Pedantic.Chess
                 searchThread.Join();
                 searchThread = null;
             }
+
+            StopScouts();
         }
+    
 
         public static void PonderHit()
         {
@@ -322,6 +354,18 @@ namespace Pedantic.Chess
                     Uci.BestMove(move);
                     return;
                 }
+            }
+
+            for (int n = 0; n < SearchThreads - 1; n++)
+            {
+                TimeControl scoutTime = time.Clone();
+                ISearch scout = new SimpleSearch(board.Clone(), scoutTime, maxDepth, maxNodes);
+                Thread scoutThread = new Thread(scout.ScoutSearch)
+                {
+                    Priority = ThreadPriority.Highest
+                };
+                scoutThread.Start();
+                scouts.Add(new Scout(scoutTime, scoutThread));
             }
 
             ISearch search = new SimpleSearch(board, time, maxDepth, maxNodes)

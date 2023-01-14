@@ -1,18 +1,13 @@
 ﻿namespace Pedantic.Chess
 {
-    public class SimpleSearch : SearchBase
+    public class MinimalSearch : SearchBase
     {
-        public SimpleSearch(Board board, TimeControl time, int maxSearchDepth, long maxNodes = long.MaxValue - 100) 
+        public MinimalSearch(Board board, TimeControl time, int maxSearchDepth, long maxNodes = long.MaxValue - 100) 
             : base(board, time, maxSearchDepth, maxNodes)
         { }
 
         public override SearchResult Search(int alpha, int beta, int depth, int ply)
         {
-            if (board.HalfMoveClock >= 100 || board.GameDrawnByRepetition())
-            {
-                return DefaultResult;
-            }
-
             if (depth <= 0)
             {
                 return new SearchResult(QuiesceTt(alpha, beta, ply), EmptyPv);
@@ -26,27 +21,19 @@
                 return DefaultResult;
             }
 
-            bool inCheck = board.IsChecked();
-            int extension = inCheck ? 1 : 0;
-            if (Move.GetMoveType(board.LastMove) == MoveType.PawnMove &&
-                Index.GetRank(Index.NormalizedIndex[(int)board.OpponentColor][Move.GetTo(board.LastMove)]) == 6)
-            {
-                // another extension if pawn just moved to 7th rank
-                extension++;
-            }
-
+            bool isChecked = board.IsChecked();
             bool allowNullMove = !Evaluation.IsCheckmate(Result.Score) || (ply > Depth / 4);
 
-            if (allowNullMove && depth >= 2 && !inCheck && beta < Constants.INFINITE_WINDOW)
+            if (allowNullMove && depth >= 2 && !isChecked && beta < Constants.INFINITE_WINDOW)
             {
-                int R = depth <= 6 ? 1 : 2;
+                const int R = 2;
                 if (board.MakeMove(Move.NullMove))
                 {
                     SearchResult result = -SearchTt(-beta, -beta + 1, depth - R - 1, ply + 1);
                     board.UnmakeMove();
                     if (result.Score >= beta)
                     {
-                        return new SearchResult(beta, EmptyPv);
+                        return new SearchResult(result.Score, EmptyPv);
                     }
                 }
             }
@@ -64,20 +51,20 @@
                 }
 
                 expandedNodes++;
-                bool isCapture = Move.IsCapture(move);
-                bool isPromote = Move.IsPromote(move);
-                bool interesting = expandedNodes == 1 || inCheck || board.IsChecked() || isPromote;
 
-                if (ply > 0 && depth <= 3 && !interesting && !isCapture)
+                bool interesting = expandedNodes == 1 || isChecked || board.IsChecked();
+
+                if (ply > 0 && depth <= 4 && !interesting)
                 {
-                    if (evaluation.Compute(board) + futilityMargin[depth] <= alpha)
+                    int futilityMargin = depth * minimal_max_gain_per_ply;
+                    if (evaluation.Compute(board) + futilityMargin <= alpha)
                     {
                         board.UnmakeMove();
                         continue;
                     }
                 }
 
-                if (ply > 0 && depth >= 2 && expandedNodes > 1)
+                if (ply != 0 && depth >= 2 && expandedNodes > 1)
                 {
                     int R = (interesting || expandedNodes < 4) ? 0 : 2;
                     SearchResult r = -SearchTt(-alpha - 1, -alpha, depth - R - 1, ply + 1);
@@ -88,7 +75,7 @@
                     }
                 }
 
-                SearchResult result = -SearchTt(-beta, -alpha, depth + extension - 1, ply + 1);
+                SearchResult result = -SearchTt(-beta, -alpha, depth - 1, ply + 1);
                 board.UnmakeMove();
 
                 if (result.Score > alpha)
@@ -99,10 +86,10 @@
 
                     if (result.Score >= beta)
                     {
-                        if (!isCapture && !isPromote)
+                        if (Move.GetCapture(move) == Piece.None)
                         {
-                            killerMoves.Add(move, ply);
                             history.Update(Move.GetFrom(move), Move.GetTo(move), depth);
+                            killerMoves.Add(move, ply);
                         }
 
                         MoveListPool.Return(moveList);
@@ -114,7 +101,7 @@
             MoveListPool.Return(moveList);
             if (expandedNodes == 0)
             {
-                return new SearchResult(inCheck ? -Constants.CHECKMATE_SCORE + ply : 0, EmptyPv);
+                return new SearchResult(isChecked ? -Constants.CHECKMATE_SCORE + ply : 0, EmptyPv);
             }
 
             return new SearchResult(alpha, pv);
@@ -122,17 +109,20 @@
 
         private SearchResult SearchTt(int alpha, int beta, int depth, int ply)
         {
-            if (TtEval.TryGetScore(board.Hash, depth, ply, alpha, beta, out int score))
-            {
-                return new SearchResult(score, EmptyPv);
+            if (TtEval.TryGetScore(board.Hash, depth, ply, alpha, beta, out int ttScore))
+            { 
+                return new SearchResult(ttScore, EmptyPv);
+
             }
 
             SearchResult result = Search(alpha, beta, depth, ply);
 
-            TtEval.Add(board.Hash, depth, ply, alpha, beta, result.Score, result.Pv.Length > 0 ? result.Pv[0] : 0ul);
+            TtEval.Add(board.Hash, depth, ply, alpha, beta, result.Score, result.Pv.Length > 0 ? result.Pv[0] : 0);
+
             return result;
         }
 
-        private readonly int[] futilityMargin = { 100, 300, 600, 900 };
+        private const int minimal_max_gain_per_ply = 70;
+
     }
 }

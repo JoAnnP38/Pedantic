@@ -683,13 +683,21 @@ namespace Pedantic.Chess
         {
             short mobility = 0;
             Color other = (Color)((int)color ^ 1);
+            ulong pawnDefended = 0ul;
 
+            for (ulong pawns = Pieces(other, Piece.Pawn); pawns != 0ul; pawns = BitOps.ResetLsb(pawns))
+            {
+                int square = BitOps.TzCount(pawns);
+                pawnDefended |= pawnCaptures[(int)other][square];
+            }
+
+            ulong excluded = pawnDefended | Units(color);
             for (Piece piece = Piece.Knight; piece <= Piece.King; piece++)
             {
                 for (ulong pcLoc = Pieces(color, piece); pcLoc != 0; pcLoc = BitOps.ResetLsb(pcLoc))
                 {
                     int from = BitOps.TzCount(pcLoc);
-                    mobility += (short)BitOps.PopCount(BitOps.AndNot(GetPieceMoves(piece, from), Units(color)));
+                    mobility += (short)BitOps.PopCount(BitOps.AndNot(GetPieceMoves(piece, from), excluded));
                 }
             }
 
@@ -1249,12 +1257,13 @@ namespace Pedantic.Chess
             #endregion
         };
 
-        private static readonly ulong[,] pawnCaptures = new ulong[,]
-        {
+        private static readonly ulong[][] pawnCaptures =
+{
             #region pawnCaptures data
+            new[]
             {
-                0x0000000000000200ul, 0x0000000000000500ul, 0x0000000000000A00ul, 0x0000000000001400ul,
-                0x0000000000002800ul, 0x0000000000005000ul, 0x000000000000A000ul, 0x0000000000004000ul,
+                0x0000000000000000ul, 0x0000000000000000ul, 0x0000000000000000ul, 0x0000000000000000ul,
+                0x0000000000000000ul, 0x0000000000000000ul, 0x0000000000000000ul, 0x0000000000000000ul,
                 0x0000000000020000ul, 0x0000000000050000ul, 0x00000000000A0000ul, 0x0000000000140000ul,
                 0x0000000000280000ul, 0x0000000000500000ul, 0x0000000000A00000ul, 0x0000000000400000ul,
                 0x0000000002000000ul, 0x0000000005000000ul, 0x000000000A000000ul, 0x0000000014000000ul,
@@ -1270,6 +1279,7 @@ namespace Pedantic.Chess
                 0x0000000000000000ul, 0x0000000000000000ul, 0x0000000000000000ul, 0x0000000000000000ul,
                 0x0000000000000000ul, 0x0000000000000000ul, 0x0000000000000000ul, 0x0000000000000000ul
             },
+            new[]
             {
                 0x0000000000000000ul, 0x0000000000000000ul, 0x0000000000000000ul, 0x0000000000000000ul,
                 0x0000000000000000ul, 0x0000000000000000ul, 0x0000000000000000ul, 0x0000000000000000ul,
@@ -1285,10 +1295,11 @@ namespace Pedantic.Chess
                 0x0000002800000000ul, 0x0000005000000000ul, 0x000000A000000000ul, 0x0000004000000000ul,
                 0x0000020000000000ul, 0x0000050000000000ul, 0x00000A0000000000ul, 0x0000140000000000ul,
                 0x0000280000000000ul, 0x0000500000000000ul, 0x0000A00000000000ul, 0x0000400000000000ul,
-                0x0002000000000000ul, 0x0005000000000000ul, 0x000A000000000000ul, 0x0014000000000000ul,
-                0x0028000000000000ul, 0x0050000000000000ul, 0x00A0000000000000ul, 0x0040000000000000ul
+                0x0000000000000000ul, 0x0000000000000000ul, 0x0000000000000000ul, 0x0000000000000000ul,
+                0x0000000000000000ul, 0x0000000000000000ul, 0x0000000000000000ul, 0x0000000000000000ul
             }
-            #endregion
+
+            #endregion pawnCaptures data
         };
 
         private static readonly ulong[][] pieceMoves = 

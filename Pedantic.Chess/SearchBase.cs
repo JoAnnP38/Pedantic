@@ -35,6 +35,7 @@ namespace Pedantic.Chess
         {
             Engine.Color = board.SideToMove;
             Depth = 0;
+            int score = 0;
             ulong? ponderMove = null;
 
             if (board.OneLegalMove(out ulong bestMove))
@@ -43,24 +44,13 @@ namespace Pedantic.Chess
                 return;
             }
 
-            while (Depth++ < maxSearchDepth && time.CanSearchDeeper() && !Evaluation.IsCheckmate(Result.Score))
+            while (Depth++ < maxSearchDepth && time.CanSearchDeeper() && !Evaluation.IsCheckmate(score))
             {
                 time.StartInterval();
                 history.Rescale();
                 UpdateTtWithPv(Result.Pv, Depth);
 
-                for (int w = 0; w < window.Length; w++)
-                {
-                    int alpha = Result.Score - window[w];
-                    int beta = Result.Score + window[w];
-
-                    Result = Search(alpha, beta, Depth, 0);
-
-                    if (wasAborted || (Result.Score > alpha && Result.Score < beta))
-                    {
-                        break;
-                    }
-                }
+                Result = Search(-Constants.INFINITE_WINDOW, Constants.INFINITE_WINDOW, Depth, 0);
 
                 if (wasAborted)
                 {
@@ -68,6 +58,7 @@ namespace Pedantic.Chess
                 }
 
                 ReportSearchResults(out bestMove, out ponderMove);
+                score = Result.Score;
             }
 
             if (Pondering)
@@ -87,7 +78,28 @@ namespace Pedantic.Chess
             Uci.BestMove(bestMove, ponderMove);
         }
 
-        public abstract SearchResult Search(int alpha, int beta, int depth, int ply, bool canNull = true);
+        public virtual void ScoutSearch()
+        {
+            Depth = 0;
+
+            while (Depth++ < maxSearchDepth && time.CanSearchDeeper() && !Evaluation.IsCheckmate(Result.Score))
+            {
+                time.StartInterval();
+                history.Rescale();
+                UpdateTtWithPv(Result.Pv, Depth);
+
+                Result = Search(-Constants.INFINITE_WINDOW, Constants.INFINITE_WINDOW, Depth, 0);
+
+                if (wasAborted)
+                {
+                    break;
+                }
+
+                Result = new SearchResult(Result.Score, ExtractPv(Result.Pv, Depth));
+            }
+        }
+
+        public abstract SearchResult Search(int alpha, int beta, int depth, int ply);
 
         protected virtual int QuiesceTt(int alpha, int beta, int ply)
         {
@@ -202,25 +214,9 @@ namespace Pedantic.Chess
             }
 
             NodesVisited++;
-            bool inCheck = board.IsChecked();
-            bool allowNull = !Evaluation.IsCheckmate(Result.Score) || (ply > Depth / 4);
-            if (allowNull && depth >= 2 && !inCheck && beta < Constants.INFINITE_WINDOW)
-            {
-                int R = depth <= 6 ? 1 : 2;
-                if (board.MakeMove(Move.NullMove))
-                {
-                    int score = -ZwSearchTt(-beta + 1, depth - R - 1, ply + 1);
-                    board.UnmakeMove();
-                    if (score >= beta)
-                    {
-                        return beta;
-                    }
-                }
-            }
 
             history.SideToMove = board.SideToMove;
             MoveList moveList = MoveListPool.Get();
-            int expandedNodes = 0;
 
             foreach (ulong move in board.Moves(ply, killerMoves, history, moveList))
             {
@@ -228,8 +224,6 @@ namespace Pedantic.Chess
                 {
                     continue;
                 }
-
-                expandedNodes++;
 
                 int score = -ZwSearchTt(-beta + 1, depth - 1, ply + 1);
                 board.UnmakeMove();
@@ -356,6 +350,6 @@ namespace Pedantic.Chess
         protected readonly ObjectPool<MoveList> MoveListPool = new(Constants.MAX_PLY);
         protected static readonly ulong[] EmptyPv = Array.Empty<ulong>();
         protected static readonly SearchResult DefaultResult = new(0, EmptyPv);
-        protected static readonly int[] window = { 25, 75, 200, Constants.INFINITE_WINDOW };
+        protected static readonly int[] window = { 25, 75, 225, Constants.INFINITE_WINDOW };
     }
 }
