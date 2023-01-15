@@ -11,7 +11,7 @@ namespace Pedantic.UnitTests
         [TestMethod]
         public void SearchTest()
         {
-            TtEval.Resize(128);
+            TtTran.Resize(128);
             Board bd = new(Constants.FEN_START_POS);
             TimeControl time = new();
             time.Go(400000, 6000, 40);
@@ -26,7 +26,7 @@ namespace Pedantic.UnitTests
         [TestMethod]
         public void SearchTest2()
         {
-            TtEval.Resize(128);
+            TtTran.Resize(128);
             Board bd = new(Constants.FEN_START_POS);
             TimeControl time = new()
             {
@@ -41,7 +41,7 @@ namespace Pedantic.UnitTests
             bd.MakeMove(search.Result.Pv[0]);
             Console.WriteLine();
 
-            TtEval.Clear();
+            TtTran.Clear();
             time.Reset();
             search = new(bd, time, 3);
             task = Task.Run(() => search.Search());

@@ -9,7 +9,7 @@ namespace Pedantic.Genetics
     {
         public const double MUTATION_PROBABILITY = 0.0002d;
         public const int MAX_AGE = 5;
-        public const int MAX_WEIGHTS = 932;
+        public const int MAX_WEIGHTS = 934;
         public const int MAX_PARENTS = 2;
         public const int PIECE_WEIGHT_LENGTH = 6;
         public const int PIECE_SQUARE_LENGTH = 384;
@@ -47,6 +47,8 @@ namespace Pedantic.Genetics
         public const int ENDGAME_ADJACENT_PAWNS_OFFSET = 924;
         public const int OPENING_BISHOP_PAIR_OFFSET = 930;
         public const int ENDGAME_BISHOP_PAIR_OFFSET = 931;
+        public const int OPENING_PAWN_MAJORITY_OFFSET = 932;
+        public const int ENDGAME_PAWN_MAJORITY_OFFSET = 933;
 
         public readonly struct WtInfo
         {
@@ -651,9 +653,9 @@ namespace Pedantic.Genetics
             5, // rank 2
             5, // rank 3
             5, // rank 4
-            10, // rank 5
-            10, // rank 6
-            15, // rank 7
+            25, // rank 5
+            25, // rank 6
+            125, // rank 7
 
             #endregion
 
@@ -665,9 +667,9 @@ namespace Pedantic.Genetics
             5, // rank 2
             5, // rank 3
             5, // rank 4
-            10, // rank 5
-            10, // rank 6
-            15, // rank 7
+            25, // rank 5
+            25, // rank 6
+            125, // rank 7
 
             #endregion
 
@@ -703,7 +705,13 @@ namespace Pedantic.Genetics
             20,
 
             /* end game bishop pair */
-            20
+            20,
+
+            /* opening pawn majority bonus */
+            25,
+
+            /* end game pawn majority bonus */
+            25
         };
 
         private static readonly WtInfo[] wtInfos =
@@ -741,7 +749,9 @@ namespace Pedantic.Genetics
             new WtInfo("opAdjacent", 918, 924, 0, 401),
             new WtInfo("egAdjacent", 924, 930, 0, 401),
             new WtInfo("opBPair", 930, 931, 0, 101),
-            new WtInfo("egBPair", 931, 932, 0, 101)
+            new WtInfo("egBPair", 931, 932, 0, 101),
+            new WtInfo("opPawnMajority", 932, 933, 0, 101),
+            new WtInfo("egPawnMajority", 933, 934, 0, 101)
         };
     }
 }

@@ -13,8 +13,8 @@ namespace Pedantic.Chess
 {
     public static class TtPawnEval
     {
-        public const int DEFAULT_SIZE_MB = 5;
-        public const int MAX_SIZE_MB = 2047;
+        public const int DEFAULT_SIZE_MB = 12;
+        public const int MAX_SIZE_MB = 512;
         public const int ITEM_SIZE = 16;
         public const int MB_SIZE = 1024 * 1024;
 
@@ -22,8 +22,6 @@ namespace Pedantic.Chess
         {
             private ulong hash;
             private ulong data;
-            private short[]? opScores = null;
-            private short[]? egScores = null;
 
             public TtPawnItem(ulong hash, short[] opScores, short[] egScores)
             {

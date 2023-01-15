@@ -18,8 +18,12 @@ using System.Reflection.Emit;
 
 namespace Pedantic.Chess
 {
+
     public sealed class Evaluation
     {
+        public const ulong QUEEN_SIDE_MASK = 0x0F0F0F0F0F0F0F0Ful;
+        public const ulong KING_SIDE_MASK = 0xF0F0F0F0F0F0F0F0ul;
+
         public enum GamePhase
         {
             Opening,
@@ -37,7 +41,9 @@ namespace Pedantic.Chess
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsCheckmate(int score)
         {
-            return Math.Abs(score) > Constants.CHECKMATE_BASE;
+            int absValue = Math.Abs(score);
+            return absValue >= Constants.CHECKMATE_SCORE - Constants.MAX_PLY &&
+                   absValue <= Constants.CHECKMATE_SCORE;
         }
 
         public static void LoadWeights(string? id = null)
@@ -98,7 +104,10 @@ namespace Pedantic.Chess
 
         public short Compute(Board board)
         {
-            short score = 0;
+            if (TtEval.TryGetScore(board.Hash, out short score))
+            {
+                return score;
+            }
 
             Span<short> opScore = stackalloc short[2];
             opScore.Clear();
@@ -117,7 +126,8 @@ namespace Pedantic.Chess
                 int n = (int)color;
                 opScore[n] += (short)(board.OpeningMaterial[n] + board.OpeningPieceSquare[n]);
                 egScore[n] += (short)(board.EndGameMaterial[n] + board.EndGamePieceSquare[n]);
-                /*short mobility = board.GetPieceMobility(color);
+                /* put this back in when optimization starts
+                short mobility = board.GetPieceMobility(color);
                 opScore[n] += (short)(mobility * OpeningMobilityWeight);
                 egScore[n] += (short)(mobility * EndGameMobilityWeight);*/
             }
@@ -125,7 +135,10 @@ namespace Pedantic.Chess
             score = (short)((((opScore[0] - opScore[1]) * opWt) >> 7 /* / 128 */) + 
                             (((egScore[0] - egScore[1]) * egWt) >> 7 /* / 128 */));
 
-            return board.SideToMove == Color.White ? (short)score : (short)-score;
+            score = board.SideToMove == Color.White ? (short)score : (short)-score;
+
+            TtEval.Add(board.Hash, score);
+            return score;
         }
 
         public short ComputeMobility(Board board)
@@ -219,6 +232,18 @@ namespace Pedantic.Chess
                 ulong pawns = board.Pieces(color, Piece.Pawn);
                 Color other = (Color)(n ^ 1);
                 ulong otherPawns = board.Pieces(other, Piece.Pawn);
+
+                if (BitOps.PopCount(pawns & QUEEN_SIDE_MASK) > BitOps.PopCount(otherPawns & QUEEN_SIDE_MASK))
+                {
+                    openingScores[n] += OpeningPawnMajority;
+                    endgameScores[n] += EndGamePawnMajority;
+                }
+
+                if (BitOps.PopCount(pawns & KING_SIDE_MASK) > BitOps.PopCount(otherPawns & KING_SIDE_MASK))
+                {
+                    openingScores[n] += OpeningPawnMajority;
+                    endgameScores[n] += EndGamePawnMajority;
+                }
 
                 for (ulong p = pawns; p != 0; p = BitOps.ResetLsb(p))
                 {
@@ -425,7 +450,8 @@ namespace Pedantic.Chess
         public static ReadOnlySpan<short> EndGameAdjacentPawn => egAdjPawn.Span;
         public static short OpeningBishopPair => weights.Weights[ChessWeights.OPENING_BISHOP_PAIR_OFFSET];
         public static short EndGameBishopPair => weights.Weights[ChessWeights.ENDGAME_BISHOP_PAIR_OFFSET];
-
+        public static short OpeningPawnMajority => weights.Weights[ChessWeights.OPENING_PAWN_MAJORITY_OFFSET];
+        public static short EndGamePawnMajority => weights.Weights[ChessWeights.ENDGAME_PAWN_MAJORITY_OFFSET];
 
         private static ChessWeights weights = ChessWeights.Empty;
         private static ReadOnlyMemory<short> opKingAttack = new(Array.Empty<short>());

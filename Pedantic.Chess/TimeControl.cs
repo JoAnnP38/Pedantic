@@ -35,7 +35,7 @@ namespace Pedantic.Chess
         }
 
         public int TimePerMoveWithMargin => (remaining + (movesToGo - 1) * increment) / movesToGo - time_margin;
-        public int TimeRemainingWithMargin => Math.Min(remaining - time_margin, TimePerMoveWithMargin * 3);
+        public int TimeRemainingWithMargin => remaining - time_margin;
         private long Now => Stopwatch.GetTimestamp();
         public long Elapsed => MilliSeconds(Now - t0);
         public long ElapsedInterval => MilliSeconds(Now - tN);
@@ -103,8 +103,9 @@ namespace Pedantic.Chess
 
             if (!Infinite)
             {
-                //estimate the branching factor, if only one move to go we yolo with a low estimate
-                int multi = (movesToGo == 1) ? 1 : branching_factor_estimate;
+                //estimate the branching factor, but even if only 1 move to go don't 
+                // use more than half of remaining time
+                int multi = (movesToGo == 1) ? /*1*/ 2 : branching_factor_estimate;
                 long estimate = multi * ElapsedInterval;
                 long total = elapsed + estimate;
 
@@ -135,7 +136,7 @@ namespace Pedantic.Chess
                     return Elapsed > TimePerMoveWithMargin;
                 }
 
-                return Elapsed > TimeRemainingWithMargin;
+                return Elapsed > (TimeRemainingWithMargin >> 1);
             }
 
             return false;

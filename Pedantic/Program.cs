@@ -134,7 +134,7 @@ namespace Pedantic
                     Console.WriteLine($@"id author {AUTHOR}");
                     Console.WriteLine(@"option name OwnBook type check default true");
                     Console.WriteLine(@"option name Ponder type check default true");
-                    Console.WriteLine($@"option name Hash type spin default {TtEval.DEFAULT_SIZE_MB} min 1 max {TtEval.MAX_SIZE_MB}");
+                    Console.WriteLine($@"option name Hash type spin default {TtTran.DEFAULT_SIZE_MB} min 1 max {TtTran.MAX_SIZE_MB}");
                     Console.WriteLine(@"option name Clear Hash type button");
                     Console.WriteLine($@"option name MaxThreads type spin default 1 min 1 max {Math.Max(Environment.ProcessorCount - 2, 1)}");
                     Console.WriteLine($@"option name UCI_EngineAbout type string default {PROGRAM_NAME_VER} by {AUTHOR}, see {PROGRAM_URL}");

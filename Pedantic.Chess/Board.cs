@@ -565,7 +565,7 @@ namespace Pedantic.Chess
 
         public IEnumerable<ulong> Moves(int ply, KillerMoves killerMoves, History history, MoveList moveList)
         {
-            if (TtEval.TryGetBestMove(hash, out ulong bestMove))
+            if (TtTran.TryGetBestMove(hash, out ulong bestMove))
             {
                 int from = Move.GetFrom(bestMove);
                 int to = Move.GetTo(bestMove);

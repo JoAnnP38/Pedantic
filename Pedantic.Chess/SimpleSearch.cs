@@ -26,6 +26,11 @@
                 return DefaultResult;
             }
 
+            if (ply >= Constants.MAX_PLY - 1)
+            {
+                return new SearchResult(evaluation.Compute(board), EmptyPv);
+            }
+
             bool inCheck = board.IsChecked();
             int extension = inCheck ? 1 : 0;
             if (Move.GetMoveType(board.LastMove) == MoveType.PawnMove &&
@@ -37,9 +42,9 @@
 
             bool allowNullMove = !Evaluation.IsCheckmate(Result.Score) || (ply > Depth / 4);
 
-            if (allowNullMove && depth >= 2 && !inCheck && beta < Constants.INFINITE_WINDOW)
+            if (allowNullMove && depth > 2 && extension == 0 && board.LastMove != Move.NullMove && beta < Constants.INFINITE_WINDOW)
             {
-                int R = depth <= 6 ? 1 : 2;
+                int R = depth > 6 ? 3 : 2;
                 if (board.MakeMove(Move.NullMove))
                 {
                     SearchResult result = -SearchTt(-beta, -beta + 1, depth - R - 1, ply + 1);
@@ -68,9 +73,9 @@
                 bool isPromote = Move.IsPromote(move);
                 bool interesting = expandedNodes == 1 || inCheck || board.IsChecked() || isPromote;
 
-                if (ply > 0 && depth <= 3 && !interesting && !isCapture)
-                {
-                    if (evaluation.Compute(board) + futilityMargin[depth] <= alpha)
+                if (ply > 0 && depth <= 3 && !interesting && extension == 0)
+                {   
+                    if (-QuiesceTt(-beta, -alpha, ply) <= alpha)
                     {
                         board.UnmakeMove();
                         continue;
@@ -79,7 +84,7 @@
 
                 if (ply > 0 && depth >= 2 && expandedNodes > 1)
                 {
-                    int R = (interesting || expandedNodes < 4) ? 0 : 2;
+                    int R = (extension > 0 || interesting || expandedNodes < 4) ? 0 : 2;
                     SearchResult r = -SearchTt(-alpha - 1, -alpha, depth - R - 1, ply + 1);
                     if (r.Score <= alpha)
                     {
@@ -93,7 +98,7 @@
 
                 if (result.Score > alpha)
                 {
-                    TtEval.Add(board.Hash, depth, ply, alpha, beta, result.Score, move);
+                    TtTran.Add(board.Hash, depth, ply, alpha, beta, result.Score, move);
                     pv = MergeMove(result.Pv, move);
                     alpha = result.Score;
 
@@ -122,14 +127,14 @@
 
         private SearchResult SearchTt(int alpha, int beta, int depth, int ply)
         {
-            if (TtEval.TryGetScore(board.Hash, depth, ply, alpha, beta, out int score))
+            if (TtTran.TryGetScore(board.Hash, depth, ply, alpha, beta, out int score))
             {
                 return new SearchResult(score, EmptyPv);
             }
 
             SearchResult result = Search(alpha, beta, depth, ply);
 
-            TtEval.Add(board.Hash, depth, ply, alpha, beta, result.Score, result.Pv.Length > 0 ? result.Pv[0] : 0ul);
+            TtTran.Add(board.Hash, depth, ply, alpha, beta, result.Score, result.Pv.Length > 0 ? result.Pv[0] : 0ul);
             return result;
         }
 

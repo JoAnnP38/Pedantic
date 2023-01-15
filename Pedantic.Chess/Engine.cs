@@ -127,17 +127,16 @@ namespace Pedantic.Chess
 
         public static void ClearHashTable()
         {
+            TtTran.Clear();
             TtEval.Clear();
             TtPawnEval.Clear();
         }
 
         public static void ResizeHashTable(int sizeMb)
         {
-            // use 80% of hash table memory for normal transposition table
-            // the remaining 20% use for the pawn eval table
-            int transpositionSize = (sizeMb * 8) / 10;
-            TtEval.Resize(transpositionSize);
-            TtPawnEval.Resize(sizeMb - transpositionSize);
+            TtTran.Resize(sizeMb);
+            TtEval.Resize(sizeMb >> 1);
+            TtPawnEval.Resize(sizeMb >> 2);
         }
 
         public static bool SetupPosition(string fen)

@@ -35,7 +35,7 @@ namespace Pedantic.Chess
         {
             Engine.Color = board.SideToMove;
             Depth = 0;
-            int score = 0;
+            int score = short.MinValue;
             ulong? ponderMove = null;
 
             if (board.OneLegalMove(out ulong bestMove))
@@ -57,8 +57,13 @@ namespace Pedantic.Chess
                     break;
                 }
 
-                ReportSearchResults(out bestMove, out ponderMove);
+                ReportSearchResults(ref bestMove, out ponderMove);
                 score = Result.Score;
+
+                if (score == 0 && Result.Pv.Length == 0)
+                {
+                    break;
+                }
             }
 
             if (Pondering)
@@ -72,7 +77,7 @@ namespace Pedantic.Chess
 
                 if (waiting)
                 {
-                    ReportSearchResults(out bestMove, out ponderMove);
+                    ReportSearchResults(ref bestMove, out ponderMove);
                 }
             }
             Uci.BestMove(bestMove, ponderMove);
@@ -103,14 +108,14 @@ namespace Pedantic.Chess
 
         protected virtual int QuiesceTt(int alpha, int beta, int ply)
         {
-            if (TtEval.TryGetScore(board.Hash, 0, ply, alpha, beta, out int score))
+            if (TtTran.TryGetScore(board.Hash, 0, ply, alpha, beta, out int score))
             {
                 return score;
             }
 
             score = Quiesce(alpha, beta, ply);
 
-            TtEval.Add(board.Hash, 0, ply, alpha, beta, score, 0ul);
+            TtTran.Add(board.Hash, 0, ply, alpha, beta, score, 0ul);
             return score;
         }
 
@@ -239,14 +244,14 @@ namespace Pedantic.Chess
 
         protected virtual int ZwSearchTt(int beta, int depth, int ply)
         {
-            if (TtEval.TryGetScore(board.Hash, 0, ply, beta - 1, beta, out int score))
+            if (TtTran.TryGetScore(board.Hash, 0, ply, beta - 1, beta, out int score))
             {
                 return score;
             }
 
             score = ZwSearch(beta, depth, ply);
 
-            TtEval.Add(board.Hash, 0, ply, beta - 1, beta, score, 0ul);
+            TtTran.Add(board.Hash, 0, ply, beta - 1, beta, score, 0ul);
             return score;
         }
 
@@ -264,12 +269,12 @@ namespace Pedantic.Chess
             for (int n = 0; n < pv.Length; n++)
             {
                 ulong move = pv[n];
-                TtEval.Add(bd.Hash, (short)depth--, n, -short.MaxValue, short.MaxValue, Result.Score, move);
+                TtTran.Add(bd.Hash, (short)depth--, n, -short.MaxValue, short.MaxValue, Result.Score, move);
                 bd.MakeMove(move);
             }
         }
 
-        protected void ReportSearchResults(out ulong bestMove, out ulong? ponderMove)
+        protected void ReportSearchResults(ref ulong bestMove, out ulong? ponderMove)
         {
             Result = new SearchResult(Result.Score, ExtractPv(Result.Pv, Depth));
             if (IsCheckmate(Result.Score, out int mateIn))
@@ -281,7 +286,7 @@ namespace Pedantic.Chess
                 Uci.Info(Depth, Result.Score, NodesVisited, time.Elapsed, Result.Pv);
             }
 
-            bestMove = Result.Pv.Length > 0 ? Result.Pv[0] : 0;
+            bestMove = Result.Pv.Length > 0 ? Result.Pv[0] : bestMove;
             if (Result.Pv.Length > 1)
             {
                 ponderMove = Result.Pv[1];
@@ -309,7 +314,7 @@ namespace Pedantic.Chess
                     bd.MakeMove(move);
                 }
 
-                while (result.Count < depth && TtEval.TryGetBestMove(bd.Hash, out ulong bestMove) && bd.IsLegalMove(bestMove))
+                while (result.Count < depth && TtTran.TryGetBestMove(bd.Hash, out ulong bestMove) && bd.IsLegalMove(bestMove))
                 {
                     bd.MakeMove(bestMove);
                     result.Add(bestMove);
@@ -323,7 +328,8 @@ namespace Pedantic.Chess
         {
             mateIn = 0;
             int absScore = Math.Abs(score);
-            bool checkMate = absScore >= Constants.CHECKMATE_BASE;
+            bool checkMate = absScore >= Constants.CHECKMATE_SCORE - Constants.MAX_PLY &&
+                             absScore <= Constants.CHECKMATE_SCORE;
             if (checkMate)
             {
                 mateIn = ((Constants.CHECKMATE_SCORE - absScore + 1) / 2) * Math.Sign(score);

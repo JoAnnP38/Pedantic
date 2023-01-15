@@ -51,7 +51,6 @@
                 }
 
                 expandedNodes++;
-
                 bool interesting = expandedNodes == 1 || isChecked || board.IsChecked();
 
                 if (ply > 0 && depth <= 4 && !interesting)
@@ -80,7 +79,7 @@
 
                 if (result.Score > alpha)
                 {
-                    TtEval.Add(board.Hash, depth, ply, alpha, beta, result.Score, move);
+                    TtTran.Add(board.Hash, depth, ply, alpha, beta, result.Score, move);
                     pv = MergeMove(result.Pv, move);
                     alpha = result.Score;
 
@@ -109,7 +108,7 @@
 
         private SearchResult SearchTt(int alpha, int beta, int depth, int ply)
         {
-            if (TtEval.TryGetScore(board.Hash, depth, ply, alpha, beta, out int ttScore))
+            if (TtTran.TryGetScore(board.Hash, depth, ply, alpha, beta, out int ttScore))
             { 
                 return new SearchResult(ttScore, EmptyPv);
 
@@ -117,7 +116,7 @@
 
             SearchResult result = Search(alpha, beta, depth, ply);
 
-            TtEval.Add(board.Hash, depth, ply, alpha, beta, result.Score, result.Pv.Length > 0 ? result.Pv[0] : 0);
+            TtTran.Add(board.Hash, depth, ply, alpha, beta, result.Score, result.Pv.Length > 0 ? result.Pv[0] : 0);
 
             return result;
         }
