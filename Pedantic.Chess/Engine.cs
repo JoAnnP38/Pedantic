@@ -35,6 +35,7 @@ namespace Pedantic.Chess
         public static bool IsPondering { get; private set; } = false;
         public static bool CanPonder { get; set; } = true;
         public static bool UseOwnBook { get; set; } = true;
+        public static bool Infinite { get; set; } = false;
         public static Board Board => board;
         public static Color Color { get; set; } = Color.White;
   
@@ -57,12 +58,6 @@ namespace Pedantic.Chess
             set => searchThreads = /*Math.Max(Math.Min(value, Environment.ProcessorCount), 1)*/ 1;
         }
         public static Color SideToMove => board.SideToMove;
-
-        public static bool Infinite
-        {
-            get => time.Infinite;
-            set => time.Infinite = value;
-        }
 
         public static void Start()
         {
@@ -103,12 +98,7 @@ namespace Pedantic.Chess
         {
             Stop();
             IsPondering = ponder;
-            if (ponder)
-            {
-                Infinite = true;
-            }
-
-            time.Go(maxTime);
+            time.Go(maxTime, ponder || Infinite);
             StartSearch(maxDepth, maxNodes);
         }
 
@@ -116,12 +106,7 @@ namespace Pedantic.Chess
         {
             Stop();
             IsPondering = ponder;
-            if (ponder)
-            {
-                time.Infinite = true;
-            }
-                
-            time.Go(maxTime, increment, movesToGo);
+            time.Go(maxTime, increment, movesToGo, ponder || Infinite);
             StartSearch(maxDepth, maxNodes);
         }
 
@@ -203,7 +188,7 @@ namespace Pedantic.Chess
                 if (IsPondering)
                 {
                     IsPondering = false;
-                    Infinite = false;
+                    time.Infinite = false;
                 }
                 else
                 {
@@ -355,19 +340,7 @@ namespace Pedantic.Chess
                 }
             }
 
-            for (int n = 0; n < SearchThreads - 1; n++)
-            {
-                TimeControl scoutTime = time.Clone();
-                ISearch scout = new SimpleSearch(board.Clone(), scoutTime, maxDepth, maxNodes);
-                Thread scoutThread = new Thread(scout.ScoutSearch)
-                {
-                    Priority = ThreadPriority.Highest
-                };
-                scoutThread.Start();
-                scouts.Add(new Scout(scoutTime, scoutThread));
-            }
-
-            ISearch search = new SimpleSearch(board, time, maxDepth, maxNodes)
+            ISearch search = new BasicSearch(board, time, maxDepth, maxNodes)
             {
                 Pondering = IsPondering
             };

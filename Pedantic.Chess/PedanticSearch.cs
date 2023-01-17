@@ -1,12 +1,12 @@
 ﻿namespace Pedantic.Chess
 {
-    public class SimpleSearch : SearchBase
+    public class PedanticSearch : SearchBase
     {
-        public SimpleSearch(Board board, TimeControl time, int maxSearchDepth, long maxNodes = long.MaxValue - 100) 
+        public PedanticSearch(Board board, TimeControl time, int maxSearchDepth, long maxNodes = long.MaxValue - 100) 
             : base(board, time, maxSearchDepth, maxNodes)
         { }
 
-        public override SearchResult Search(int alpha, int beta, int depth, int ply)
+        public override SearchResult Search(int alpha, int beta, int depth, int ply, bool canNull = true, bool isPv = true)
         {
             if (board.HalfMoveClock >= 100 || board.GameDrawnByRepetition())
             {
@@ -42,9 +42,10 @@
 
             bool allowNullMove = !Evaluation.IsCheckmate(Result.Score) || (ply > Depth / 4);
 
-            if (allowNullMove && depth > 2 && extension == 0 && board.LastMove != Move.NullMove && beta < Constants.INFINITE_WINDOW)
+            if (allowNullMove && depth > 2 && extension == 0 && board.LastMove != Move.NullMove && 
+                board.HasMinorMajorPieces(board.OpponentColor, 500) && beta < Constants.INFINITE_WINDOW)
             {
-                int R = depth > 6 ? 3 : 2;
+                int R = 2;
                 if (board.MakeMove(Move.NullMove))
                 {
                     SearchResult result = -SearchTt(-beta, -beta + 1, depth - R - 1, ply + 1);
@@ -69,13 +70,14 @@
                 }
 
                 expandedNodes++;
+                int originalAlpha = alpha;
                 bool isCapture = Move.IsCapture(move);
                 bool isPromote = Move.IsPromote(move);
                 bool interesting = expandedNodes == 1 || inCheck || board.IsChecked() || isPromote;
 
-                if (ply > 0 && depth <= 3 && !interesting && extension == 0)
-                {   
-                    if (-QuiesceTt(-beta, -alpha, ply) <= alpha)
+                if (ply > 0 && depth <= 2 && !interesting && expandedNodes > 8)
+                {
+                    if (evaluation.Compute(board) + futilityMargin[depth] <= alpha)
                     {
                         board.UnmakeMove();
                         continue;
@@ -98,7 +100,7 @@
 
                 if (result.Score > alpha)
                 {
-                    TtTran.Add(board.Hash, depth, ply, alpha, beta, result.Score, move);
+                    TtTran.Add(board.Hash, depth, ply, originalAlpha, beta, result.Score, move);
                     pv = MergeMove(result.Pv, move);
                     alpha = result.Score;
 

@@ -134,7 +134,7 @@ namespace Pedantic.Chess
         public int HalfMoveClock => halfMoveClock;
         public int FullMoveCounter => fullMoveCounter;
         public ulong Hash => hash;
-        public short[] Material => material;
+        public short Material(Color color) => material[(int)color];
         public short TotalMaterial => (short)(material[0] + material[1]);
         public bool[] Castled => castled;
         public ulong PawnHash => pawnHash;
@@ -241,6 +241,13 @@ namespace Pedantic.Chess
             return matchCount == 3;
         }
 
+        public bool InsufficientMaterialForMate()
+        {
+            return Material(Color.White) <= 300 && Material(Color.Black) <= 300 &&
+                   Pieces(Color.White, Piece.Pawn) == 0ul &&
+                   Pieces(Color.Black, Piece.Pawn) == 0ul;
+        }
+
         public bool IsEnPassantValid(Color color)
         {
             if (enPassant == Index.None)
@@ -250,6 +257,35 @@ namespace Pedantic.Chess
 
             return (PawnDefends(color, enPassant) & Pieces(color, Piece.Pawn)) != 0;
         }
+
+        public bool HasMinorMajorPieces(Color color, int minMaterial)
+        {
+            int mat = 0;
+            for (Piece piece = Piece.Knight; piece <= Piece.Queen; piece++)
+            {
+                mat += BitOps.PopCount(Pieces(color, piece)) * Evaluation.CanonicalPieceValues[(int)piece];
+                if (mat >= minMaterial)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        public bool IsPromotionThreat(ulong move)
+        {
+            if (move != Move.NullMove)
+            {
+                int to = Move.GetTo(move);
+                Square sq = board[to];
+                int normalizedRank = Index.GetRank(Index.NormalizedIndex[(int)sq.Color][to]);
+                return sq.Piece == Piece.Pawn && normalizedRank == 6;
+            }
+
+            return false;
+        }
+
         public ReadOnlySpan<Square> GetSquares()
         {
             return new ReadOnlySpan<Square>(board);
@@ -559,7 +595,7 @@ namespace Pedantic.Chess
             return false;
         }
 
-#endregion
+        #endregion
 
         #region Move Generation
 

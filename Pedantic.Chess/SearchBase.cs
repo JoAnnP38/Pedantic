@@ -31,26 +31,50 @@ namespace Pedantic.Chess
         public bool MustAbort => NodesVisited >= maxNodes ||
                                  ((NodesVisited & CHECK_TC_NODES_MASK) == 0 && time.CheckTimeBudget());
 
+        public int Contempt
+        {
+            get
+            {
+                int contempt = board.TotalMaterial > Evaluation.EndGamePhaseMaterial ? -50 : 0;
+                if (board.SideToMove == Engine.Color)
+                {
+                    return contempt;
+                }
+
+                return -contempt;
+            }
+        }
+
         public virtual void Search()
         {
             Engine.Color = board.SideToMove;
             Depth = 0;
-            int score = short.MinValue;
             ulong? ponderMove = null;
+            bool oneLegalMove = board.OneLegalMove(out ulong bestMove);
 
-            if (board.OneLegalMove(out ulong bestMove))
-            {
-                Uci.BestMove(bestMove);
-                return;
-            }
-
-            while (Depth++ < maxSearchDepth && time.CanSearchDeeper() && !Evaluation.IsCheckmate(score))
+            while (Depth++ < maxSearchDepth && time.CanSearchDeeper() && Math.Abs(Result.Score) != Constants.CHECKMATE_SCORE)
             {
                 time.StartInterval();
                 history.Rescale();
                 UpdateTtWithPv(Result.Pv, Depth);
 
-                Result = Search(-Constants.INFINITE_WINDOW, Constants.INFINITE_WINDOW, Depth, 0);
+                for (int i = 0; i < window.Length; i++)
+                {
+                    int alpha = Result.Score - window[i];
+                    int beta = Result.Score + window[i];
+
+                    Result = Search(alpha, beta, Depth, 0);
+
+                    if (wasAborted)
+                    {
+                        break;
+                    }
+
+                    if (Result.Score > alpha && Result.Score < beta)
+                    {
+                        break;
+                    }
+                }
 
                 if (wasAborted)
                 {
@@ -58,9 +82,8 @@ namespace Pedantic.Chess
                 }
 
                 ReportSearchResults(ref bestMove, out ponderMove);
-                score = Result.Score;
 
-                if (score == 0 && Result.Pv.Length == 0)
+                if (Depth == 5 && oneLegalMove)
                 {
                     break;
                 }
@@ -104,7 +127,7 @@ namespace Pedantic.Chess
             }
         }
 
-        public abstract SearchResult Search(int alpha, int beta, int depth, int ply);
+        public abstract SearchResult Search(int alpha, int beta, int depth, int ply, bool canNull = true, bool isPv = true);
 
         protected virtual int QuiesceTt(int alpha, int beta, int ply)
         {
@@ -134,9 +157,9 @@ namespace Pedantic.Chess
                 return evaluation.Compute(board);
             }
 
-            if (board.HalfMoveClock >= 100 || board.GameDrawnByRepetition())
+            if (IsDraw())
             {
-                return 0;
+                return Contempt;
             }
 
             history.SideToMove = board.SideToMove;
@@ -169,6 +192,11 @@ namespace Pedantic.Chess
                 int score = -QuiesceTt(-beta, -alpha, ply + 1);
                 board.UnmakeMove();
 
+                if (wasAborted)
+                {
+                    break;
+                }
+
                 if (score > alpha)
                 {
                     alpha = score;
@@ -179,6 +207,12 @@ namespace Pedantic.Chess
                         return beta;
                     }
                 }
+            }
+
+            if (wasAborted)
+            {
+                MoveListPool.Return(moveList);
+                return 0;
             }
 
             if (expandedNodes == 0)
@@ -192,7 +226,7 @@ namespace Pedantic.Chess
                 if (!board.HasLegalMoves(moveList))
                 {
                     MoveListPool.Return(moveList);
-                    return 0;
+                    return Contempt;
                 }
             }
 
@@ -202,15 +236,14 @@ namespace Pedantic.Chess
 
         protected virtual int ZwSearch(int beta, int depth, int ply)
         {
-            if (MustAbort || wasAborted)
+            if (IsDraw())
             {
-                wasAborted = true;
-                return beta - 1;
+                return Contempt;
             }
 
-            if (board.HalfMoveClock >= 100 || board.GameDrawnByRepetition())
+            if (ply >= Constants.MAX_PLY - 1)
             {
-                return 0;
+                return evaluation.Compute(board);
             }
 
             if (depth <= 0)
@@ -220,6 +253,15 @@ namespace Pedantic.Chess
 
             NodesVisited++;
 
+            if (MustAbort || wasAborted)
+            {
+                wasAborted = true;
+                return 0;
+            }
+
+            bool inCheck = board.IsChecked();
+            
+            int expandedNodes = 0;
             history.SideToMove = board.SideToMove;
             MoveList moveList = MoveListPool.Get();
 
@@ -230,13 +272,39 @@ namespace Pedantic.Chess
                     continue;
                 }
 
+                expandedNodes++;
+
                 int score = -ZwSearchTt(-beta + 1, depth - 1, ply + 1);
                 board.UnmakeMove();
 
+                if (wasAborted)
+                {
+                    break;
+                }
+
                 if (score >= beta)
                 {
+                    if (!Move.IsCapture(move))
+                    {
+                        killerMoves.Add(move, ply);
+                        history.Update(Move.GetFrom(move), Move.GetTo(move), depth);
+                    }
+
+                    MoveListPool.Return(moveList);
                     return beta;
                 }
+            }
+
+            MoveListPool.Return(moveList);
+
+            if (wasAborted)
+            {
+                return 0;
+            }
+
+            if (expandedNodes == 0)
+            {
+                return inCheck ? -Constants.CHECKMATE_SCORE + ply : Contempt;
             }
 
             return beta - 1;
@@ -338,6 +406,11 @@ namespace Pedantic.Chess
             return checkMate;
         }
 
+        protected bool IsDraw()
+        {
+            return board.HalfMoveClock >= 100 || board.GameDrawnByRepetition() || board.InsufficientMaterialForMate();
+        }
+
         protected const int CHECK_TC_NODES_MASK = 31;
         protected const short DELTA_PRUNING_MARGIN = 200;
         protected const int MAX_GAIN_PER_PLY = 100;
@@ -356,6 +429,6 @@ namespace Pedantic.Chess
         protected readonly ObjectPool<MoveList> MoveListPool = new(Constants.MAX_PLY);
         protected static readonly ulong[] EmptyPv = Array.Empty<ulong>();
         protected static readonly SearchResult DefaultResult = new(0, EmptyPv);
-        protected static readonly int[] window = { 25, 75, 225, Constants.INFINITE_WINDOW };
+        protected static readonly int[] window = { 25, 75, Constants.INFINITE_WINDOW };
     }
 }

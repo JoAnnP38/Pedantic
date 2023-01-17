@@ -79,6 +79,18 @@ namespace Pedantic.Chess
             return GetPromote(move) != Piece.None;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool IsPawnMove(ulong move)
+        {
+            return GetMoveType(move) == MoveType.PawnMove;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool IsQuiet(ulong move)
+        {
+            return !IsPawnMove(move) && !IsCapture(move) && !IsPromote(move);
+        }
+
         public static void UnpackMove(ulong move, out int from, out int to, out MoveType type, out Piece capture,
             out Piece promote, out int score)
         {

@@ -9,7 +9,7 @@ namespace Pedantic.Chess
 {
     public sealed class TimeControl : ICloneable
     {
-        const int time_margin = 25;
+        const int time_margin = 50;
         const int branching_factor_estimate = 3;
         const int max_time_remaining = int.MaxValue / 3;
 
@@ -70,6 +70,7 @@ namespace Pedantic.Chess
             remaining = max_time_remaining;
             t0 = Now;
             tN = t0;
+            infinite = false;
         }
 
         public void StartInterval()
@@ -83,18 +84,20 @@ namespace Pedantic.Chess
             remaining = 0;
         }
 
-        public void Go(int timePerMove)
+        public void Go(int timePerMove, bool ponder = false)
         {
             Reset();
             remaining = Math.Min(timePerMove, max_time_remaining);
+            infinite = ponder;
         }
 
-        public void Go(int time, int increment, int movesToGo)
+        public void Go(int time, int increment, int movesToGo, bool ponder= false)
         {
             Reset();
             remaining = Math.Min(time, max_time_remaining);
             this.increment = increment;
             this.movesToGo = movesToGo;
+            infinite = ponder;
         }
 
         public bool CanSearchDeeper()
@@ -103,9 +106,8 @@ namespace Pedantic.Chess
 
             if (!Infinite)
             {
-                //estimate the branching factor, but even if only 1 move to go don't 
-                // use more than half of remaining time
-                int multi = (movesToGo == 1) ? /*1*/ 2 : branching_factor_estimate;
+                //estimate the branching factor
+                int multi = (movesToGo == 1) ? 1 : branching_factor_estimate;
                 long estimate = multi * ElapsedInterval;
                 long total = elapsed + estimate;
 

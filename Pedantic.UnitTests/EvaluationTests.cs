@@ -92,8 +92,8 @@ namespace Pedantic.UnitTests
             Assert.AreEqual(opBlackMaterial, board.OpeningMaterial[(int)Color.Black]);
             Assert.AreEqual(egWhiteMaterial, board.EndGameMaterial[(int)Color.White]);
             Assert.AreEqual(egBlackMaterial, board.EndGameMaterial[(int)Color.Black]);
-            Assert.AreEqual(whiteMaterial, board.Material[(int)Color.White]);
-            Assert.AreEqual(blackMaterial, board.Material[(int)Color.Black]);
+            Assert.AreEqual(whiteMaterial, board.Material(Color.White));
+            Assert.AreEqual(blackMaterial, board.Material(Color.Black));
         }
 
         [TestMethod]

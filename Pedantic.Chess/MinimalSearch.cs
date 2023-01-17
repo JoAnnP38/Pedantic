@@ -6,7 +6,7 @@
             : base(board, time, maxSearchDepth, maxNodes)
         { }
 
-        public override SearchResult Search(int alpha, int beta, int depth, int ply)
+        public override SearchResult Search(int alpha, int beta, int depth, int ply, bool canNull = true, bool isPv = true)
         {
             if (depth <= 0)
             {

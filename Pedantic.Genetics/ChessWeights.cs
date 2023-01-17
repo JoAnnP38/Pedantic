@@ -616,10 +616,10 @@ namespace Pedantic.Genetics
 
 
             /* opening isolated pawns */
-            -5,
+            -10,
 
             /* end game isolated pawns */
-            -5,
+            -10,
 
             /* opening backward pawn */
             -5,

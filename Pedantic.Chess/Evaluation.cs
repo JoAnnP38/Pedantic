@@ -341,8 +341,7 @@ namespace Pedantic.Chess
                 opWt = 128;
                 egWt = 0;
             }
-            else if (board.Material[(int)Color.White] + board.Material[(int)Color.Black] <=
-                     Evaluation.EndGamePhaseMaterial)
+            else if (board.Material(Color.White) + board.Material(Color.Black) <= EndGamePhaseMaterial)
             {
                 gamePhase = GamePhase.EndGame;
                 opWt = 0;
@@ -351,9 +350,8 @@ namespace Pedantic.Chess
             else
             {
                 gamePhase = GamePhase.MidGame;
-                int totMaterial = Constants.TOTAL_STARTING_MATERIAL - Evaluation.EndGamePhaseMaterial;
-                int curMaterial = board.Material[(int)Color.White] + board.Material[(int)Color.Black] -
-                                            Evaluation.EndGamePhaseMaterial;
+                int totMaterial = Constants.TOTAL_STARTING_MATERIAL - EndGamePhaseMaterial;
+                int curMaterial = board.Material(Color.White) + board.Material(Color.Black) - EndGamePhaseMaterial;
                 opWt = (curMaterial * 128) / totMaterial;
                 egWt = 128 - opWt;
             }
