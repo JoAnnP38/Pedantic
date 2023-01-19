@@ -139,7 +139,5 @@
             TtTran.Add(board.Hash, depth, ply, alpha, beta, result.Score, result.Pv.Length > 0 ? result.Pv[0] : 0ul);
             return result;
         }
-
-        private readonly int[] futilityMargin = { 100, 300, 600, 900 };
     }
 }

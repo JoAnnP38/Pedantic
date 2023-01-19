@@ -1,24 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics.Tracing;
-using System.Linq;
-using System.Numerics;
-using System.Reflection.Metadata.Ecma335;
-using System.Security.Cryptography.X509Certificates;
-using System.Text;
-using System.Threading.Tasks;
-using Pedantic.Genetics;
-using LiteDB;
+﻿using Pedantic.Genetics;
 using Pedantic.Collections;
 using Pedantic.Utilities;
 using System.Runtime.CompilerServices;
-using static System.Formats.Asn1.AsnWriter;
-using System.Drawing;
-using System.Reflection.Emit;
+
 
 namespace Pedantic.Chess
 {
-
     public sealed class Evaluation
     {
         public const ulong QUEEN_SIDE_MASK = 0x0F0F0F0F0F0F0F0Ful;
@@ -232,6 +219,7 @@ namespace Pedantic.Chess
                 ulong pawns = board.Pieces(color, Piece.Pawn);
                 Color other = (Color)(n ^ 1);
                 ulong otherPawns = board.Pieces(other, Piece.Pawn);
+                int otherKingIndex = BitOps.TzCount(board.Pieces(other, Piece.King));
 
                 if (BitOps.PopCount(pawns & QUEEN_SIDE_MASK) > BitOps.PopCount(otherPawns & QUEEN_SIDE_MASK))
                 {
@@ -245,6 +233,7 @@ namespace Pedantic.Chess
                     endgameScores[n] += EndGamePawnMajority;
                 }
 
+                int closestToPromote = Index.None;
                 for (ulong p = pawns; p != 0; p = BitOps.ResetLsb(p))
                 {
                     int sq = BitOps.TzCount(p);
@@ -255,6 +244,11 @@ namespace Pedantic.Chess
                     {
                         openingScores[n] += OpeningPassedPawn[normalRank];
                         endgameScores[n] += EndGamePassedPawn[normalRank];
+
+                        if (closestToPromote == Index.None || normalRank > Index.GetRank(Index.NormalizedIndex[n][closestToPromote]))
+                        {
+                            closestToPromote = sq;
+                        }
                     }
 
                     if ((pawns & isolatedPawnMasks[sq]) == 0)
@@ -273,6 +267,24 @@ namespace Pedantic.Chess
                     {
                         openingScores[n] += OpeningAdjacentPawn[normalRank];
                         endgameScores[n] += EndGameAdjacentPawn[normalRank];
+                    }
+                }
+
+                if (closestToPromote != Index.None)
+                {
+                    int normalIndex = Index.NormalizedIndex[n][closestToPromote];
+                    int normalRank = Index.GetRank(normalIndex);
+                    int promoteDistance = Coord.MaxValue - normalRank;
+                    int captureDistance = Index.Distance(otherKingIndex, closestToPromote);
+                    if (board.SideToMove == color)
+                    {
+                        promoteDistance--;
+                    }
+
+                    if (captureDistance < promoteDistance)
+                    {
+                        opScores[(int)other] += OpeningKingNearPassedPawn;
+                        egScores[(int)other] += EndGameKingNearPassedPawn;
                     }
                 }
 
@@ -450,6 +462,8 @@ namespace Pedantic.Chess
         public static short EndGameBishopPair => weights.Weights[ChessWeights.ENDGAME_BISHOP_PAIR_OFFSET];
         public static short OpeningPawnMajority => weights.Weights[ChessWeights.OPENING_PAWN_MAJORITY_OFFSET];
         public static short EndGamePawnMajority => weights.Weights[ChessWeights.ENDGAME_PAWN_MAJORITY_OFFSET];
+        public static short OpeningKingNearPassedPawn => weights.Weights[ChessWeights.OPENING_KING_NEAR_PASSED_PAWN_OFFSET];
+        public static short EndGameKingNearPassedPawn => weights.Weights[ChessWeights.ENDGAME_KING_NEAR_PASSED_PAWN_OFFSET];
 
         private static ChessWeights weights = ChessWeights.Empty;
         private static ReadOnlyMemory<short> opKingAttack = new(Array.Empty<short>());

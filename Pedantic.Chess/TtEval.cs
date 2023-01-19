@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -27,9 +28,10 @@ namespace Pedantic.Chess
             public ulong Hash => hash ^ data;
             public short Score => (short)data;
 
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public bool IsValid(ulong hash)
             {
-                return Hash == hash;
+                return (this.hash ^ data) == hash;
             }
 
             public static void SetValue(ref TtEvalItem item, ulong hash, short score)
@@ -60,9 +62,10 @@ namespace Pedantic.Chess
         {
             score = 0;
             int index = GetIndex(hash);
-            if (table[index].IsValid(hash))
+            ref TtEvalItem item = ref table[index];
+            if (item.IsValid(hash))
             {
-                score = table[index].Score;
+                score = item.Score;
                 return true;
             }
 
@@ -80,6 +83,7 @@ namespace Pedantic.Chess
             table = new TtEvalItem[capacity];
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static int GetIndex(ulong hash)
         {
             return (int)(hash % (ulong)capacity);

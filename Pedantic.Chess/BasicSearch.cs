@@ -15,17 +15,17 @@ namespace Pedantic.Chess
         {
             if (IsDraw())
             {
-                return new SearchResult(Contempt, EmptyPv);
+                return new SearchResult(Contempt);
             }
 
             if (ply >= Constants.MAX_PLY - 1)
             {
-                return new SearchResult(evaluation.Compute(board), EmptyPv);
+                return new SearchResult(evaluation.Compute(board));
             }
 
             if (depth <= 0)
             {
-                return new SearchResult(QuiesceTt(alpha, beta, ply), EmptyPv);
+                return new SearchResult(QuiesceTt(alpha, beta, ply));
             }
 
             NodesVisited++;
@@ -51,7 +51,7 @@ namespace Pedantic.Chess
                     board.UnmakeMove();
                     if (result.Score >= beta)
                     {
-                        return new SearchResult(beta, EmptyPv);
+                        return new SearchResult(beta);
                     }
                 }
             }
@@ -61,10 +61,10 @@ namespace Pedantic.Chess
                 int threshold = alpha - futilityMargin[depth];
                 if (eval < threshold)
                 {
-                    int score = Quiesce(alpha, beta, ply);
+                    int score = QuiesceTt(alpha, beta, ply);
                     if (score < threshold)
                     {
-                        return new SearchResult(alpha, EmptyPv);
+                        return new SearchResult(alpha);
                     }
                 }
             }
@@ -173,27 +173,5 @@ namespace Pedantic.Chess
             return result;
         }
 
-        private int CalcExtension(bool inCheck)
-        {
-            int extension = 0;
-            if (inCheck)
-            {
-                extension++;
-            }
-
-            if (board.IsPromotionThreat(board.LastMove))
-            {
-                extension++;
-            }
-
-            if (Move.IsPromote(board.LastMove))
-            {
-                extension++;
-            }
-
-            return extension;
-        }
-
-        private readonly int[] futilityMargin = { 100, 300, 600, 900 };
     }
 }

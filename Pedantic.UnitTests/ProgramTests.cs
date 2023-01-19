@@ -284,6 +284,7 @@ namespace Pedantic.UnitTests
         public void IgnoreQueenPromotionTest()
         {
             Engine.SearchThreads = 1;
+            Engine.SearchType = SearchType.Mtd;
             Program.ParseCommand("setoption name Hash value 128");
             Program.ParseCommand(
                 "position startpos moves d2d4 g8f6 c2c4 e7e6 g1f3 c7c5 d4d5 d7d6 b1c3 e6d5 c4d5 g7g6 c1f4 a7a6 a2a4 f8g7 h2h3 e8g8 e2e3 f6h5 f4h2 g7c3 b2c3 h5f6 d1b3 b7b6 e1c1 f6e4 b3c2 f7f5 f1d3 d8f6 d3e4 f5e4 f3d2 f6f2 h2d6 f8e8 d2c4 f2c2 c1c2 b8d7 d1b1 b6b5 c4a5 b5a4 a5c6 a6a5 c6e7 g8h8 e7c8 a8c8 b1b5 a4a3 h1a1 d7e5 d6c5 e5d3 c5d4 h8g8 b5b7 d3e5 a1a3 c8a8 a3a1 a5a4 d5d6 e5f7 d6d7 e8f8 a1d1 f7d8 b7b6 f8f2 c2c1 a4a3 d4c5 a3a2");
@@ -314,6 +315,28 @@ namespace Pedantic.UnitTests
             Console.WriteLine(Engine.Board.ToString());
             Console.WriteLine(Engine.Board.ToFenString());
             Program.ParseCommand("go wtime 179906 btime 179947 winc 6000 binc 6000");
+            Engine.Wait();
+        }
+
+        [TestMethod]
+        public void NoPVDuringPonderTest()
+        {
+            Engine.SearchType = SearchType.Mtd;
+            Program.ParseCommand("setoption name Hash value 128");
+            Program.ParseCommand("position startpos moves e2e4 g7g6 d2d4 d7d6 c2c4 g8f6 b1c3 f8g7 g1f3 e8g8 f1e2 e7e5 d4e5 d6e5 d1d8 f8d8 c1g5 c8g4 c3d5 b8d7 d5c7 a8b8 c7d5 h7h6 g5h4 g6g5 f3g5 h6g5 h4g5 g4e2 e1e2 d8e8 e2f3 b8c8 h1c1 a7a5 g5d2 d7c5 d5f6 g7f6 d2a5 g8g7 h2h3 e8h8 a5b6 c5a4 b6e3 a4b2 a1b1 b2c4 b1b7 c4e3 c1c8 h8c8 f2e3 c8a8 b7b2 a8a3 b2e2 f6e7 e2c2 e7g5 c2e2 g7g6 f3f2 g5f6 g2g4 f6g5 f2f3 g6g7 f3f2 g7f6 f2f3 f6e7 f3f2 e7d7 f2f3 d7c6");
+            Program.ParseCommand("go ponder wtime 123099 btime 42017 winc 6000 binc 6000");
+            Thread.Sleep(5000);
+            Program.ParseCommand("ponderhit");
+            Engine.Wait();
+        }
+
+        [TestMethod]
+        public void IndexOutOfRangeExceptionTest()
+        {
+            Engine.SearchType = SearchType.Mtd;
+            Program.ParseCommand("setoption name Hash value 128");
+            Program.ParseCommand("position startpos moves d2d4 g7g6 c2c4 g8f6 g2g3 c7c5 g1f3 c5d4 f3d4 e7e5 d4b5 f8b4 b1c3 e8g8 f1g2 a7a6 b5d6 d8b6 d6c8 f8c8 c1e3 b6c7");
+            Program.ParseCommand("go wtime 148414 btime 97244 winc 6000 binc 6000");
             Engine.Wait();
         }
     }

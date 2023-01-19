@@ -38,6 +38,7 @@ namespace Pedantic.Chess
         public static bool Infinite { get; set; } = false;
         public static Board Board => board;
         public static Color Color { get; set; } = Color.White;
+        public static SearchType SearchType { get; set; } = SearchType.Pv;
   
         public static PolyglotEntry[] BookEntries
         {
@@ -340,16 +341,43 @@ namespace Pedantic.Chess
                 }
             }
 
-            ISearch search = new BasicSearch(board, time, maxDepth, maxNodes)
-            {
-                Pondering = IsPondering
-            };
+            ISearch search = CreateSearch(maxDepth, maxNodes);
             searchThread = new Thread(search.Search)
             {
                 Priority = ThreadPriority.Highest
             };
             IsRunning = true;
             searchThread.Start();
+        }
+
+        private static ISearch CreateSearch(int maxDepth, long maxNodes)
+        {
+            ISearch search;
+            switch (SearchType)
+            {
+                case SearchType.Minimal:
+                    search = new MinimalSearch(board, time, maxDepth, maxNodes)
+                    {
+                        Pondering = IsPondering
+                    };
+                    break;
+
+                case SearchType.Mtd:
+                    search = new MtdSearch(board, time, maxDepth, maxNodes)
+                    {
+                        Pondering = IsPondering
+                    };
+                    break;
+
+                default:
+                    search = new BasicSearch(board, time, maxDepth, maxNodes)
+                    {
+                        Pondering = IsPondering
+                    };
+                    break;
+            }
+
+            return search;
         }
     }
 }

@@ -1,12 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
-using System.Xml.Schema;
-using System.Xml.XPath;
-using Pedantic.Utilities;
+﻿using Pedantic.Utilities;
 
 namespace Pedantic.Chess
 {
@@ -81,7 +73,7 @@ namespace Pedantic.Chess
                     break;
                 }
 
-                ReportSearchResults(ref bestMove, out ponderMove);
+                ReportSearchResults(ref bestMove, ref ponderMove);
 
                 if (Depth == 5 && oneLegalMove)
                 {
@@ -100,7 +92,7 @@ namespace Pedantic.Chess
 
                 if (waiting)
                 {
-                    ReportSearchResults(ref bestMove, out ponderMove);
+                    ReportSearchResults(ref bestMove, ref ponderMove);
                 }
             }
             Uci.BestMove(bestMove, ponderMove);
@@ -337,14 +329,49 @@ namespace Pedantic.Chess
             for (int n = 0; n < pv.Length; n++)
             {
                 ulong move = pv[n];
+                if (!bd.IsLegalMove(move))
+                {
+                    break;
+                }
                 TtTran.Add(bd.Hash, (short)depth--, n, -short.MaxValue, short.MaxValue, Result.Score, move);
                 bd.MakeMove(move);
             }
         }
 
-        protected void ReportSearchResults(ref ulong bestMove, out ulong? ponderMove)
+        protected void ReportSearchResults(ref ulong bestMove, ref ulong? ponderMove)
         {
             Result = new SearchResult(Result.Score, ExtractPv(Result.Pv, Depth));
+            if (Result.Pv.Length > 0)
+            {
+                bestMove = Result.Pv[0];
+                if (Result.Pv.Length > 1)
+                {
+                    ponderMove = Result.Pv[1];
+                }
+                else
+                {
+                    ponderMove = null;
+                }
+            }
+            else if (bestMove != 0)
+            {
+                ulong[] pv = EmptyPv;
+                if (board.IsLegalMove(bestMove))
+                {
+                    board.MakeMove(bestMove);
+                    pv = MergeMove(pv, bestMove);
+
+                    if (ponderMove != null && board.IsLegalMove(ponderMove.Value))
+                    {
+                        pv = MergeMove(pv, ponderMove.Value);
+                    }
+
+                    board.UnmakeMove();
+                }
+
+                Result = new SearchResult(Result.Score, pv);
+            }
+
             if (IsCheckmate(Result.Score, out int mateIn))
             {
                 Uci.InfoMate(Depth, mateIn, NodesVisited, time.Elapsed, Result.Pv);
@@ -352,16 +379,6 @@ namespace Pedantic.Chess
             else
             {
                 Uci.Info(Depth, Result.Score, NodesVisited, time.Elapsed, Result.Pv);
-            }
-
-            bestMove = Result.Pv.Length > 0 ? Result.Pv[0] : bestMove;
-            if (Result.Pv.Length > 1)
-            {
-                ponderMove = Result.Pv[1];
-            }
-            else
-            {
-                ponderMove = null;
             }
         }
 
@@ -376,7 +393,7 @@ namespace Pedantic.Chess
                 {
                     if (!bd.IsLegalMove(move))
                     {
-                        throw new ArgumentException($"Invalid move in PV '{Move.ToLongString(move)}'.");
+                        break;
                     }
 
                     bd.MakeMove(move);
@@ -384,6 +401,11 @@ namespace Pedantic.Chess
 
                 while (result.Count < depth && TtTran.TryGetBestMove(bd.Hash, out ulong bestMove) && bd.IsLegalMove(bestMove))
                 {
+                    if (!bd.IsLegalMove(bestMove))
+                    {
+                        break;
+                    }
+
                     bd.MakeMove(bestMove);
                     result.Add(bestMove);
                 }
@@ -411,6 +433,27 @@ namespace Pedantic.Chess
             return board.HalfMoveClock >= 100 || board.GameDrawnByRepetition() || board.InsufficientMaterialForMate();
         }
 
+        protected int CalcExtension(bool inCheck)
+        {
+            int extension = 0;
+            if (inCheck)
+            {
+                extension++;
+            }
+
+            if (board.IsPromotionThreat(board.LastMove))
+            {
+                extension++;
+            }
+
+            if (Move.IsPromote(board.LastMove))
+            {
+                extension++;
+            }
+
+            return extension > 0 ? 1 : 0;
+        }
+
         protected const int CHECK_TC_NODES_MASK = 31;
         protected const short DELTA_PRUNING_MARGIN = 200;
         protected const int MAX_GAIN_PER_PLY = 100;
@@ -425,10 +468,11 @@ namespace Pedantic.Chess
         protected History history = new();
         protected KillerMoves killerMoves = new();
         protected bool wasAborted = false;
-
         protected readonly ObjectPool<MoveList> MoveListPool = new(Constants.MAX_PLY);
+
         protected static readonly ulong[] EmptyPv = Array.Empty<ulong>();
         protected static readonly SearchResult DefaultResult = new(0, EmptyPv);
         protected static readonly int[] window = { 25, 75, Constants.INFINITE_WINDOW };
+        protected static readonly int[] futilityMargin = { 100, 300, 600, 900 };
     }
 }

@@ -10,16 +10,15 @@ namespace Pedantic.Chess
     {
         public enum TtFlag : byte
         {
-            TtExact,
-            TtAlpha,
-            TtBeta
+            Exact,
+            UpperBound,
+            LowerBound
         }
 
         public const int DEFAULT_SIZE_MB = 45;
         public const int MAX_SIZE_MB = 2047;
         public const int ITEM_SIZE = 16;
         public const int MB_SIZE = 1024 * 1024;
-        public const int HISTORY_DEPTH = 255;
 
         public struct TtTranItem
         {
@@ -43,9 +42,10 @@ namespace Pedantic.Chess
             public TtFlag Flag => (TtFlag)BitOps.BitFieldExtract(data, 40, 2);
             public byte Depth => (byte)BitOps.BitFieldExtract(data, 42, 8);
 
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public bool IsValid(ulong hash)
             {
-                return Hash == hash;
+                return (this.hash ^ data)  == hash;
             }
 
             public static void SetValue(ref TtTranItem item, ulong hash, short score, byte depth, TtFlag flag,
@@ -71,7 +71,7 @@ namespace Pedantic.Chess
 
         public static void Add(ulong hash, int depth, int ply, int alpha, int beta, int score, ulong move)
         {
-            int index = GetIndex(hash);
+            int index = GetStoreIndex(hash);
             ref TtTranItem item = ref table[index];
 
             if (item.IsValid(hash) && item.Depth > depth)
@@ -79,11 +79,7 @@ namespace Pedantic.Chess
                 return; // don't replace
             }
 
-            ulong bestMove = item.BestMove;
-            if (!item.IsValid(hash) || move != 0)
-            {
-                bestMove = move;
-            }
+            ulong bestMove = move != 0 ? move : item.BestMove;
 
             if (Evaluation.IsCheckmate(score))
             {
@@ -98,16 +94,16 @@ namespace Pedantic.Chess
             }
 
             byte itemDepth = (byte)Math.Max(0, depth);
-            TtFlag flag = TtFlag.TtExact;
+            TtFlag flag = TtFlag.Exact;
 
             if (score <= alpha)
             {
-                flag = TtFlag.TtAlpha;
+                flag = TtFlag.UpperBound;
                 score = alpha;
             }
             else if (score >= beta)
             {
-                flag = TtFlag.TtBeta;
+                flag = TtFlag.LowerBound;
                 score = beta;
             }
 
@@ -128,93 +124,103 @@ namespace Pedantic.Chess
 
         public static int Capacity => capacity;
 
-        public static bool FindSlot(ulong hash, out int index)
-        {
-            index = (int)(hash % (ulong)capacity);
-            if (!table[index].IsValid(hash))
-            {
-                index ^= 1;
-            }
-
-            if (!table[index].IsValid(hash))
-            {
-                return false;
-            }
-
-            return true;
-        }
         public static bool TryGetBestMove(ulong hash, out ulong bestMove)
         {
             bestMove = 0ul;
-            if (FindSlot(hash, out int index))
+            if (GetLoadIndex(hash, out int index))
             {
                 bestMove = table[index].BestMove;
-                return bestMove != 0;
             }
 
-            return false;
+            return bestMove != 0;
+            
         }
 
         public static bool TryGetScore(ulong hash, int depth, int ply, int alpha, int beta, out int score)
         {
+            return TryGetScore(hash, depth, ply, alpha, beta, out score, out ulong _);
+        }
+
+        public static bool TryGetScore(ulong hash, int depth, int ply, int alpha, int beta, out int score,
+            out ulong move)
+        {
             score = 0;
+            move = 0;
 
-            if (!FindSlot(hash, out int index))
+            if (GetLoadIndex(hash, out int index))
             {
-                return false;
-            }
+                ref TtTranItem item = ref table[index];
 
-            ref TtTranItem item = ref table[index];
+                if (item.Depth <= depth)
+                {
+                    return false;
+                }
 
-            if (item.Depth <= depth)
-            {
-                return false;
-            }
+                score = item.Score;
+                move = item.BestMove;
 
-            score = item.Score;
+                if (Evaluation.IsCheckmate(score))
+                {
+                    score -= Math.Sign(score) * ply;
+                }
 
-            if (Evaluation.IsCheckmate(score))
-            {
-                score -= Math.Sign(score) * ply;
-            }
+                if (item.Flag == TtFlag.Exact)
+                {
+                    return true;
+                }
 
-            if (item.Flag == TtFlag.TtExact)
-            {
-                return true;
-            }
+                if (item.Flag == TtFlag.UpperBound && score <= alpha)
+                {
+                    score = alpha;
+                    return true;
+                }
 
-            if (item.Flag == TtFlag.TtAlpha && score <= alpha)
-            {
-                score = alpha;
-                return true;
-            }
-
-            if (item.Flag == TtFlag.TtBeta && score >= beta)
-            {
-                score = beta;
-                return true;
+                if (item.Flag == TtFlag.LowerBound && score >= beta)
+                {
+                    score = beta;
+                    return true;
+                }
             }
 
             return false;
         }
 
-        private static int GetIndex(ulong hash)
+        private static int GetStoreIndex(ulong hash)
         {
             int index = (int)(hash % (ulong)capacity);
-            ref TtTranItem item0 = ref table[index];
-            ref TtTranItem item1 = ref table[index ^ 1];
-
-            if (item0.IsValid(hash))
+            if (!table[index].IsValid(hash))
             {
                 return index;
             }
 
-            if (item1.IsValid(hash))
+            if (!table[index ^ 1].IsValid(hash))
             {
                 return index ^ 1;
             }
 
-            return (item0.Depth <= item1.Depth) ? index : index ^ 1;
+            return table[index].Depth < table[index ^ 1].Depth ? index : index ^ 1;
+        }
+
+        private static bool GetLoadIndex(ulong hash, out int index)
+        {
+            index = (int)(hash % (ulong)capacity);
+            if (table[index].IsValid(hash))
+            {
+                if (table[index ^ 1].IsValid(hash))
+                {
+                    index = table[index].Depth > table[index ^ 1].Depth ? index : index ^ 1;
+                }
+
+                return true;
+            }
+
+            if (table[index ^ 1].IsValid(hash))
+            {
+                index ^= 1;
+                return true;
+            }
+
+            return false;
         }
     }
 }

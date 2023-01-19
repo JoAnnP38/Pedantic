@@ -9,7 +9,7 @@ namespace Pedantic.Genetics
     {
         public const double MUTATION_PROBABILITY = 0.0002d;
         public const int MAX_AGE = 5;
-        public const int MAX_WEIGHTS = 934;
+        public const int MAX_WEIGHTS = 936;
         public const int MAX_PARENTS = 2;
         public const int PIECE_WEIGHT_LENGTH = 6;
         public const int PIECE_SQUARE_LENGTH = 384;
@@ -49,6 +49,8 @@ namespace Pedantic.Genetics
         public const int ENDGAME_BISHOP_PAIR_OFFSET = 931;
         public const int OPENING_PAWN_MAJORITY_OFFSET = 932;
         public const int ENDGAME_PAWN_MAJORITY_OFFSET = 933;
+        public const int OPENING_KING_NEAR_PASSED_PAWN_OFFSET = 934;
+        public const int ENDGAME_KING_NEAR_PASSED_PAWN_OFFSET = 934;
 
         public readonly struct WtInfo
         {
@@ -655,7 +657,7 @@ namespace Pedantic.Genetics
             5, // rank 4
             25, // rank 5
             25, // rank 6
-            125, // rank 7
+            100, // rank 7
 
             #endregion
 
@@ -665,11 +667,11 @@ namespace Pedantic.Genetics
 
             /* passed pawns */
             5, // rank 2
-            5, // rank 3
-            5, // rank 4
-            25, // rank 5
-            25, // rank 6
-            125, // rank 7
+            10, // rank 3
+            15, // rank 4
+            30, // rank 5
+            60, // rank 6
+            120, // rank 7
 
             #endregion
 
@@ -711,6 +713,12 @@ namespace Pedantic.Genetics
             25,
 
             /* end game pawn majority bonus */
+            25,
+
+            /* opening king near passed pawn (inside its square) */
+            0,
+
+            /* endgame king near passed pawn (inside its square) */
             25
         };
 
@@ -751,7 +759,9 @@ namespace Pedantic.Genetics
             new WtInfo("opBPair", 930, 931, 0, 101),
             new WtInfo("egBPair", 931, 932, 0, 101),
             new WtInfo("opPawnMajority", 932, 933, 0, 101),
-            new WtInfo("egPawnMajority", 933, 934, 0, 101)
+            new WtInfo("egPawnMajority", 933, 934, 0, 101),
+            new WtInfo("opKNearPp", 934, 935, 0, 101),
+            new WtInfo("egKNearPp", 935, 936, 0, 101)
         };
     }
 }

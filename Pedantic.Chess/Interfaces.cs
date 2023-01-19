@@ -10,4 +10,5 @@
         public void Search();
         public void ScoutSearch();
     }
+
 }

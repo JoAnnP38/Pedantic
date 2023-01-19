@@ -41,4 +41,11 @@
         PromoteCapture,
         Null
     }
+
+    public enum SearchType
+    {
+        Pv = 0,
+        Minimal = 1,
+        Mtd = 2
+    }
 }

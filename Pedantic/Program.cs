@@ -23,7 +23,7 @@ namespace Pedantic
         {
             var typeOption = new Option<PerftRunType>(
                 name: "--type",
-                description: "Specify the perft variant to execute.",
+                description: "Specifies the perft variant to execute.",
                 getDefaultValue: () => PerftRunType.Normal);
             var depthOption = new Option<int>(
                 name: "--depth",
@@ -37,12 +37,17 @@ namespace Pedantic
                 name: "--input",
                 description: "Specify a file read UCI commands from.",
                 getDefaultValue: () => null);
+            var searchTypeOption = new Option<SearchType>(
+                name: "--search",
+                description: "Specifies the search type to use.",
+                getDefaultValue: () => SearchType.Pv);
             var errorFileOption = new Option<string?>(
                 name: "--error",
                 description: "Output errors to specified file.",
                 getDefaultValue: () => null);
             var uciCommand = new Command("uci", "Start the pedantic application in UCI mode.")
             {
+                searchTypeOption,
                 commandFileOption,
                 errorFileOption
             };
@@ -58,13 +63,13 @@ namespace Pedantic
                 perftCommand
             };
 
-            uciCommand.SetHandler(async (inFile, errFile) => await RunUci(inFile, errFile), commandFileOption, errorFileOption);
+            uciCommand.SetHandler(async (searchType, inFile, errFile) => await RunUci(searchType, inFile, errFile), searchTypeOption, commandFileOption, errorFileOption);
             perftCommand.SetHandler((runType, depth, fen) => RunPerft(runType, depth, fen), typeOption, depthOption, fenOption);
 
             return rootCommand.InvokeAsync(args).Result;
         }
 
-        static async Task RunUci(string? inFile, string? errFile)
+        static async Task RunUci(SearchType searchType, string? inFile, string? errFile)
         {
             TextReader? stdin = null;
             TextWriter? stderr = null;
@@ -86,6 +91,7 @@ namespace Pedantic
             try
             {
                 Console.WriteLine(PROGRAM_NAME_VER);
+                Engine.SearchType = searchType;
                 Engine.Start();
                 while (Engine.IsRunning)
                 {
@@ -138,6 +144,7 @@ namespace Pedantic
                     Console.WriteLine(@"option name Clear Hash type button");
                     Console.WriteLine($@"option name MaxThreads type spin default 1 min 1 max {Math.Max(Environment.ProcessorCount - 2, 1)}");
                     Console.WriteLine($@"option name UCI_EngineAbout type string default {PROGRAM_NAME_VER} by {AUTHOR}, see {PROGRAM_URL}");
+                    Console.WriteLine(@"option name Search Algorithm type combo default PV var PV var MTD(f) var Minimal");
                     Console.WriteLine(@"uciok");
                     break;
 
@@ -255,6 +262,14 @@ namespace Pedantic
                         }
 
                         break;
+
+                    case "Search":
+                        if (tokens[3] == "Algorithm" && tokens[4] == "value" && TryParse(tokens[5], out SearchType searchType))
+                        {
+                            Engine.SearchType = searchType;
+                        }
+
+                        break;
                 }
             }
         }
@@ -286,6 +301,29 @@ namespace Pedantic
         static void Debug(string[] tokens)
         {
             Engine.Debug = tokens[1] == "on";
+        }
+
+        static bool TryParse(string s, out SearchType searchType)
+        {
+            searchType = SearchType.Pv;
+            s = s.ToLower();
+            if (s == "pv")
+            {
+                searchType = SearchType.Pv;
+                return true;
+            }
+            if (s == "mtd(f)")
+            {
+                searchType = SearchType.Mtd;
+                return true;
+            }
+            if (s == "minimal")
+            {
+                searchType = SearchType.Minimal;
+                return true;
+            }
+
+            return false;
         }
 
         static bool TryParse(string[] tokens, string name, out int value, int defaultValue = 0)

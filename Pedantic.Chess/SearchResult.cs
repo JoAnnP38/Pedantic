@@ -14,7 +14,7 @@ namespace Pedantic.Chess
         public SearchResult()
         {
             Score = 0;
-            Pv = Array.Empty<ulong>();
+            Pv = emptyPv;
         }
 
         public SearchResult(int score, ulong[] pv)
@@ -23,9 +23,23 @@ namespace Pedantic.Chess
             Pv = pv;
         }
 
+        public SearchResult(int score)
+        {
+            Score = score;
+            Pv = emptyPv;
+        }
+
+        public SearchResult(int score, ulong move)
+        {
+            Score = score;
+            Pv = move != 0 ? new[] { move } : emptyPv;
+        }
+
         public static SearchResult operator -(SearchResult op)
         {
             return new SearchResult(-op.Score, op.Pv);
         }
+
+        private static readonly ulong[] emptyPv = Array.Empty<ulong>();
     }
 }
