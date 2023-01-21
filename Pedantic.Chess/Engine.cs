@@ -29,6 +29,7 @@ namespace Pedantic.Chess
         private static Thread? searchThread = null;
         private static List<Scout> scouts = new();
         private static PolyglotEntry[]? bookEntries = null;
+        private static Color color = Color.White;
 
         public static bool Debug { get; set; } = false;
         public static bool IsRunning { get; private set; } = true;
@@ -37,7 +38,20 @@ namespace Pedantic.Chess
         public static bool UseOwnBook { get; set; } = true;
         public static bool Infinite { get; set; } = false;
         public static Board Board => board;
-        public static Color Color { get; set; } = Color.White;
+
+        public static Color Color
+        {
+            get => color;
+            set
+            {
+                if (value != color)
+                {
+                    TtTran.Clear();
+                }
+
+                color = value;
+            }
+        }
         public static SearchType SearchType { get; set; } = SearchType.Pv;
   
         public static PolyglotEntry[] BookEntries
@@ -86,6 +100,7 @@ namespace Pedantic.Chess
                 searchThread = null;
             }
 
+            TtTran.Clear();
             StopScouts();
         }
 
@@ -156,11 +171,14 @@ namespace Pedantic.Chess
             {
                 if (Move.TryParseMove(board, s, out ulong move))
                 {
-                    board.MakeMove(move);
+                    if (!board.MakeMove(move))
+                    {
+                        throw new InvalidOperationException($"Invalid move passed to engine: '{s}'.");
+                    }
                 }
                 else
                 {
-                    throw new ArgumentException("Long algebraic move expected. Bad format '{s}'.");
+                    throw new ArgumentException($"Long algebraic move expected. Bad format '{s}'.");
                 }
             }
 

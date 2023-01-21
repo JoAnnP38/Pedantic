@@ -106,22 +106,6 @@
             return new SearchResult(alpha, pv);
         }
 
-        private SearchResult SearchTt(int alpha, int beta, int depth, int ply)
-        {
-            if (TtTran.TryGetScore(board.Hash, depth, ply, alpha, beta, out int ttScore))
-            { 
-                return new SearchResult(ttScore, EmptyPv);
-
-            }
-
-            SearchResult result = Search(alpha, beta, depth, ply);
-
-            TtTran.Add(board.Hash, depth, ply, alpha, beta, result.Score, result.Pv.Length > 0 ? result.Pv[0] : 0);
-
-            return result;
-        }
-
         private const int minimal_max_gain_per_ply = 70;
-
     }
 }

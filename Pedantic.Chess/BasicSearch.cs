@@ -29,7 +29,6 @@ namespace Pedantic.Chess
             }
 
             NodesVisited++;
-            int originalAlpha = alpha;
 
             if (MustAbort || wasAborted)
             {
@@ -38,10 +37,11 @@ namespace Pedantic.Chess
             }
 
             bool inCheck = board.IsChecked();
-            int extension = CalcExtension(inCheck);
+            int X = CalcExtension(inCheck);
+            bool canReduce = X == 0;
             int eval = evaluation.Compute(board);
 
-            if (depth > 2 && canNull && !isPv && !inCheck && eval > beta && 
+            if (canNull && canReduce && depth > 2 && !isPv && !inCheck && eval > beta && 
                 board.HasMinorMajorPieces(board.OpponentColor, 600))
             {
                 int R = depth > 6 ? 3 : 2;
@@ -56,7 +56,7 @@ namespace Pedantic.Chess
                 }
             }
 
-            if (!isPv && !inCheck && canNull && depth <= 2)
+            if (canNull && canReduce && !isPv && !inCheck && depth <= 2)
             {
                 int threshold = alpha - futilityMargin[depth];
                 if (eval < threshold)
@@ -69,8 +69,9 @@ namespace Pedantic.Chess
                 }
             }
 
-            bool canPrune = depth <= 2 && !isPv && !inCheck && Math.Abs(alpha) < Constants.CHECKMATE_SCORE &&
-                            eval + futilityMargin[depth] <= alpha;
+            bool canPrune = depth <= 2 && !isPv && !inCheck && Math.Abs(alpha) < Constants.CHECKMATE_BASE &&
+                            canReduce && eval + futilityMargin[depth] <= alpha;
+
             ulong[] pv = EmptyPv;
             int expandedNodes = 0;
             history.SideToMove = board.SideToMove;
@@ -86,8 +87,8 @@ namespace Pedantic.Chess
                 expandedNodes++;
 
                 bool checkingMove = board.IsChecked();
-                bool interesting = expandedNodes == 1 || extension > 0 || inCheck || checkingMove;
                 bool isQuiet = Move.IsQuiet(move);
+                bool interesting = expandedNodes == 1 || !canReduce || inCheck || checkingMove;
 
                 if (canPrune && isQuiet && !interesting)
                 {
@@ -96,14 +97,14 @@ namespace Pedantic.Chess
                 }
 
                 int R = 0;
-                if (extension == 0 && !isPv && expandedNodes > 3 && !interesting && isQuiet && !killerMoves.Exists(ply, move))
+                if (canReduce && !isPv && expandedNodes > 3 && !interesting && isQuiet && !killerMoves.Exists(ply, move))
                 {
-                    R = expandedNodes < 8 ? 1 : 2;
+                    R = depth > 10 ? 2 : 1;
                 }
 
                 if (ply > 0 && expandedNodes > 1)
                 {
-                    SearchResult r = -SearchTt( -alpha - 1, -alpha, depth + extension - R - 1, ply + 1, true, false);
+                    SearchResult r = -SearchTt( -alpha - 1, -alpha, depth - R - 1, ply + 1, true, false);
 
                     if (wasAborted)
                     {
@@ -117,7 +118,7 @@ namespace Pedantic.Chess
                     }
                 }
 
-                SearchResult result = -SearchTt(-beta, -alpha, depth + extension - R - 1, ply + 1, true, isPv);
+                SearchResult result = -SearchTt(-beta, -alpha, depth + X - 1, ply + 1, true, isPv);
                 board.UnmakeMove();
 
                 if (wasAborted)
@@ -127,7 +128,6 @@ namespace Pedantic.Chess
 
                 if (result.Score > alpha)
                 {
-                    TtTran.Add(board.Hash, depth, ply, originalAlpha, beta, result.Score, move);
                     pv = MergeMove(result.Pv, move);
                     alpha = result.Score;
 
@@ -154,24 +154,10 @@ namespace Pedantic.Chess
 
             if (expandedNodes == 0)
             {
-                return new SearchResult(inCheck ? -Constants.CHECKMATE_SCORE + ply : Contempt, EmptyPv);
+                return new SearchResult(inCheck ? -Constants.CHECKMATE_SCORE + ply : Contempt);
             }
 
             return new SearchResult(alpha, pv);
         }
-
-        private SearchResult SearchTt(int alpha, int beta, int depth, int ply, bool canNull = true, bool isPv = true)
-        {
-            if (TtTran.TryGetScore(board.Hash, depth, ply, alpha, beta, out int score))
-            {
-                return new SearchResult(score, EmptyPv);
-            }
-
-            SearchResult result = Search(alpha, beta, depth, ply, canNull, isPv);
-
-            TtTran.Add(board.Hash, depth, ply, alpha, beta, result.Score, result.Pv.Length > 0 ? result.Pv[0] : 0ul);
-            return result;
-        }
-
     }
 }

@@ -28,7 +28,6 @@ namespace Pedantic.Collections
             sp = other.sp;
         }
 
-        public IEnumerable<T> Enumerable() => stack;
         public int Count => sp;
 
         public bool IsReadOnly => false;
@@ -51,6 +50,13 @@ namespace Pedantic.Collections
         public void CopyTo(T[] array, int arrayIndex)
         {
             Array.Copy(stack, 0, array, arrayIndex, sp);
+        }
+
+        public T[] ToArray()
+        {
+            T[] array = new T[sp];
+            CopyTo(array, 0);
+            return array;
         }
 
         public IEnumerator<T> GetEnumerator()

@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Text;
 using Pedantic.Utilities;
 
 namespace Pedantic.Chess
@@ -132,9 +133,9 @@ namespace Pedantic.Chess
                 if (from == GetFrom(mv) && to == GetTo(mv) && promote == GetPromote(mv))
                 {
                     bool legal = board.MakeMove(mv);
-                    board.UnmakeMove();
                     if (legal)
                     {
+                        board.UnmakeMove();
                         move = mv;
                         return true;
                     }
@@ -154,7 +155,7 @@ namespace Pedantic.Chess
 
         public static string ToLongString(ulong move)
         {
-            Move.UnpackMove(move, out int from, out int to, out MoveType type, out Piece capture, out Piece promote,
+            UnpackMove(move, out int from, out int to, out MoveType type, out Piece capture, out Piece promote,
                 out int score);
 
             return
@@ -165,6 +166,92 @@ namespace Pedantic.Chess
         public static int Compare(ulong move1, ulong move2)
         {
             return (int)ClearScore(move1) - (int)ClearScore(move2);
+        }
+
+        public static string ToSanString(ulong move, Board board)
+        {
+            if (board.IsLegalMove(move))
+            {
+                throw new InvalidOperationException("Invalid move.");
+            }
+
+            StringBuilder sb = new();
+            Move.UnpackMove(move, out int from, out int to, out MoveType type, out Piece capture, out Piece promote, out int _);
+            if (type == MoveType.Castle)
+            {
+                if (Index.GetFile(to) == 2)
+                {
+                    sb.Append("O-O-O");
+                }
+                else
+                {
+                    sb.Append("O-O");
+                }
+            }
+            else
+            {
+                Square sq = board.PieceBoard[from];
+                if (sq.Piece != Piece.Pawn)
+                {
+                    sb.Append(Conversion.PieceToString(board.PieceBoard[from].Piece).ToUpper());
+                }
+
+                MoveList moveList = new();
+                board.GenerateLegalMoves(moveList);
+
+                var ambiguous = moveList.Where(m =>
+                    Move.GetTo(m) == to && board.PieceBoard[Move.GetFrom(m)].Piece == sq.Piece &&
+                    Move.Compare(move, m) == 0).ToArray();
+
+                if (ambiguous.Length > 0)
+                {
+                    if (ambiguous.Any(m => Index.GetFile(Move.GetFrom(m)) == Index.GetFile(from)))
+                    {
+                        if (ambiguous.Any(m => Index.GetRank(Move.GetFrom(m)) == Index.GetRank(from)))
+                        {
+                            sb.Append(Index.ToString(from));
+                        }
+                        else
+                        {
+                            sb.Append(Coord.ToRank(Index.GetRank(from)));
+                        }
+                    }
+                    else
+                    {
+                        sb.Append(Coord.ToFile(Index.GetFile(from)));
+                    }
+                }
+
+                if (IsCapture(move))
+                {
+                    sb.Append('x');
+                }
+
+                sb.Append(Index.ToString(to));
+
+                if (IsPromote(move))
+                {
+                    sb.Append('=');
+                    sb.Append(Conversion.PieceToString(promote).ToUpper());
+                }
+
+                board.MakeMove(move);
+                if (board.IsChecked())
+                {
+                    if (board.NoLegalMoves())
+                    {
+                        sb.Append('#');
+                    }
+                    else
+                    {
+                        sb.Append('+');
+                    }
+                }
+
+                board.UnmakeMove();
+            }
+
+            return sb.ToString();
         }
     }
 }

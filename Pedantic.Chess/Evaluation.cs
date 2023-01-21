@@ -28,9 +28,7 @@ namespace Pedantic.Chess
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsCheckmate(int score)
         {
-            int absValue = Math.Abs(score);
-            return absValue >= Constants.CHECKMATE_SCORE - Constants.MAX_PLY &&
-                   absValue <= Constants.CHECKMATE_SCORE;
+            return Math.Abs(score) > Constants.CHECKMATE_BASE;
         }
 
         public static void LoadWeights(string? id = null)
@@ -113,40 +111,18 @@ namespace Pedantic.Chess
                 int n = (int)color;
                 opScore[n] += (short)(board.OpeningMaterial[n] + board.OpeningPieceSquare[n]);
                 egScore[n] += (short)(board.EndGameMaterial[n] + board.EndGamePieceSquare[n]);
-                /* put this back in when optimization starts
+                /* put this back in when optimization starts */
                 short mobility = board.GetPieceMobility(color);
                 opScore[n] += (short)(mobility * OpeningMobilityWeight);
-                egScore[n] += (short)(mobility * EndGameMobilityWeight);*/
+                egScore[n] += (short)(mobility * EndGameMobilityWeight);
             }
 
             score = (short)((((opScore[0] - opScore[1]) * opWt) >> 7 /* / 128 */) + 
                             (((egScore[0] - egScore[1]) * egWt) >> 7 /* / 128 */));
 
-            score = board.SideToMove == Color.White ? (short)score : (short)-score;
+            score = board.SideToMove == Color.White ? score : (short)-score;
 
             TtEval.Add(board.Hash, score);
-            return score;
-        }
-
-        public short ComputeMobility(Board board)
-        {
-            Span<short> opScore = stackalloc short[2];
-            opScore.Clear();
-
-            Span<short> egScore = stackalloc short[2];
-            egScore.Clear();
-
-            GetGamePhase(board, out GamePhase gamePhase, out int opWt, out int egWt);
-            for (Color color = Color.White; color <= Color.Black; color++)
-            {
-                int n = (int)color;
-                opScore[n] = (short)(board.GetPieceMobility(color) * OpeningMobilityWeight);
-                egScore[n] = (short)(board.GetPieceMobility(color) * EndGameMobilityWeight);
-            }
-
-            short score = (short)((((opScore[0] - opScore[1]) * opWt) >> 7 /* / 128 */) +
-                                 (((egScore[0] - egScore[1]) * egWt) >> 7 /* / 128 */));
-
             return score;
         }
 
@@ -286,6 +262,18 @@ namespace Pedantic.Chess
                         opScores[(int)other] += OpeningKingNearPassedPawn;
                         egScores[(int)other] += EndGameKingNearPassedPawn;
                     }
+
+                    if (board.IsSquareAttackedByColor(closestToPromote, color))
+                    {
+                        opScores[n] += OpeningGuardPassedPawn;
+                        egScores[n] += EndGameGuardPassedPawn;
+                    }
+
+                    if (board.IsSquareAttackedByColor(closestToPromote, other))
+                    {
+                        opScores[(int)other] += OpeningAttackPassedPawn;
+                        egScores[(int)other] += EndGameAttackPassedPawn;
+                    }
                 }
 
                 for (int file = 0; file <= Constants.MAX_COORDS; file++)
@@ -341,6 +329,31 @@ namespace Pedantic.Chess
                 {
                     opScores[n] += OpeningBishopPair;
                     egScores[n] += EndGameBishopPair;
+                }
+
+
+                ulong knights = board.Pieces(color, Piece.Knight);
+                for (ulong bb = knights; bb != 0; bb = BitOps.ResetLsb(bb))
+                {
+                    int sq = BitOps.TzCount(bb);
+                    int normalRank = Index.GetRank(Index.NormalizedIndex[n][sq]);
+                    if (normalRank > 3 && (Board.PawnDefends(color, sq) & board.Pieces(color, Piece.Pawn)) != 0)
+                    {
+                        opScores[n] += OpeningKnightOutpost;
+                        egScores[n] += EndGameKnightOutpost;
+                    }
+                }
+
+                ulong bishops = board.Pieces(color, Piece.Bishop);
+                for (ulong bb = bishops; bb != 0; bb = BitOps.ResetLsb(bb))
+                {
+                    int sq = BitOps.TzCount(bb);
+                    int normalRank = Index.GetRank(Index.NormalizedIndex[n][sq]);
+                    if (normalRank > 3 && (Board.PawnDefends(color, sq) & board.Pieces(color, Piece.Pawn)) != 0)
+                    {
+                        opScores[n] += OpeningBishopOutpost;
+                        egScores[n] += EndGameBishopOutpost;
+                    }
                 }
             }
         }
@@ -464,6 +477,10 @@ namespace Pedantic.Chess
         public static short EndGamePawnMajority => weights.Weights[ChessWeights.ENDGAME_PAWN_MAJORITY_OFFSET];
         public static short OpeningKingNearPassedPawn => weights.Weights[ChessWeights.OPENING_KING_NEAR_PASSED_PAWN_OFFSET];
         public static short EndGameKingNearPassedPawn => weights.Weights[ChessWeights.ENDGAME_KING_NEAR_PASSED_PAWN_OFFSET];
+        public static short OpeningGuardPassedPawn => weights.Weights[ChessWeights.OPENING_GUARDED_PASSED_PAWN_OFFSET];
+        public static short EndGameGuardPassedPawn => weights.Weights[ChessWeights.ENDGAME_GUARDED_PASSED_PAWN_OFFSET];
+        public static short OpeningAttackPassedPawn => weights.Weights[ChessWeights.OPENING_ATTACK_PASSED_PAWN_OFFSET];
+        public static short EndGameAttackPassedPawn => weights.Weights[ChessWeights.ENDGAME_ATTACK_PASSED_PAWN_OFFSET];
 
         private static ChessWeights weights = ChessWeights.Empty;
         private static ReadOnlyMemory<short> opKingAttack = new(Array.Empty<short>());

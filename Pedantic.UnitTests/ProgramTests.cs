@@ -294,6 +294,7 @@ namespace Pedantic.UnitTests
             Engine.Wait();
 
             ulong move = Move.PackMove(Index.B6, Index.B1);
+            //Engine.Infinite = true;
             Engine.Board.MakeMove(move);
             Program.ParseCommand("go wtime 89698 btime 86829 winc 6000 binc 6000");
             Engine.Wait();
@@ -337,6 +338,50 @@ namespace Pedantic.UnitTests
             Program.ParseCommand("setoption name Hash value 128");
             Program.ParseCommand("position startpos moves d2d4 g7g6 c2c4 g8f6 g2g3 c7c5 g1f3 c5d4 f3d4 e7e5 d4b5 f8b4 b1c3 e8g8 f1g2 a7a6 b5d6 d8b6 d6c8 f8c8 c1e3 b6c7");
             Program.ParseCommand("go wtime 148414 btime 97244 winc 6000 binc 6000");
+            Engine.Wait();
+        }
+
+        [TestMethod]
+        public void InvalidPositionInPonderText()
+        {
+            Engine.SearchType = SearchType.Mtd;
+            Program.ParseCommand("setoption name Hash value 128");
+            Program.ParseCommand("position startpos moves c2c4 g8f6 g1f3 c7c5 b1c3 d7d5 c4d5 f6d5 d2d4 e7e6 g2g3 b8c6 f1g2 c5d4 f3d4 d5c3 b2c3 c6d4 d1d4 d8d4 c3d4 f8b4 c1d2 b4d6 h1g1 e8g8 d2e3 a8b8 e1d2 a7a5 a1b1 f8d8 g2e4 a5a4 g1c1 b7b5 e3g5 f7f6 g5e3 b5b4 c1c6 a4a3 h2h3 h7h6 e4d3 g7g5");
+            Program.ParseCommand("go wtime 145759 btime 81533 winc 6000 binc 6000");
+            Engine.Wait();
+
+            Engine.Debug = true;
+            //Program.ParseCommand("position startpos moves c2c4 g8f6 g1f3 c7c5 b1c3 d7d5 c4d5 f6d5 d2d4 e7e6 g2g3 b8c6 f1g2 c5d4 f3d4 d5c3 b2c3 c6d4 d1d4 d8d4 c3d4 f8b4 c1d2 b4d6 h1g1 e8g8 d2e3 a8b8 e1d2 a7a5 a1b1 f8d8 g2e4 a5a4 g1c1 b7b5 e3g5 f7f6 g5e3 b5b4 c1c6 a4a3 h2h3 h7h6 e4d3 g7g5 d3e4 h3h4");
+        }
+
+        [TestMethod]
+        public void BadMoveGaveAwayRookTest()
+        {
+            //Engine.Infinite = true;
+            Engine.SearchType = SearchType.Mtd;
+            Program.ParseCommand("setoption name Hash value 256");
+            Program.ParseCommand("position startpos moves e2e4 g8f6 e4e5 f6d5 d2d4 d7d6 g1f3 c8g4 f1e2 e7e6 e1g1 d6e5 f3e5 g4e2 d1e2 f8d6 e2g4 e8g8 c1g5 f7f5 g4g3 d8e8 b1d2 b8c6 d2f3 f5f4 g3h3 d6e5 d4e5 h7h6 g5h4 g7g5 h4g5 h6g5 f3g5 e8g6 h3e6 g6e6 g5e6 f8f7 e6c5 c6e5 f1d1 c7c6 d1d4 f7g7 g1f1 f4f3 g2f3 e5f3 a1d1 g7g1 f1e2 f3d4 d1d4 a8e8 e2d2 g1g2 c5e4 g2h2 d2d3 g8g7");
+            Program.ParseCommand("go wtime 500646 btime 62203 winc 6000 binc 6000");
+            Engine.Wait();
+        }
+
+        [TestMethod]
+        public void BadMoveGaveAwayQueenTest()
+        {
+            //Engine.Infinite = true;
+            Engine.SearchType = SearchType.Mtd;
+            Program.ParseCommand("setoption name Hash value 256");
+            Program.ParseCommand("position startpos moves b1c3 d7d5 d2d4 c8f5 e2e3 b8c6 f1b5 g8f6 g1f3 g7g6 f3e5 d8d6 b5c6 b7c6 g2g4 f5e4 f2f3 f8g7 e1g1 f6g4 c3e4 d5e4 e5g4 e4f3 d1f3 d6d5 f3f4 e8d7 f4f7 d5g5 h2h3 h8g8 e3e4 g7d4 g1g2 g5c5 c2c3 g8f8 g4f6 d4f6 f1d1 f6d4 f7h7 f8f2 g2h1 a8h8 h7h8 f2f1 d1f1 d4h8 h1g2 c5e5 f1e1 e5b5 e1e3 h8f6 a2a4 b5c4 a4a5 d7e6 e3e1 c4b5 g2f3 b5h5 f3g2 f6h4 e1e3 h5d1 c3c4 d1c2 g2f3 c2f2 f3g4 h4f6 e3g3 f2e2 g3f3 e2e1 f3e3");
+            Program.ParseCommand("go wtime 43153 btime 44995 winc 6000 binc 6000");
+            Engine.Wait();
+
+            Program.ParseCommand("position startpos moves b1c3 d7d5 d2d4 c8f5 e2e3 b8c6 f1b5 g8f6 g1f3 g7g6 f3e5 d8d6 b5c6 b7c6 g2g4 f5e4 f2f3 f8g7 e1g1 f6g4 c3e4 d5e4 e5g4 e4f3 d1f3 d6d5 f3f4 e8d7 f4f7 d5g5 h2h3 h8g8 e3e4 g7d4 g1g2 g5c5 c2c3 g8f8 g4f6 d4f6 f1d1 f6d4 f7h7 f8f2 g2h1 a8h8 h7h8 f2f1 d1f1 d4h8 h1g2 c5e5 f1e1 e5b5 e1e3 h8f6 a2a4 b5c4 a4a5 d7e6 e3e1 c4b5 g2f3 b5h5 f3g2 f6h4 e1e3 h5d1 c3c4 d1c2 g2f3 c2f2 f3g4 h4f6 e3g3 f2e2 g3f3 e2e1 f3e3 e1g1 g4f3");
+            Program.ParseCommand("go ponder wtime 43153 btime 41703 winc 6000 binc 6000");
+            Thread.Sleep(7658);
+            Program.ParseCommand("stop");
+
+            Program.ParseCommand("position startpos moves b1c3 d7d5 d2d4 c8f5 e2e3 b8c6 f1b5 g8f6 g1f3 g7g6 f3e5 d8d6 b5c6 b7c6 g2g4 f5e4 f2f3 f8g7 e1g1 f6g4 c3e4 d5e4 e5g4 e4f3 d1f3 d6d5 f3f4 e8d7 f4f7 d5g5 h2h3 h8g8 e3e4 g7d4 g1g2 g5c5 c2c3 g8f8 g4f6 d4f6 f1d1 f6d4 f7h7 f8f2 g2h1 a8h8 h7h8 f2f1 d1f1 d4h8 h1g2 c5e5 f1e1 e5b5 e1e3 h8f6 a2a4 b5c4 a4a5 d7e6 e3e1 c4b5 g2f3 b5h5 f3g2 f6h4 e1e3 h5d1 c3c4 d1c2 g2f3 c2f2 f3g4 h4f6 e3g3 f2e2 g3f3 e2e1 f3e3 e1g1 e3g3");
+            Program.ParseCommand("go wtime 41720 btime 41703 winc 6000 binc 6000");
             Engine.Wait();
         }
     }

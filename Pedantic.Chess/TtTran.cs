@@ -73,13 +73,17 @@ namespace Pedantic.Chess
         {
             int index = GetStoreIndex(hash);
             ref TtTranItem item = ref table[index];
+            ulong bestMove = move;
 
-            if (item.IsValid(hash) && item.Depth > depth)
+            if (item.IsValid(hash))
             {
-                return; // don't replace
-            }
+                if (item.Depth > depth)
+                {
+                    return; // don't replace
+                }
 
-            ulong bestMove = move != 0 ? move : item.BestMove;
+                bestMove = bestMove == 0 ? item.BestMove : bestMove;
+            }
 
             if (Evaluation.IsCheckmate(score))
             {
@@ -99,12 +103,12 @@ namespace Pedantic.Chess
             if (score <= alpha)
             {
                 flag = TtFlag.UpperBound;
-                score = alpha;
+                //score = alpha;
             }
             else if (score >= beta)
             {
                 flag = TtFlag.LowerBound;
-                score = beta;
+                //score = beta;
             }
 
             TtTranItem.SetValue(ref item, hash, (short)score, itemDepth, flag, bestMove);
@@ -138,10 +142,10 @@ namespace Pedantic.Chess
 
         public static bool TryGetScore(ulong hash, int depth, int ply, int alpha, int beta, out int score)
         {
-            return TryGetScore(hash, depth, ply, alpha, beta, out score, out ulong _);
+            return TryGetScore(hash, depth, ply, ref alpha, ref beta, out score, out ulong _);
         }
 
-        public static bool TryGetScore(ulong hash, int depth, int ply, int alpha, int beta, out int score,
+        public static bool TryGetScore(ulong hash, int depth, int ply, ref int alpha, ref int beta, out int score,
             out ulong move)
         {
             score = 0;
@@ -169,17 +173,17 @@ namespace Pedantic.Chess
                     return true;
                 }
 
-                if (item.Flag == TtFlag.UpperBound && score <= alpha)
+                if (item.Flag == TtFlag.UpperBound /*&& score <= alpha*/)
                 {
-                    score = alpha;
-                    return true;
+                    beta = Math.Min(score, beta);
                 }
 
-                if (item.Flag == TtFlag.LowerBound && score >= beta)
+                if (item.Flag == TtFlag.LowerBound /*&& score >= beta*/)
                 {
-                    score = beta;
-                    return true;
+                    alpha = Math.Max(score, alpha);
                 }
+
+                return alpha >= beta;
             }
 
             return false;

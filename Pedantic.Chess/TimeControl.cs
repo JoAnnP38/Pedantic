@@ -10,7 +10,8 @@ namespace Pedantic.Chess
     public sealed class TimeControl : ICloneable
     {
         const int time_margin = 50;
-        const int branching_factor_estimate = 3;
+        const int branching_factor_estimate = 5;
+        private const int branching_factor_denominator = 2;
         const int max_time_remaining = int.MaxValue / 3;
 
         private int movesToGo;
@@ -107,8 +108,15 @@ namespace Pedantic.Chess
             if (!Infinite)
             {
                 //estimate the branching factor
-                int multi = (movesToGo == 1) ? 1 : branching_factor_estimate;
-                long estimate = multi * ElapsedInterval;
+                long estimate;
+                if (movesToGo == 1)
+                {
+                    estimate = ElapsedInterval;
+                }
+                else
+                {
+                    estimate = (ElapsedInterval * branching_factor_estimate) / branching_factor_denominator;
+                }
                 long total = elapsed + estimate;
 
                 //no increment... we need to stay within the per-move time budget
@@ -118,14 +126,14 @@ namespace Pedantic.Chess
                 if (elapsed > TimePerMoveWithMargin)
                     return false;
                 //shouldn't spend more then the 2x the average on a move
-                if (total > (3 * TimePerMoveWithMargin) / 2)
+                if (total > 2 * TimePerMoveWithMargin)
                     return false;
                 //can't afford the estimate
                 if (total > TimeRemainingWithMargin)
                     return false;
             }
 
-                //all conditions fulfilled
+            //all conditions fulfilled
             return true;
         }
 

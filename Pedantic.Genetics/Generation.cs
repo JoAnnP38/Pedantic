@@ -196,13 +196,13 @@ namespace Pedantic.Genetics
                 {
                     if (match.Games.Count == 0)
                     {
-                        gamesToPlay.Add(new GameToPlay(match, match.Player1, match.Player2));
+                        gamesToPlay.Add(new GameToPlay(roundIndex, match, match.Player1, match.Player2));
                         --maxGames;
                     }
 
                     if (match.Games.Count < 2 && maxGames > 0)
                     {
-                        gamesToPlay.Add(new GameToPlay(match, match.Player2, match.Player1));
+                        gamesToPlay.Add(new GameToPlay(roundIndex, match, match.Player2, match.Player1));
                         --maxGames;
                     }
                 }

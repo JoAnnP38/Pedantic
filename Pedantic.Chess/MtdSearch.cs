@@ -8,16 +8,11 @@ using System.Xml.Xsl;
 
 namespace Pedantic.Chess
 {
-    public class MtdSearch : SearchBase
+    public class MtdSearch : BasicSearch
     {
         public MtdSearch(Board board, TimeControl time, int maxSearchDepth, long maxNodes = long.MaxValue - 100) 
             : base(board, time, maxSearchDepth, maxNodes)
         { }
-
-        public override SearchResult Search(int alpha, int beta, int depth, int ply, bool canNull = true, bool isPv = true)
-        {
-            throw new NotImplementedException();
-        }
 
         public override void Search()
         {
@@ -33,21 +28,7 @@ namespace Pedantic.Chess
                 ulong[] pv = Result.Pv;
                 UpdateTtWithPv(pv, Depth);
 
-                for (int i = 0; i < 2; i++)
-                {
-                    Result = Mtd(Result.Score, Depth, 0);
-
-                    if (wasAborted)
-                    {
-                        break;
-                    }
-
-                    if (i == 0 && Result.Pv.Length == 0)
-                    {
-                        TtEval.Clear();
-                        UpdateTtWithPv(pv, Depth);
-                    }
-                }
+                Result = Mtd(Result.Score, Depth, 0);
 
                 if (wasAborted)
                 {
@@ -82,14 +63,19 @@ namespace Pedantic.Chess
         protected SearchResult Mtd(int f, int depth, int ply)
         {
             int guess = f;
+            int searchMargin = search_granularity;
             int lowerBound = -Constants.CHECKMATE_SCORE;
             int upperBound = Constants.CHECKMATE_SCORE;
             SearchResult result;
             do
             {
                 int beta = guess != lowerBound ? guess : guess + 1;
-                result = SearchTt(beta - 1, beta, depth, ply);
+                result = Search(beta - 1, beta, depth, ply);
                 guess = result.Score;
+                if (Evaluation.IsCheckmate(guess))
+                {
+                    searchMargin = 0;
+                }
 
                 if (guess < beta)
                 {
@@ -101,25 +87,12 @@ namespace Pedantic.Chess
                 }
 
                 guess = (lowerBound + upperBound + 1) / 2;
-            } while (lowerBound < upperBound);
+            } while (lowerBound < upperBound - searchMargin);
 
             return result;
         }
 
-        protected SearchResult SearchTt(int alpha, int beta, int depth, int ply, bool canNull = true)
-        {
-            if (TtTran.TryGetScore(board.Hash, depth, ply, beta - 1, beta, out int score, out ulong move))
-            {
-                return new SearchResult(score, move);
-            }
-
-            SearchResult result = Search(alpha, beta, depth, ply, canNull);
-
-            TtTran.Add(board.Hash, depth, ply, alpha, beta, result.Score, result.Pv.Length > 0 ? result.Pv[0] : 0);
-            return result;
-        }
-
-        private SearchResult Search(int alpha, int beta, int depth, int ply, bool canNull = true)
+        public override SearchResult Search(int alpha, int beta, int depth, int ply, bool canNull = true, bool isPv = true)
         {
             if (IsDraw())
             {
@@ -145,16 +118,17 @@ namespace Pedantic.Chess
             }
 
             bool inCheck = board.IsChecked();
-            bool canReduce = CalcExtension(inCheck) == 0;
+            int X = CalcExtension(inCheck);
+            bool canReduce = X == 0;
             int eval = evaluation.Compute(board);
 
-            if (canNull && depth > 2 && !inCheck && eval > beta &&
-                board.HasMinorMajorPieces(board.OpponentColor, 600))
+            if (canNull && canReduce && depth > 2 && !inCheck && eval > beta &&
+                board.HasMinorMajorPieces(board.OpponentColor, 600)) // improve with incremental count of pieces
             {
-                int reduction = depth > 6 ? 3 : 2;
+                int R = depth > 8 ? 3 : 2;
                 if (board.MakeMove(Move.NullMove))
                 {
-                    SearchResult result = -SearchTt(-beta, -beta + 1, depth - reduction - 1, ply + 1, false);
+                    SearchResult result = -SearchTt(-beta, -beta + 1, depth - R - 1, ply + 1, false, false);
                     board.UnmakeMove();
                     if (result.Score >= beta)
                     {
@@ -163,7 +137,7 @@ namespace Pedantic.Chess
                 }
             }
 
-            if (canNull && canReduce && !inCheck && depth <= 2)
+            if (canNull && canReduce && !inCheck && depth < 3)
             {
                 int threshold = alpha - futilityMargin[depth];
                 if (eval < threshold)
@@ -175,6 +149,9 @@ namespace Pedantic.Chess
                     }
                 }
             }
+
+            bool canPrune = depth <= 2 && !inCheck && Math.Abs(alpha) < Constants.CHECKMATE_BASE &&
+                            canReduce && eval + futilityMargin[depth] <= alpha;
 
             ulong[] pv = EmptyPv;
             int expandedNodes = 0;
@@ -192,16 +169,42 @@ namespace Pedantic.Chess
 
                 bool checkingMove = board.IsChecked();
                 bool isQuiet = Move.IsQuiet(move);
-                bool interesting = expandedNodes == 1 || !canReduce || inCheck || checkingMove || !isQuiet;
+                bool isRecapture = IsRecapture(move);
+                bool interesting = expandedNodes == 1 || !canReduce || inCheck || checkingMove || isRecapture;
 
-                int reduction = 0;
-                if (!interesting && depth > 2 && !killerMoves.Exists(ply, move))
+                if (canPrune && isQuiet && !interesting)
                 {
-                    reduction = depth > 6 ? 2 : 1;
+                    board.UnmakeMove();
+                    continue;
                 }
 
-                int newDepth = depth - reduction - 1;
-                SearchResult result = -SearchTt(-beta, -alpha, newDepth, ply + 1);
+                int R = 0;
+                if (canReduce && !interesting && isQuiet && !killerMoves.Exists(ply, move))
+                {
+                    R = depth > 8 ? 2 : 1;
+                }
+
+                SearchResult r = -SearchTt(-alpha - 1, -alpha, depth - R - 1, ply + 1, true, false);
+
+                if (wasAborted)
+                {
+                    board.UnmakeMove();
+                    break;
+                }
+
+                if (r.Score <= alpha)
+                {
+                    board.UnmakeMove();
+                    continue;
+                }
+
+                int extension = X;
+                if (isRecapture && extension == 0)
+                {
+                    extension = 1;
+                }
+
+                SearchResult result = -SearchTt(-beta, -alpha, depth + extension - 1, ply + 1, true, isPv);
                 board.UnmakeMove();
 
                 if (wasAborted)
@@ -209,18 +212,22 @@ namespace Pedantic.Chess
                     break;
                 }
 
-                if (result.Score >= beta)
+                if (result.Score > alpha)
                 {
                     pv = MergeMove(result.Pv, move);
-                    TtTran.Add(board.Hash, depth, ply, alpha, beta, result.Score, move);
-                    if (!Move.IsCapture(move))
-                    {
-                        killerMoves.Add(move, ply);
-                        history.Update(Move.GetFrom(move), Move.GetTo(move), depth);
-                    }
+                    alpha = result.Score;
 
-                    MoveListPool.Return(moveList);
-                    return new SearchResult(beta, pv);
+                    if (result.Score >= beta)
+                    {
+                        if (!Move.IsCapture(move))
+                        {
+                            killerMoves.Add(move, ply);
+                            history.Update(Move.GetFrom(move), Move.GetTo(move), depth);
+                        }
+
+                        MoveListPool.Return(moveList);
+                        return new SearchResult(beta, pv);
+                    }
                 }
             }
 
@@ -238,5 +245,7 @@ namespace Pedantic.Chess
 
             return new SearchResult(alpha, pv);
         }
+
+        private const int search_granularity = 16;
     }
 }

@@ -241,6 +241,11 @@ namespace Pedantic.Chess
             return matchCount == 3;
         }
 
+        public ulong[] GameMoves()
+        {
+            return gameStack.Select(bs => bs.Move).Reverse().ToArray();
+        }
+
         public bool InsufficientMaterialForMate()
         {
             return Material(Color.White) <= 300 && Material(Color.Black) <= 300 &&
@@ -693,6 +698,12 @@ namespace Pedantic.Chess
             return false;
         }
 
+        public bool NoLegalMoves()
+        {
+            MoveList list = new();
+            GenerateLegalMoves(list);
+            return list.Count == 0;
+        }
         public bool OneLegalMove(out ulong legalMove)
         {
             int legalCount = 0;
@@ -724,7 +735,7 @@ namespace Pedantic.Chess
             for (ulong pawns = Pieces(other, Piece.Pawn); pawns != 0ul; pawns = BitOps.ResetLsb(pawns))
             {
                 int square = BitOps.TzCount(pawns);
-                pawnDefended |= pawnCaptures[(int)other][square];
+                pawnDefended |= PawnCaptures[(int)other][square];
             }
 
             ulong excluded = pawnDefended | Units(color);
@@ -768,6 +779,24 @@ namespace Pedantic.Chess
             }
         }
 
+        public void GenerateLegalMoves(MoveList list)
+        {
+            list.Clear();
+            GenerateMoves(list);
+
+            List<ulong> moves = new();
+            for (int n = 0; n < list.Count; n++)
+            {
+                if (MakeMove(list[n]))
+                {
+                    UnmakeMove();
+                    moves.Add(moves[n]);
+                }
+            }
+
+            list.Clear();
+            list.Add(moves);
+        }
         public void GenerateQuietMoves(MoveList list, IHistory history)
         {
             GenerateCastling(list, history);
@@ -1170,7 +1199,7 @@ namespace Pedantic.Chess
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static ulong PawnDefends(Color color, int square)
+        public static ulong PawnDefends(Color color, int square)
         {
             return pawnDefends[(int)color][square];
         }
@@ -1293,8 +1322,8 @@ namespace Pedantic.Chess
             #endregion
         };
 
-        private static readonly ulong[][] pawnCaptures =
-{
+        public static readonly ulong[][] PawnCaptures =
+        {
             #region pawnCaptures data
             new[]
             {

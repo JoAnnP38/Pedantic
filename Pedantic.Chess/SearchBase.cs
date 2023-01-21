@@ -1,4 +1,6 @@
-﻿using Pedantic.Utilities;
+﻿using System.Runtime.CompilerServices;
+using Pedantic.Collections;
+using Pedantic.Utilities;
 
 namespace Pedantic.Chess
 {
@@ -121,21 +123,40 @@ namespace Pedantic.Chess
 
         public abstract SearchResult Search(int alpha, int beta, int depth, int ply, bool canNull = true, bool isPv = true);
 
+        public virtual SearchResult SearchTt(int alpha, int beta, int depth, int ply, bool canNull = true, bool isPv = true)
+        {
+            int originalAlpha = alpha;
+
+            if (TtTran.TryGetScore(board.Hash, depth, ply, ref alpha, ref beta, out int ttScore, out ulong move))
+            {
+                return new SearchResult(ttScore, move);
+            }
+
+            SearchResult result = Search(alpha, beta, depth, ply);
+
+            TtTran.Add(board.Hash, depth, ply, originalAlpha, beta, result.Score, result.Pv.Length > 0 ? result.Pv[0] : 0);
+
+            return result;
+        }
+
         protected virtual int QuiesceTt(int alpha, int beta, int ply)
         {
-            if (TtTran.TryGetScore(board.Hash, 0, ply, alpha, beta, out int score))
+            int originalAlpha = alpha;
+            if (TtTran.TryGetScore(board.Hash, 0, ply, ref alpha, ref beta, out int score, out ulong _))
             {
                 return score;
             }
 
             score = Quiesce(alpha, beta, ply);
 
-            TtTran.Add(board.Hash, 0, ply, alpha, beta, score, 0ul);
+            TtTran.Add(board.Hash, 0, ply, originalAlpha, beta, score, 0ul);
             return score;
         }
 
         protected virtual int Quiesce(int alpha, int beta, int ply)
         {
+            int originalAlpha = alpha;
+
             NodesVisited++;
 
             if (MustAbort || wasAborted)
@@ -192,7 +213,7 @@ namespace Pedantic.Chess
                 if (score > alpha)
                 {
                     alpha = score;
-
+                    TtTran.Add(board.Hash, 0, ply, originalAlpha, beta, score, move);
                     if (score >= beta)
                     {
                         MoveListPool.Return(moveList);
@@ -226,7 +247,7 @@ namespace Pedantic.Chess
             return alpha;
         }
 
-        protected virtual int ZwSearch(int beta, int depth, int ply)
+        protected virtual int ZwSearch(int beta, int depth, int ply, bool canNull = true)
         {
             if (IsDraw())
             {
@@ -252,6 +273,24 @@ namespace Pedantic.Chess
             }
 
             bool inCheck = board.IsChecked();
+            int X = CalcExtension(inCheck);
+            bool canReduce = X == 0;
+            int eval = evaluation.Compute(board);
+
+            if (canNull && canReduce && depth > 2 && !inCheck && eval > beta &&
+                board.HasMinorMajorPieces(board.OpponentColor, 600))
+            {
+                int R = depth > 8 ? 3 : 2;
+                if (board.MakeMove(Move.NullMove))
+                {
+                    int result = -ZwSearch(1 - beta, depth - R - 1, ply + 1, false);
+                    board.UnmakeMove();
+                    if (result >= beta)
+                    {
+                        return beta;
+                    }
+                }
+            }
             
             int expandedNodes = 0;
             history.SideToMove = board.SideToMove;
@@ -266,7 +305,38 @@ namespace Pedantic.Chess
 
                 expandedNodes++;
 
-                int score = -ZwSearchTt(-beta + 1, depth - 1, ply + 1);
+                bool checkingMove = board.IsChecked();
+                bool isQuiet = Move.IsQuiet(move);
+                bool isRecapture = IsRecapture(move);
+                bool interesting = expandedNodes == 1 || !canReduce || inCheck || checkingMove || isRecapture;
+
+                int R = 0;
+                if (canReduce && !interesting && isQuiet && !killerMoves.Exists(ply, move))
+                {
+                    R = depth > 8 ? 2 : 1;
+                }
+
+                int score = -ZwSearchTt(-beta + 1, depth - R - 1, ply + 1);
+                
+                if (wasAborted)
+                {
+                    board.UnmakeMove();
+                    break;
+                }
+
+                if (score <= beta - 1)
+                {
+                    board.UnmakeMove();
+                    continue;
+                }
+
+                int extension = X;
+                if (isRecapture && extension == 0)
+                {
+                    extension = 1;
+                }
+
+                score = -ZwSearchTt(1 - beta, depth + extension - 1, ply + 1);
                 board.UnmakeMove();
 
                 if (wasAborted)
@@ -276,6 +346,7 @@ namespace Pedantic.Chess
 
                 if (score >= beta)
                 {
+                    TtTran.Add(board.Hash, depth, ply, beta - 1, beta, score, move);
                     if (!Move.IsCapture(move))
                     {
                         killerMoves.Add(move, ply);
@@ -302,14 +373,14 @@ namespace Pedantic.Chess
             return beta - 1;
         }
 
-        protected virtual int ZwSearchTt(int beta, int depth, int ply)
+        protected virtual int ZwSearchTt(int beta, int depth, int ply, bool canNull = true)
         {
             if (TtTran.TryGetScore(board.Hash, 0, ply, beta - 1, beta, out int score))
             {
                 return score;
             }
 
-            score = ZwSearch(beta, depth, ply);
+            score = ZwSearch(beta, depth, ply, canNull);
 
             TtTran.Add(board.Hash, 0, ply, beta - 1, beta, score, 0ul);
             return score;
@@ -454,6 +525,12 @@ namespace Pedantic.Chess
             return extension > 0 ? 1 : 0;
         }
 
+        protected bool IsRecapture(ulong move)
+        {
+            return Move.IsCapture(board.LastMove) && Move.IsCapture(move) &&
+                   Move.GetTo(board.LastMove) == Move.GetTo(move);
+        }
+
         protected const int CHECK_TC_NODES_MASK = 31;
         protected const short DELTA_PRUNING_MARGIN = 200;
         protected const int MAX_GAIN_PER_PLY = 100;
@@ -474,5 +551,6 @@ namespace Pedantic.Chess
         protected static readonly SearchResult DefaultResult = new(0, EmptyPv);
         protected static readonly int[] window = { 25, 75, Constants.INFINITE_WINDOW };
         protected static readonly int[] futilityMargin = { 100, 300, 600, 900 };
+        protected static readonly ulong recaptureMask = 0x0ffc;
     }
 }

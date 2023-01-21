@@ -9,7 +9,7 @@ namespace Pedantic.Genetics
     {
         public const double MUTATION_PROBABILITY = 0.0002d;
         public const int MAX_AGE = 5;
-        public const int MAX_WEIGHTS = 936;
+        public const int MAX_WEIGHTS = 940;
         public const int MAX_PARENTS = 2;
         public const int PIECE_WEIGHT_LENGTH = 6;
         public const int PIECE_SQUARE_LENGTH = 384;
@@ -50,7 +50,11 @@ namespace Pedantic.Genetics
         public const int OPENING_PAWN_MAJORITY_OFFSET = 932;
         public const int ENDGAME_PAWN_MAJORITY_OFFSET = 933;
         public const int OPENING_KING_NEAR_PASSED_PAWN_OFFSET = 934;
-        public const int ENDGAME_KING_NEAR_PASSED_PAWN_OFFSET = 934;
+        public const int ENDGAME_KING_NEAR_PASSED_PAWN_OFFSET = 935;
+        public const int OPENING_GUARDED_PASSED_PAWN_OFFSET = 936;
+        public const int ENDGAME_GUARDED_PASSED_PAWN_OFFSET = 937;
+        public const int OPENING_ATTACK_PASSED_PAWN_OFFSET = 938;
+        public const int ENDGAME_ATTACK_PASSED_PAWN_OFFSET = 939;
 
         public readonly struct WtInfo
         {
@@ -299,10 +303,10 @@ namespace Pedantic.Genetics
             3900,
 
             /* OpeningMobilityWeight */
-            10,
+            5,
 
             /* EndGameMobilityWeight */
-            10,
+            5,
 
             /* OpeningKingSafetyWeight */
             8, // attacks to squares adjacent to king
@@ -710,16 +714,28 @@ namespace Pedantic.Genetics
             20,
 
             /* opening pawn majority bonus */
-            25,
+            5,
 
             /* end game pawn majority bonus */
-            25,
+            10,
 
             /* opening king near passed pawn (inside its square) */
             0,
 
             /* endgame king near passed pawn (inside its square) */
-            25
+            10,
+
+            /* opening guarded passed pawn */
+            0,
+
+            /* endgame guarded passed pawn */
+            10,
+
+            /* opening attacked passed pawn */
+            5,
+
+            /* endgame attacked passed pawn */
+            10
         };
 
         private static readonly WtInfo[] wtInfos =
@@ -761,7 +777,11 @@ namespace Pedantic.Genetics
             new WtInfo("opPawnMajority", 932, 933, 0, 101),
             new WtInfo("egPawnMajority", 933, 934, 0, 101),
             new WtInfo("opKNearPp", 934, 935, 0, 101),
-            new WtInfo("egKNearPp", 935, 936, 0, 101)
+            new WtInfo("egKNearPp", 935, 936, 0, 101),
+            new WtInfo("opGuardPPawn", 936, 937, 0, 101),
+            new WtInfo("egGuardPPawn", 937, 938, 0, 101),
+            new WtInfo("opAttackPPawn", 938, 939, 0, 101),
+            new WtInfo("egAttackPPawn", 939, 940, 0, 101)
         };
     }
 }
