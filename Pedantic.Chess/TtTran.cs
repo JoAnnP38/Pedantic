@@ -1,7 +1,4 @@
-﻿using System.Diagnostics.Tracing;
-using System.Net.Http.Headers;
-using System.Runtime.CompilerServices;
-using System.Text.RegularExpressions;
+﻿using System.Runtime.CompilerServices;
 using Pedantic.Utilities;
 
 namespace Pedantic.Chess
@@ -191,40 +188,13 @@ namespace Pedantic.Chess
 
         private static int GetStoreIndex(ulong hash)
         {
-            int index = (int)(hash % (ulong)capacity);
-            if (!table[index].IsValid(hash))
-            {
-                return index;
-            }
-
-            if (!table[index ^ 1].IsValid(hash))
-            {
-                return index ^ 1;
-            }
-
-            return table[index].Depth < table[index ^ 1].Depth ? index : index ^ 1;
+            return (int)(hash % (ulong)capacity);
         }
 
         private static bool GetLoadIndex(ulong hash, out int index)
         {
             index = (int)(hash % (ulong)capacity);
-            if (table[index].IsValid(hash))
-            {
-                if (table[index ^ 1].IsValid(hash))
-                {
-                    index = table[index].Depth > table[index ^ 1].Depth ? index : index ^ 1;
-                }
-
-                return true;
-            }
-
-            if (table[index ^ 1].IsValid(hash))
-            {
-                index ^= 1;
-                return true;
-            }
-
-            return false;
+            return table[index].IsValid(hash);
         }
     }
 }

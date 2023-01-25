@@ -52,7 +52,7 @@ namespace Pedantic.Chess
                 color = value;
             }
         }
-        public static SearchType SearchType { get; set; } = SearchType.Pv;
+        public static SearchType SearchType { get; set; } = SearchType.Mtd;
   
         public static PolyglotEntry[] BookEntries
         {
@@ -100,7 +100,6 @@ namespace Pedantic.Chess
                 searchThread = null;
             }
 
-            TtTran.Clear();
             StopScouts();
         }
 

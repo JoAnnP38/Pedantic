@@ -672,10 +672,10 @@ namespace Pedantic.Genetics
             /* passed pawns */
             5, // rank 2
             10, // rank 3
-            15, // rank 4
-            30, // rank 5
-            60, // rank 6
-            120, // rank 7
+            20, // rank 4
+            40, // rank 5
+            80, // rank 6
+            160, // rank 7
 
             #endregion
 

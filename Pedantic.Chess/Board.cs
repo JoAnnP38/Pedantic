@@ -285,7 +285,7 @@ namespace Pedantic.Chess
                 int to = Move.GetTo(move);
                 Square sq = board[to];
                 int normalizedRank = Index.GetRank(Index.NormalizedIndex[(int)sq.Color][to]);
-                return sq.Piece == Piece.Pawn && normalizedRank == 6;
+                return sq.Piece == Piece.Pawn && (normalizedRank == 6 || normalizedRank == 5);
             }
 
             return false;
@@ -1269,12 +1269,12 @@ namespace Pedantic.Chess
         private static readonly int[][] captureScores = 
         {
             #region captureScores data
-            new [] {  10010,  10003,  10003,  10002,  10001,  10000 },
-            new [] {  10030,  10010,  10010,  10006,  10003,  10000 },
-            new [] {  10030,  10010,  10010,  10006,  10003,  10000 },
-            new [] {  10050,  10016,  10016,  10010,  10005,  10000 },
-            new [] {  10090,  10030,  10030,  10018,  10010,  10000 },
-            new [] {  11500,  10500,  10500,  10300,  10166,  10010 }
+            new [] {  10119,  10117,  10117,  10115,  10111,  10100 },
+            new [] {  10319,  10317,  10317,  10315,  10311,  10300 },
+            new [] {  10319,  10317,  10317,  10315,  10311,  10300 },
+            new [] {  10519,  10517,  10517,  10515,  10511,  10500 },
+            new [] {  10919,  10917,  10917,  10915,  10911,  10900 },
+            new [] {  12019,  12017,  12017,  12015,  12011,  12000 }
             #endregion
         };
 

@@ -23,6 +23,13 @@ namespace Pedantic.Chess
                 return new SearchResult(evaluation.Compute(board));
             }
 
+            alpha = Math.Max(alpha, -Constants.CHECKMATE_SCORE + ply - 1);
+            beta = Math.Min(beta, Constants.CHECKMATE_SCORE - ply);
+            if (alpha >= beta)
+            {
+                return new SearchResult(alpha);
+            }
+
             if (depth <= 0)
             {
                 return new SearchResult(QuiesceTt(alpha, beta, ply));
@@ -41,14 +48,19 @@ namespace Pedantic.Chess
             bool canReduce = X == 0;
             int eval = evaluation.Compute(board);
 
-            if (canNull && canReduce && depth > 2 && !isPv && !inCheck && eval > beta && 
+            if (canNull && canReduce && depth >= 3 && !isPv && eval >= beta && 
                 board.HasMinorMajorPieces(board.OpponentColor, 600))
             {
-                int R = depth > 6 ? 3 : 2;
+                int R = nmp[depth];
                 if (board.MakeMove(Move.NullMove))
                 {
                     SearchResult result = -SearchTt(-beta, -beta + 1, depth - R - 1, ply + 1, false, false);
                     board.UnmakeMove();
+                    if (wasAborted)
+                    {
+                        return DefaultResult;
+                    }
+
                     if (result.Score >= beta)
                     {
                         return new SearchResult(beta);
@@ -56,9 +68,9 @@ namespace Pedantic.Chess
                 }
             }
 
-            if (canNull && canReduce && !isPv && !inCheck && depth <= 2)
+            if (canNull && canReduce && !isPv && depth <= 2 && !Move.IsPawnMove(board.LastMove))
             {
-                int threshold = alpha - futilityMargin[depth];
+                int threshold = alpha - 300 * depth;
                 if (eval < threshold)
                 {
                     int score = QuiesceTt(alpha, beta, ply);
@@ -69,8 +81,8 @@ namespace Pedantic.Chess
                 }
             }
 
-            bool canPrune = depth <= 2 && !isPv && !inCheck && Math.Abs(alpha) < Constants.CHECKMATE_BASE &&
-                            canReduce && eval + futilityMargin[depth] <= alpha;
+            bool canPrune = canReduce && !isPv && Math.Abs(alpha) < Constants.CHECKMATE_BASE && depth < 8 &&
+                            eval + futilityMargin[depth] <= alpha;
 
             ulong[] pv = EmptyPv;
             int expandedNodes = 0;
@@ -88,37 +100,51 @@ namespace Pedantic.Chess
 
                 bool checkingMove = board.IsChecked();
                 bool isQuiet = Move.IsQuiet(move);
-                bool interesting = expandedNodes == 1 || !canReduce || inCheck || checkingMove;
+                bool interesting = inCheck || checkingMove || !isQuiet || expandedNodes == 1;
 
-                if (canPrune && isQuiet && !interesting)
+                if (canPrune && !interesting && expandedNodes < lmp[depth])
                 {
                     board.UnmakeMove();
                     continue;
                 }
 
                 int R = 0;
-                if (canReduce && !isPv && expandedNodes > 3 && !interesting && isQuiet && !killerMoves.Exists(ply, move))
+                if (!interesting && !killerMoves.Exists(ply, move))
                 {
-                    R = depth > 10 ? 2 : 1;
+                    R = lmr[Math.Min(depth, 31)][Math.Min(expandedNodes, 63)];
                 }
 
-                if (ply > 0 && expandedNodes > 1)
+                if (X > 0 && R > 0)
                 {
-                    SearchResult r = -SearchTt( -alpha - 1, -alpha, depth - R - 1, ply + 1, true, false);
+                    R--;
+                }
 
-                    if (wasAborted)
+                SearchResult result;
+                for (;;)
+                {
+                    if (expandedNodes == 1)
                     {
-                        board.UnmakeMove();
+                        result = -SearchTt(-beta, -alpha, depth + X - 1, ply + 1, true, isPv);
+                    }
+                    else
+                    {
+                        result = -SearchTt(-alpha - 1, -alpha, depth + X - R - 1, ply + 1, true, false);
+                        if (result.Score > alpha)
+                        {
+                            result = -SearchTt(-beta, -alpha, depth + X - R - 1, ply + 1, true, R == 0);
+                        }
+                    }
+
+                    if (R > 0 && result.Score > alpha)
+                    {
+                        R = 0;
+                    }
+                    else
+                    {
                         break;
                     }
-                    if (r.Score <= alpha)
-                    {
-                        board.UnmakeMove();
-                        continue;
-                    }
                 }
 
-                SearchResult result = -SearchTt(-beta, -alpha, depth + X - 1, ply + 1, true, isPv);
                 board.UnmakeMove();
 
                 if (wasAborted)
