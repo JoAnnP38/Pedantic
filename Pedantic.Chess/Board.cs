@@ -152,7 +152,7 @@ namespace Pedantic.Chess
                     return item.Move;
                 }
 
-                return 0ul;
+                return Move.NullMove;
             }
         }
 

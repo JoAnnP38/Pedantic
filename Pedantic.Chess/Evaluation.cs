@@ -87,6 +87,23 @@ namespace Pedantic.Chess
             egAdjPawn = new(endGameAdjacentPawns);
         }
 
+        public void CalcMaterialAdjustment(Board board)
+        {
+            int materialWhite = board.Material(Color.White);
+            int materialBlack = board.Material(Color.Black);
+
+            if (materialWhite > 0 && materialBlack > 0 && Math.Abs(materialWhite - materialBlack) >= 300)
+            {
+                adjust[0] = Math.Min(Math.Max((materialBlack * 10) / materialWhite, 10), 8);
+                adjust[1] = Math.Min(Math.Max((materialWhite * 10) / materialBlack, 10), 8);
+            }
+            else
+            {
+                adjust[0] = 10;
+                adjust[1] = 10;
+            }
+        }
+
         public short Compute(Board board)
         {
             if (TtEval.TryGetScore(board.Hash, out short score))
@@ -109,8 +126,8 @@ namespace Pedantic.Chess
             for (Color color = Color.White; color <= Color.Black; ++color)
             {
                 int n = (int)color;
-                opScore[n] += (short)(board.OpeningMaterial[n] + board.OpeningPieceSquare[n]);
-                egScore[n] += (short)(board.EndGameMaterial[n] + board.EndGamePieceSquare[n]);
+                opScore[n] += (short)(AdjustMaterial(board.OpeningMaterial[n], adjust[n]) + board.OpeningPieceSquare[n]);
+                egScore[n] += (short)(AdjustMaterial(board.EndGameMaterial[n], adjust[n]) + board.EndGamePieceSquare[n]);
                 /* put this back in when optimization starts */
                 short mobility = board.GetPieceMobility(color);
                 opScore[n] += (short)(mobility * OpeningMobilityWeight);
@@ -124,6 +141,11 @@ namespace Pedantic.Chess
 
             TtEval.Add(board.Hash, score);
             return score;
+        }
+
+        public short AdjustMaterial(int material, int adjust)
+        {
+            return (short)((material * adjust) / 10);
         }
 
         public void CalculatePawns(Board board, Span<short> opScores, Span<short> egScores)
@@ -434,6 +456,8 @@ namespace Pedantic.Chess
             d2 = BitOps.PopCount(board.Units(color) & kingProximity[1][kingSq]);
             d3 = BitOps.PopCount(board.Units(color) & kingProximity[2][kingSq]);
         }
+
+        private int[] adjust = { 10, 10 };
 
         private static readonly short[] sign = { 1, -1 };
         public static readonly short[] CanonicalPieceValues = { 100, 300, 300, 500, 900, 0 };

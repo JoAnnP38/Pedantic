@@ -98,6 +98,7 @@ namespace Pedantic.Chess
                 time.Stop();
                 searchThread.Join();
                 searchThread = null;
+                ClearHashTable();
             }
 
             StopScouts();

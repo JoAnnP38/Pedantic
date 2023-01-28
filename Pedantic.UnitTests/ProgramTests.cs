@@ -385,5 +385,26 @@ namespace Pedantic.UnitTests
             Program.ParseCommand("go wtime 41720 btime 41703 winc 6000 binc 6000");
             Engine.Wait();
         }
+
+        [TestMethod]
+        public void IncorrectMaterialEvaluationTest()
+        {
+            //Engine.Infinite = true;
+            Engine.SearchType = SearchType.Mtd;
+            Program.ParseCommand("position startpos moves e2e4 d7d5 e4d5 d8d5 b1c3 d5e6 f1e2 e6g6 e2c4 g6g2 d1h5 g2h1 h5f7 e8d7 d2d4 h1g1 e1e2 g1g4 e2f1 g8f6");
+            Program.ParseCommand("go depth 1");
+            Engine.Wait();
+        }
+
+        [TestMethod]
+        public void UnexpectedException4Test()
+        {
+            Engine.SearchType = SearchType.Mtd;
+            Program.ParseCommand("position startpos moves d2d4 d7d5 c2c4 d5c4 g1f3 b7b5 b1c3 c8a6 b2b3 b5b4 c3e4 a6b7 e4c5 b7f3 e2f3 e7e5 f1c4 e5d4 c4b5 c7c6 d1e2 d8e7 c5a6 e8d7 a6b8 a8b8 b5c4 e7f6 e2d3 b8e8 e1f1 d7c8 h2h4 h7h6 c1b2 c6c5 c4d5 e8e7 d3c4 c8d8 a2a3 b4a3 b2a3 e7c7 a3b2 c7d7 a1a6 f6f5 d5c6 d7e7 c6e4 f5e5 a6a5 e7d7 e4c6 d7e7 c6e4 e7d7 e4c6 d7c7 c6d5 e5f4 b2c1 f4f5 f1g1 c7d7 d5c6 d7c7 c6d5 f8d6 a5a6 d6e5 d5e4 f5d7 c1a3 e5d6 c4d5 d8e7 d5a8 g7g6 e4d5 d7f5 d5e4 f5d7 e4d5 d7f5 d5e4 f5e5 e4d3 c7d7 g2g3 d7c7 d3b5 h6h5 a8e8 e7f6 e8d8 f6g7 a6d6 c7b7 d6d5 e5f6 d8f6 g8f6 d5c5 f6d7 c5d5 d7f6 d5g5 d4d3 g1g2 h8b8 b5c4 d3d2 a3b2 b7d7 h1d1 b8e8 b2c3 e8e1 d1d2 d7d2 c3d2 e1a1 d2c3 a1d1 g5a5 d1d6 a5a7 g7g8 c4f7 g8h7 f7e6 d6d7 e6d7 f6d7 a7a8 d7f6");
+            Program.ParseCommand("go ponder wtime 23172 btime 52317 winc 6000 binc 6000");
+            Thread.Sleep(1000);
+            Program.ParseCommand("stop");
+            Engine.Wait();
+        }
     }
 }

@@ -303,10 +303,10 @@ namespace Pedantic.Genetics
             3900,
 
             /* OpeningMobilityWeight */
-            5,
+            3,
 
             /* EndGameMobilityWeight */
-            5,
+            3,
 
             /* OpeningKingSafetyWeight */
             8, // attacks to squares adjacent to king
@@ -319,7 +319,7 @@ namespace Pedantic.Genetics
             2, // attacks to squares 3 squares from king
 
             /* OpeningDevelopmentWeight */
-            5,
+            2,
 
             /* EndGameDevelopmentWeight */
             0,

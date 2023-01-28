@@ -29,10 +29,10 @@ namespace Pedantic.Chess
         public Fen(Board board)
         {
             ReadOnlySpan<Square> fenSquares = board.GetSquares();
-            for (int sq = 0; sq < Constants.MAX_SQUARES; ++sq)
+            /*for (int sq = 0; sq < Constants.MAX_SQUARES; ++sq)
             {
                 squares.Add((fenSquares[sq].Color, fenSquares[sq].Piece, sq));
-            }
+            }*/
 
             sideToMove = board.SideToMove;
             castling = board.Castling;
