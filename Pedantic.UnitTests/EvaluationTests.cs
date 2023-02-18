@@ -1,6 +1,7 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 using Pedantic.Chess;
+using Index = Pedantic.Chess.Index;
 
 namespace Pedantic.UnitTests
 {
@@ -116,6 +117,49 @@ namespace Pedantic.UnitTests
             Board board = new(fen);
             Assert.AreEqual(whiteMobility, board.GetPieceMobility(Color.White));
             Assert.AreEqual(blackMobility, board.GetPieceMobility(Color.Black));
+        }
+
+        [TestMethod]
+        [DataRow("5r2/8/8/8/3B3P/2PK4/1k6/7R w - - 94 142")]
+        public void PassPawnEvaluationTest(string fen)
+        {
+            KillerMoves km = new();
+            History h = new();
+            Board board = new(fen);
+            Evaluation evaluation = new();
+            int eval0 = evaluation.Compute(board);
+            MoveList list = new MoveList();
+            board.GenerateMoves(list);
+            SortedSet<ulong> s1 = new(list);
+            list.Clear();
+            Assert.IsTrue(s1.SetEquals(board.Moves(0, km, h, list)));
+
+            ulong move = Move.PackMove(Index.H4, Index.H5, MoveType.PawnMove);
+            board.MakeMove(move);
+
+            int eval1 = evaluation.Compute(board);
+
+            Assert.IsTrue(-eval1 > eval0);
+
+            board.UnmakeMove();
+
+            move = Move.PackMove(Index.C3, Index.C4, MoveType.PawnMove);
+            board.MakeMove(move);
+            int eval2 = evaluation.Compute(board);
+
+            Assert.IsTrue(-eval2 > eval0);
+        }
+
+        [TestMethod]
+        [DataRow("8/8/8/pk5P/1p5P/4K3/8/8 w - - 0 100")]
+        public void PassedPawnEvaluationTest(string fen)
+        {
+            Board board = new(fen);
+            Evaluation eval = new();
+            int e = eval.Compute(board);
+
+            Console.WriteLine(@$"eval.Compute(board) : {e}");
+            Assert.IsTrue(e > 0);
         }
     }
 }

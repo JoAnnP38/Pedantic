@@ -99,6 +99,14 @@ namespace Pedantic.Chess
             return Math.Max(Math.Abs(coord1.File - coord2.File), Math.Abs(coord1.Rank - coord2.Rank));
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool IsDark(int index)
+        {
+            ToCoords(index, out int file, out int rank);
+            return ((file + rank) & 0x01) == 0;
+
+        }
+
         private static readonly string[] algebraicIndices =
         {
             "a1", "b1", "c1", "d1", "e1", "f1", "g1", "h1",

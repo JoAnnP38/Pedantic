@@ -10,7 +10,7 @@
         {
             if (depth <= 0)
             {
-                return new SearchResult(QuiesceTt(alpha, beta, ply), EmptyPv);
+                return new SearchResult(Quiesce(alpha, beta, ply), EmptyPv);
             }
 
             NodesVisited++;

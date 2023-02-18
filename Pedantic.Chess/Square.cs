@@ -31,6 +31,7 @@ namespace Pedantic.Chess
         public bool IsEmpty => contents == 0;
         public Color Color => IsEmpty ? Color.None : (Color)((contents >> 1) & 0x01);
         public Piece Piece => IsEmpty ? Piece.None : (Piece)(contents >> 2);
+        public byte Contents => contents;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool Equals(Square other)
@@ -111,5 +112,18 @@ namespace Pedantic.Chess
             WhiteKing,
             BlackKing
         };
+    }
+
+    public class SquareEqualityComparer : IEqualityComparer<Square>
+    {
+        public bool Equals(Square x, Square y)
+        {
+            return x.Equals(y);
+        }
+
+        public int GetHashCode(Square obj)
+        {
+            return obj.Contents.GetHashCode();
+        }
     }
 }

@@ -25,9 +25,8 @@ namespace Pedantic.Chess
             evaluation.CalcMaterialAdjustment(board);
             int guess = evaluation.Compute(board);
             ulong[] pv = Array.Empty<ulong>();
-            int mateIn = int.MaxValue;
 
-            while (Depth++ < maxSearchDepth && time.CanSearchDeeper() && (!Evaluation.IsCheckmate(guess) || Math.Abs(mateIn) >= Depth))
+            while (Depth++ < maxSearchDepth && time.CanSearchDeeper() && (!IsCheckmate(guess, out int mateIn) || Math.Abs(mateIn) * 2 >= Depth))
             {
                 time.StartInterval();
                 history.Rescale();
@@ -37,12 +36,11 @@ namespace Pedantic.Chess
                 guess = Mtd(guess, Depth, 0, ref pv);
 
                 if (wasAborted)
-                {
-                    Uci.Log($"Search aborted at depth {Depth}");
+                { 
                     break;
                 }
 
-                ReportSearchResults(guess, ref pv, ref bestMove, ref ponderMove, out mateIn);
+                ReportSearchResults(guess, ref pv, ref bestMove, ref ponderMove);
 
                 if (Depth == 5 && oneLegalMove)
                 {
@@ -64,7 +62,7 @@ namespace Pedantic.Chess
                     ReportSearchResults(guess, out pv, ref bestMove, ref ponderMove);
                 }
             }
-            Uci.BestMove(bestMove, ponderMove);
+            Uci.BestMove(bestMove, CanPonder ? ponderMove : null);
         }
 
         protected int Mtd(int f, int depth, int ply, ref ulong[] pv)
@@ -154,7 +152,7 @@ namespace Pedantic.Chess
                 }
 
                 expandedNodes++;
-                int score = -QuiesceTt(-beta, -alpha, ply + 1);
+                int score = -Quiesce(-beta, -alpha, ply + 1);
                 board.UnmakeMove();
 
                 if (wasAborted)
@@ -222,7 +220,7 @@ namespace Pedantic.Chess
 
             if (depth <= 0)
             {
-                return QuiesceTt(beta - 1, beta, ply);
+                return Quiesce(beta - 1, beta, ply);
             }
 
             NodesVisited++;
@@ -264,7 +262,7 @@ namespace Pedantic.Chess
                 int threshold = alpha - 300 * depth;
                 if (eval < threshold)
                 {
-                    int score = QuiesceTt(alpha, beta, ply);
+                    int score = Quiesce(alpha, beta, ply);
                     if (score < threshold)
                     {
                         return alpha;
@@ -330,14 +328,14 @@ namespace Pedantic.Chess
                 {
                     pvList.Store(ply, move);
                     TtTran.Add(board.Hash, depth, ply, beta - 1, beta, score, move);
-                    if (!Move.IsCapture(move))
-                    {
-                        killerMoves.Add(move, ply);
-                        history.Update(Move.GetFrom(move), Move.GetTo(move), depth);
-                    }
+                        if (!Move.IsCapture(move))
+                        {
+                            killerMoves.Add(move, ply);
+                            history.Update(Move.GetFrom(move), Move.GetTo(move), depth);
+                        }
 
-                    MoveListPool.Return(moveList);
-                    return beta;
+                        MoveListPool.Return(moveList);
+                        return beta;
                 }
             }
 
@@ -357,19 +355,20 @@ namespace Pedantic.Chess
         }
         protected override int ZwSearchTt(int beta, int depth, int ply, bool canNull = true)
         {
-            if (TtTran.TryGetScore(board.Hash, depth, ply, beta - 1, beta, out int score))
+            int alpha = beta - 1;
+            if (TtTran.TryGetScore(board.Hash, depth, ply, ref alpha, ref beta, out int score, out ulong move))
             {
                 return score;
             }
 
             score = ZwSearch(beta, depth, ply, canNull);
 
-            TtTran.Add(board.Hash, depth, ply, beta - 1, beta, score, 0ul);
+            TtTran.Add(board.Hash, depth, ply, alpha, beta, score, pvList.Pv.Length > ply ? pvList.Pv[ply] : move);
             return score;
         }
 
 
-        protected void ReportSearchResults(int score, ref ulong[] pv, ref ulong bestMove, ref ulong? ponderMove, out int mateIn)
+        protected void ReportSearchResults(int score, ref ulong[] pv, ref ulong bestMove, ref ulong? ponderMove)
         {
             pv = ExtractPv(pv, Depth);
             if (pv.Length > 0)
@@ -414,8 +413,7 @@ namespace Pedantic.Chess
                 }
             }
 
-            mateIn = int.MaxValue;
-            if (IsCheckmate(score, out mateIn))
+            if (IsCheckmate(score, out int mateIn))
             {
                 Uci.InfoMate(Depth, mateIn, NodesVisited, time.Elapsed, pv);
             }

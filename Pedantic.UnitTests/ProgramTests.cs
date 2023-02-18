@@ -134,6 +134,7 @@ namespace Pedantic.UnitTests
         {
             Engine.Infinite = true;
             Engine.UseOwnBook = false;
+            Engine.SearchType = SearchType.Mtd;
             Program.ParseCommand(@$"position fen {fen}");
             Program.ParseCommand("go wtime 300000 btime 300000 winc 0 binc 0");
             Engine.Wait();
@@ -146,6 +147,7 @@ namespace Pedantic.UnitTests
         {
             Engine.Infinite = true;
             Engine.UseOwnBook = false;
+            Engine.SearchType = SearchType.Mtd;
             Program.ParseCommand(@$"position fen {fen}");
             Program.ParseCommand("go wtime 300000 btime 300000 winc 0 binc 0");
             Engine.Wait();
@@ -158,6 +160,7 @@ namespace Pedantic.UnitTests
         {
             Engine.Infinite = true;
             Engine.UseOwnBook = false;
+            Engine.SearchType = SearchType.Mtd;
             Program.ParseCommand(@$"position fen {fen}");
             Program.ParseCommand("go wtime 300000 btime 300000 winc 0 binc 0");
             Engine.Wait();
@@ -287,6 +290,7 @@ namespace Pedantic.UnitTests
             Engine.SearchThreads = 1;
             Engine.SearchType = SearchType.Pv;
             Program.ParseCommand("setoption name Hash value 128");
+            //Program.ParseCommand("setoption name Evaluation_ID value 63da147260961e01d917f00f");
             Program.ParseCommand(
                 "position startpos moves d2d4 g8f6 c2c4 e7e6 g1f3 c7c5 d4d5 d7d6 b1c3 e6d5 c4d5 g7g6 c1f4 a7a6 a2a4 f8g7 h2h3 e8g8 e2e3 f6h5 f4h2 g7c3 b2c3 h5f6 d1b3 b7b6 e1c1 f6e4 b3c2 f7f5 f1d3 d8f6 d3e4 f5e4 f3d2 f6f2 h2d6 f8e8 d2c4 f2c2 c1c2 b8d7 d1b1 b6b5 c4a5 b5a4 a5c6 a6a5 c6e7 g8h8 e7c8 a8c8 b1b5 a4a3 h1a1 d7e5 d6c5 e5d3 c5d4 h8g8 b5b7 d3e5 a1a3 c8a8 a3a1 a5a4 d5d6 e5f7 d6d7 e8f8 a1d1 f7d8 b7b6 f8f2 c2c1 a4a3 d4c5 a3a2");
             Console.WriteLine(Engine.Board.ToString());

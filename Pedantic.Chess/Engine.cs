@@ -30,13 +30,24 @@ namespace Pedantic.Chess
         private static List<Scout> scouts = new();
         private static PolyglotEntry[]? bookEntries = null;
         private static Color color = Color.White;
+        private static string evaluationId = string.Empty;
 
         public static bool Debug { get; set; } = false;
         public static bool IsRunning { get; private set; } = true;
-        public static bool IsPondering { get; private set; } = false;
+        public static bool IsPondering { get; private set; } = true;
         public static bool CanPonder { get; set; } = true;
         public static bool UseOwnBook { get; set; } = true;
         public static bool Infinite { get; set; } = false;
+
+        public static string EvaluationId
+        {
+            get => evaluationId;
+            set
+            {
+                Evaluation.LoadWeights(value == string.Empty ? null : value);
+                evaluationId = value;
+            }
+        }
         public static Board Board => board;
 
         public static Color Color
@@ -376,13 +387,15 @@ namespace Pedantic.Chess
                 case SearchType.Minimal:
                     search = new MinimalSearch(board, time, maxDepth, maxNodes)
                     {
+                        CanPonder = CanPonder,
                         Pondering = IsPondering
                     };
                     break;
 
                 case SearchType.Mtd:
-                    search = new MtdSearch(board, time, maxDepth, maxNodes)
+                    search = new MtdSearchNew(board, time, maxDepth, maxNodes)
                     {
+                        CanPonder = CanPonder,
                         Pondering = IsPondering
                     };
                     break;
@@ -390,6 +403,8 @@ namespace Pedantic.Chess
                 default:
                     search = new BasicSearch(board, time, maxDepth, maxNodes)
                     {
+
+                        CanPonder = CanPonder,
                         Pondering = IsPondering
                     };
                     break;

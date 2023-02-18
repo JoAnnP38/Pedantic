@@ -144,7 +144,8 @@ namespace Pedantic
                     Console.WriteLine(@"option name Clear Hash type button");
                     Console.WriteLine($@"option name MaxThreads type spin default 1 min 1 max {Math.Max(Environment.ProcessorCount - 2, 1)}");
                     Console.WriteLine($@"option name UCI_EngineAbout type string default {PROGRAM_NAME_VER} by {AUTHOR}, see {PROGRAM_URL}");
-                    Console.WriteLine(@"option name Search Algorithm type combo default PV var PV var MTD(f) var Minimal");
+                    Console.WriteLine(@"option name Search_Algorithm type combo default PV var PV var MTD(f) var Minimal");
+                    Console.WriteLine(@"option name Evaluation_ID type string default <empty>");
                     Console.WriteLine(@"uciok");
                     break;
 
@@ -263,10 +264,17 @@ namespace Pedantic
 
                         break;
 
-                    case "Search":
-                        if (tokens[3] == "Algorithm" && tokens[4] == "value" && TryParse(tokens[5], out SearchType searchType))
+                    case "Search_Algorithm":
+                        if (tokens[3] == "value" && TryParse(tokens[4], out SearchType searchType))
                         {
                             Engine.SearchType = searchType;
+                        }
+
+                        break;
+                    case "Evaluation_ID":
+                        if (tokens[3] == "value")
+                        {
+                            Engine.EvaluationId = tokens.Length >= 5 ? tokens[4] : string.Empty;
                         }
 
                         break;

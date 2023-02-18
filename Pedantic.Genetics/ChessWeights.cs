@@ -1,13 +1,11 @@
-﻿using System.Diagnostics;
-using System.Reflection.Metadata.Ecma335;
-using System.Security.AccessControl;
+﻿using Pedantic.Utilities;
 using LiteDB;
 
 namespace Pedantic.Genetics
 {
     public class ChessWeights : IChromosome<ChessWeights>
     {
-        public const double MUTATION_PROBABILITY = 0.0002d;
+        public const double MUTATION_PROBABILITY = 0.0005d;
         public const int MAX_AGE = 5;
         public const int MAX_WEIGHTS = 940;
         public const int MAX_PARENTS = 2;
@@ -56,6 +54,34 @@ namespace Pedantic.Genetics
         public const int OPENING_ATTACK_PASSED_PAWN_OFFSET = 938;
         public const int ENDGAME_ATTACK_PASSED_PAWN_OFFSET = 939;
 
+        public readonly struct WeightGenerator
+        {
+            private readonly int minValue;
+            private readonly int maxValue;
+            private readonly int multiplier;
+
+            public WeightGenerator(int minValue, int maxValue, int multiplier = 1)
+            {
+                Util.Assert(minValue > short.MinValue && minValue <= short.MaxValue);
+                Util.Assert(maxValue > short.MinValue && maxValue <= short.MaxValue);
+                Util.Assert(minValue * multiplier > short.MinValue && minValue * multiplier <= short.MaxValue);
+                Util.Assert(maxValue * multiplier > short.MinValue && maxValue * multiplier <= short.MaxValue);
+                Util.Assert(maxValue > minValue);
+                this.minValue = minValue;
+                this.maxValue = maxValue;
+                this.multiplier = multiplier;
+            }
+
+            public short Next()
+            {
+                return (short)(Random.Shared.Next(minValue, maxValue) * multiplier);
+            }
+
+            public int MinValue => minValue;
+            public int MaxValue => maxValue;
+            public int Multiplier => multiplier;
+        }
+
         public readonly struct WtInfo
         {
             private readonly string key;
@@ -101,6 +127,7 @@ namespace Pedantic.Genetics
             public int OffsetEnd => offsetEnd;
             public int ValueStart => valueStart;
             public int ValueEnd => valueEnd;
+            public int Multiplier => multiplier;
 
             public static WtInfo Empty = new();
         }
@@ -186,8 +213,8 @@ namespace Pedantic.Genetics
             double totalChange = 0.0d;
 
             for (int n = 0; n < MAX_WEIGHTS; ++n)
-            {
-                totalChange += (double)Math.Abs(other.Weights[n] - Weights[n]) / Weights[n];
+            { 
+                totalChange += (double)Math.Abs(other.Weights[n] - Weights[n]) / Math.Abs((wtGens[n].MaxValue - wtGens[n].MinValue) * wtGens[n].Multiplier);
             }
 
             return (totalChange / MAX_WEIGHTS) * 100.0;
@@ -197,6 +224,8 @@ namespace Pedantic.Genetics
 
         public static (ChessWeights child1, ChessWeights child2) CrossOver(ChessWeights parent1, ChessWeights parent2, bool checkMutation)
         {
+            double probability = (parent1.Age + parent2.Age + 1) * MUTATION_PROBABILITY;
+            probability = Math.Max(Math.Min(probability, MUTATION_PROBABILITY), 0.05);
             short[] weights1 = new short[MAX_WEIGHTS];
             short[] weights2 = new short[MAX_WEIGHTS];
 
@@ -204,24 +233,24 @@ namespace Pedantic.Genetics
             {
                 if (rand.NextDouble() <= 0.5d)
                 {
-                    weights1[n] = Mutate(checkMutation, n, parent1.Weights[n]);
-                    weights2[n] = Mutate(checkMutation, n, parent2.Weights[n]);
+                    weights1[n] = Mutate(checkMutation, n, parent1.Weights[n], probability);
+                    weights2[n] = Mutate(checkMutation, n, parent2.Weights[n], probability);
                 }
                 else
                 {
-                    weights1[n] = Mutate(checkMutation, n, parent2.Weights[n]);
-                    weights2[n] = Mutate(checkMutation, n, parent1.Weights[n]);
+                    weights1[n] = Mutate(checkMutation, n, parent2.Weights[n], probability);
+                    weights2[n] = Mutate(checkMutation, n, parent1.Weights[n], probability);
                 }
             }
 
             return (new ChessWeights(parent1, parent2, weights1), new ChessWeights(parent1, parent2, weights2));
         }
 
-        public static short Mutate(bool checkMutation, int nWeight, short weight)
+        public static short Mutate(bool checkMutation, int nWeight, short weight, double probability)
         {
-            if (checkMutation && rand.NextDouble() <= MUTATION_PROBABILITY)
+            if (checkMutation && rand.NextDouble() <= probability)
             {
-                return NextWeight(nWeight);
+                return wtGens[nWeight].Next();
             }
 
             return weight;
@@ -229,11 +258,7 @@ namespace Pedantic.Genetics
 
         public static short NextWeight(int nWeight)
         {
-            if (TryLookup(nWeight, out WtInfo wtInfo))
-            {
-                return wtInfo.NextRandom();
-            }
-            return 0;
+            return wtGens[nWeight].Next();
         }
 
         public static ChessWeights CreateRandom()
@@ -242,6 +267,21 @@ namespace Pedantic.Genetics
             for (int n = 0; n < MAX_WEIGHTS; ++n)
             {
                 weights[n] = NextWeight(n);
+            }
+
+            return new ChessWeights(weights);
+        }
+
+        public static ChessWeights CreateNormal(double[] mean, double[] sigma, bool checkMutation = true)
+        {
+            short[] weights = new short[MAX_WEIGHTS];
+            for (int n = 0; n < MAX_WEIGHTS; ++n)
+            {
+                short weight = (short)(rand.NextGaussian(mean[n], sigma[n]) + 0.5);
+                short scale = (short)(weight / wtGens[n].Multiplier);
+                scale = Math.Min(Math.Max(scale, (short)wtGens[n].MinValue), (short)(wtGens[n].MaxValue - 1));
+                weight = (short)(scale * wtGens[n].Multiplier);
+                weights[n] = Mutate(checkMutation, n, weight, MUTATION_PROBABILITY);
             }
 
             return new ChessWeights(weights);
@@ -264,6 +304,35 @@ namespace Pedantic.Genetics
             return p != null;
         }
 
+        public static void CalculateStatistics(GeneticsRepository rep, out double[] mean, out double[] sigma)
+        {
+            ChessWeights[] pop = rep.Weights
+                .Find(w => (w.Wins + w.Draws + w.Losses) > 0)
+                .OrderByDescending(w => (double)(w.Wins * 2 + w.Draws) / (w.Wins + w.Draws + w.Losses))
+                .Take(128)
+                .ToArray();
+
+            if (pop.Length == 128)
+            {
+                mean = new double[MAX_WEIGHTS];
+                sigma = new double[MAX_WEIGHTS];
+
+                for (int n = 0; n < MAX_WEIGHTS; n++)
+                {
+                    double avg = pop.Average(v => (double)v.Weights[n]);
+                    double sumOfSquares = pop.Sum(v => (v.Weights[n] - avg) * (v.Weights[n] - avg));
+                    mean[n] = avg;
+                    sigma[n] = Math.Sqrt(sumOfSquares / pop.Length - 1);
+                }
+            }
+            else
+            {
+                mean = Array.Empty<double>();
+                sigma = Array.Empty<double>();
+            }
+        }
+
+        /*
         private static bool TryLookup(int index, out WtInfo wtInfo)
         {
             int length = wtInfos.Length;
@@ -291,6 +360,7 @@ namespace Pedantic.Genetics
             wtInfo = WtInfo.Empty;
             return false;
         }
+        */
 
         private static readonly Random rand = new();
 
@@ -667,17 +737,17 @@ namespace Pedantic.Genetics
 
             /* end game passed pawns table */
 
-            #region end game passed pawns table
+                #region end game passed pawns table
 
-            /* passed pawns */
-            5, // rank 2
-            10, // rank 3
-            20, // rank 4
-            40, // rank 5
-            80, // rank 6
-            160, // rank 7
+                /* passed pawns */
+                5, // rank 2
+                10, // rank 3
+                20, // rank 4
+                40, // rank 5
+                80, // rank 6
+                160, // rank 7
 
-            #endregion
+                #endregion
 
             /* opening adjacent pawns table */
 
@@ -720,68 +790,354 @@ namespace Pedantic.Genetics
             10,
 
             /* opening king near passed pawn (inside its square) */
-            0,
+            0, // not used
 
             /* endgame king near passed pawn (inside its square) */
-            10,
+            10, // not used
 
             /* opening guarded passed pawn */
-            0,
+            0, // not used
 
             /* endgame guarded passed pawn */
-            10,
+            10, // not used
 
-            /* opening attacked passed pawn */
-            5,
+            /* opening closest passed pawn */
+            10, // not used
 
-            /* endgame attacked passed pawn */
-            10
+            /* endgame closest passed pawn */
+            20 // not used
         };
 
+        private static readonly WeightGenerator[] wtGens =
+        {
+            #region generator objects
+            new(8, 21),
+            new(25, 70, 100),
+            new(1, 21),
+            new(1, 21),
+            new(4, 17), new(2, 9), new(1, 5),
+            new(4, 17), new(2, 9), new(1, 5),
+            new(1, 11), new(0, 5),
+            new(80, 121), new(192, 481), new(240, 481), new(360, 841), new(632, 1621), new(0, 1),
+            new(80, 121), new(192, 481), new(240, 481), new(360, 841), new(632, 1621), new(0, 1),
+            new(0, 1, 5),    new(0, 1, 5),    new(0, 1, 5),    new(0, 1, 5),
+            new(0, 1, 5),    new(0, 1, 5),    new(0, 1, 5),    new(0, 1, 5),
+            new(-8, 2, 5),   new(0, 3, 5),    new(-5, 3, 5),   new(-10, -1, 5),
+            new(-10, -1, 5), new(0, 7, 5),    new(0, 10, 5),   new(-5, 2, 5),
+            new(-6, 2, 5),   new(-1, 1, 5),   new(-2, 2, 5),   new(-2, 2, 5),
+            new(-2, 2, 5),   new(-2, 2, 5),   new(-1, 9, 5),   new(-3, 2, 5),
+            new(-6, 1, 5),   new(0, 2, 5),    new(-1, 2, 5),   new(1, 6, 5),
+            new(1, 6, 5),    new(0, 2, 5),    new(0, 3, 5),    new(-6, 1, 5),
+            new(-3, 2, 5),   new(0, 4, 5),    new(0, 3, 5),    new(1, 7, 5),
+            new(1, 7, 5),    new(0, 4, 5),    new(0, 5, 5),    new(-6, 2, 5),
+            new(-1, 3, 5),   new(1, 3, 5),    new(1, 7, 5),    new(3, 8, 5),
+            new(3, 17, 5),   new(1, 14, 5),   new(1, 7, 5),    new(-5, 3, 5),
+            new(0, 25, 5),   new(1, 33, 5),   new(3, 25, 5),   new(4, 25, 5),
+            new(4, 25, 5),   new(3, 31, 5),   new(1, 25, 5),   new(-3, 25, 5),
+            new(0, 1, 5),    new(0, 1, 5),    new(0, 1, 5),    new(0, 1, 5),
+            new(0, 1, 5),    new(0, 1, 5),    new(0, 1, 5),    new(0, 1, 5),
+            new(-25, 0, 5),  new(-10, -3, 5), new(-14, 0, 5),  new(-8, 0, 5),
+            new(-7, 0, 5),   new(-7, 0, 5),   new(-10, -3, 5), new(-12, 0, 5),
+            new(-10, 0, 5),  new(-13, 1, 5),  new(-3, 1, 5),   new(-1, 2, 5),
+            new(0, 2, 5),    new(0, 5, 5),    new(-5, 1, 5),   new(-10, 0, 5),
+            new(-7, 0, 5),   new(-2, 2, 5),   new(0, 4, 5),    new(0, 5, 5),
+            new(0, 6, 5),    new(0, 5, 5),    new(0, 7, 5),    new(-7, 0, 5),
+            new(-7, 1, 5),   new(0, 2, 5),    new(0, 5, 5),    new(1, 6, 5),
+            new(1, 8, 5),    new(0, 6, 5),    new(0, 6, 5),    new(-7, 1, 5),
+            new(-7, 1, 5),   new(0, 5, 5),    new(0, 6, 5),    new(1, 14, 5),
+            new(1, 10, 5),   new(0, 18, 5),   new(0, 5, 5),    new(-7, 6, 5),
+            new(-11, 0, 5),  new(0, 15, 5),   new(0, 10, 5),   new(0, 17, 5),
+            new(0, 21, 5),   new(0, 32, 5),   new(0, 19, 5),   new(-7, 12, 5),
+            new(-18, 0, 5),  new(-10, 1, 5),  new(0, 18, 5),   new(0, 10, 5),
+            new(0, 7, 5),    new(0, 16, 5),   new(-5, 3, 5),   new(-10, 0, 5),
+            new(-40, 0, 5),  new(-21, 0, 5),  new(-8, 0, 5),   new(-12, 1, 5),
+            new(-7, 16, 5),  new(-23, 0, 5),  new(-10, 0, 5),  new(-36, 0, 5),
+            new(-8, 0, 5),   new(-2, 1, 5),   new(-5, 0, 5),   new(-5, 0, 5),
+            new(-3, 0, 5),   new(-5, 0, 5),   new(-9, 0, 5),   new(-5, 0, 5),
+            new(-2, 2, 5),   new(0, 5, 5),    new(0, 5, 5),    new(0, 2, 5),
+            new(0, 3, 5),    new(0, 6, 5),    new(0, 9, 5),    new(-2, 1, 5),
+            new(-2, 1, 5),   new(0, 5, 5),    new(0, 5, 5),    new(0, 5, 5),
+            new(0, 4, 5),    new(0, 7, 5),    new(0, 5, 5),    new(-2, 3, 5),
+            new(-2, 1, 5),   new(0, 4, 5),    new(0, 4, 5),    new(1, 7, 5),
+            new(1, 9, 5),    new(0, 4, 5),    new(0, 3, 5),    new(-2, 2, 5),
+            new(-2, 1, 5),   new(0, 2, 5),    new(0, 6, 5),    new(1, 13, 5),
+            new(1, 10, 5),   new(0, 10, 5),   new(0, 3, 5),    new(-2, 1, 5),
+            new(-4, 1, 5),   new(0, 10, 5),   new(0, 11, 5),   new(0, 11, 5),
+            new(0, 9, 5),    new(0, 13, 5),   new(0, 10, 5),   new(-2, 1, 5),
+            new(-6, 0, 5),   new(0, 5, 5),    new(-4, 2, 5),   new(-3, 2, 5),
+            new(0, 8, 5),    new(0, 15, 5),   new(0, 5, 5),    new(-11, 0, 5),
+            new(-7, 0, 5),   new(-2, 2, 5),   new(-20, 0, 5),  new(-9, 0, 5),
+            new(-6, 0, 5),   new(-10, 0, 5),  new(-2, 3, 5),   new(-5, 0, 5),
+            new(-5, 2, 5),   new(-3, 2, 5),   new(0, 2, 5),    new(0, 5, 5),
+            new(0, 5, 5),    new(0, 3, 5),    new(-9, 2, 5),   new(-6, 2, 5),
+            new(-11, 1, 5),  new(-4, 1, 5),   new(-5, 1, 5),   new(-2, 1, 5),
+            new(0, 1, 5),    new(0, 4, 5),    new(-1, 1, 5),   new(-17, 1, 5),
+            new(-11, 1, 5),  new(-6, 1, 5),   new(-4, 1, 5),   new(-4, 1, 5),
+            new(0, 2, 5),    new(0, 1, 5),    new(-1, 1, 5),   new(-8, 1, 5),
+            new(-9, 1, 5),   new(-6, 1, 5),   new(-3, 1, 5),   new(0, 1, 5),
+            new(0, 3, 5),    new(-2, 1, 5),   new(0, 2, 5),    new(-6, 1, 5),
+            new(-6, 1, 5),   new(-3, 1, 5),   new(0, 3, 5),    new(0, 7, 5),
+            new(0, 7, 5),    new(0, 9, 5),    new(-2, 1, 5),   new(-5, 1, 5),
+            new(-1, 1, 5),   new(0, 6, 5),    new(0, 7, 5),    new(0, 10, 5),
+            new(0, 5, 5),    new(0, 12, 5),   new(0, 16, 5),   new(-1, 5, 5),
+            new(0, 7, 5),    new(0, 9, 5),    new(0, 15, 5),   new(0, 16, 5),
+            new(0, 20, 5),   new(0, 17, 5),   new(0, 7, 5),    new(0, 12, 5),
+            new(0, 9, 5),    new(0, 11, 5),   new(0, 9, 5),    new(0, 13, 5),
+            new(0, 16, 5),   new(0, 3, 5),    new(0, 8, 5),    new(0, 11, 5),
+            new(-5, 1, 5),   new(-4, 1, 5),   new(-2, 1, 5),   new(-1, 3, 5),
+            new(-4, 1, 5),   new(-6, 1, 5),   new(-7, 1, 5),   new(-12, 1, 5),
+            new(-8, 1, 5),   new(-2, 1, 5),   new(0, 4, 5),    new(0, 1, 5),
+            new(0, 3, 5),    new(0, 5, 5),    new(-1, 1, 5),   new(-2, 1, 5),
+            new(-3, 1, 5),   new(0, 2, 5),    new(-3, 2, 5),   new(0, 2, 5),
+            new(-1, 2, 5),   new(0, 2, 5),    new(0, 4, 5),    new(-2, 2, 5),
+            new(-2, 1, 5),   new(-6, 1, 5),   new(-2, 2, 5),   new(-2, 2, 5),
+            new(0, 2, 5),    new(-1, 2, 5),   new(0, 2, 5),    new(-1, 1, 5),
+            new(-6, 1, 5),   new(-6, 1, 5),   new(-4, 2, 5),   new(-4, 2, 5),
+            new(0, 2, 5),    new(0, 5, 5),    new(0, 1, 5),    new(-1, 1, 5),
+            new(-3, 1, 5),   new(-4, 1, 5),   new(0, 3, 5),    new(0, 3, 5),
+            new(0, 8, 5),    new(0, 14, 5),   new(0, 12, 5),   new(-2, 15, 5),
+            new(-6, 1, 5),   new(-9, 1, 5),   new(-1, 1, 5),   new(0, 1, 5),
+            new(-4, 1, 5),   new(0, 15, 5),   new(0, 8, 5),    new(-2, 14, 5),
+            new(-7, 1, 5),   new(-2, 1, 5),   new(-2, 8, 5),   new(-1, 4, 5),
+            new(-1, 15, 5),  new(-2, 12, 5),  new(-2, 11, 5),  new(-5, 12, 5),
+            new(-4, 6, 5),   new(4, 10, 5),   new(1, 11, 5),   new(-13, 1, 5),
+            new(0, 3, 5),    new(-14, 3, 5),  new(4, 11, 5),   new(2, 6, 5),
+            new(-5, 6, 5),   new(-5, 6, 5),   new(-6, 1, 5),   new(-15, 1, 5),
+            new(-10, 1, 5),  new(-11, 1, 5),  new(-5, 6, 5),   new(-5, 6, 5),
+            new(-12, 0, 5),  new(-12, -1, 5), new(-12, -3, 5), new(-12, -3, 5),
+            new(-12, -3, 5), new(-12, -3, 5), new(-12, -2, 5), new(-12, 0, 5),
+            new(-12, -3, 5), new(-12, 1, 5),  new(-12, -4, 5), new(-12, -7, 5),
+            new(-12, -8, 5), new(-12, -5, 5), new(-12, -5, 5), new(-12, -3, 5),
+            new(-12, -2, 5), new(-12, -3, 5), new(-12, -1, 5), new(-12, -4, 5),
+            new(-12, -5, 5), new(-12, -4, 5), new(-12, -1, 5), new(-12, -5, 5),
+            new(-12, 0, 5),  new(-12, 7, 5),  new(-12, 1, 5),  new(-12, -2, 5),
+            new(-12, -3, 5), new(-12, 2, 5),  new(-12, 6, 5),  new(-12, -3, 5),
+            new(-12, 8, 5),  new(-12, 1, 5),  new(-12, -3, 5), new(-12, 0, 5),
+            new(-12, 0, 5),  new(-12, 1, 5),  new(-12, -7, 5), new(-12, -5, 5),
+            new(-16, -5, 5), new(-12, 7, 5),  new(-12, 5, 5),  new(-12, -2, 5),
+            new(-13, -8, 5), new(-12, -6, 5), new(-12, 1, 5),  new(-12, 4, 5),
+
+            new(0, 1, 5),    new(0, 1, 5),    new(0, 1, 5),    new(0, 1, 5),
+            new(0, 1, 5),    new(0, 1, 5),    new(0, 1, 5),    new(0, 1, 5),
+            new(0, 4, 5),    new(0, 3, 5),    new(0, 3, 5),    new(0, 3, 5),
+            new(0, 4, 5),    new(0, 1, 5),    new(0, 1, 5),    new(-2, 1, 5),
+            new(0, 2, 5),    new(0, 3, 5),    new(-1, 1, 5),   new(0, 1, 5),
+            new(0, 1, 5),    new(-1, 1, 5),   new(0, 1, 5),    new(-2, 1, 5),
+            new(0, 4, 5),    new(0, 3, 5),    new(-1, 1, 5),   new(-2, 1, 5),
+            new(-2, 1, 5),   new(-2, 1, 5),   new(0, 2, 5),    new(0, 1, 5),
+            new(0, 9, 5),    new(0, 7, 5),    new(0, 4, 5),    new(0, 2, 5),
+            new(0, 1, 5),    new(0, 2, 5),    new(0, 5, 5),    new(0, 5, 5),
+            new(0, 24, 5),   new(0, 25, 5),   new(0, 21, 5),   new(0, 17, 5),
+            new(0, 14, 5),   new(0, 14, 5),   new(0, 21, 5),   new(0, 21, 5),
+            new(0, 44, 5),   new(0, 43, 5),   new(0, 39, 5),   new(0, 33, 5),
+            new(0, 36, 5),   new(0, 33, 5),   new(0, 41, 5),   new(0, 46, 5),
+            new(0, 1, 5),    new(0, 1, 5),    new(0, 1, 5),    new(0, 1, 5),
+            new(0, 1, 5),    new(0, 1, 5),    new(0, 1, 5),    new(0, 1, 5),
+            new(-7, 1, 5),   new(-12, 1, 5),  new(-6, 1, 5),   new(-4, 1, 5),
+            new(-5, 1, 5),   new(-4, 1, 5),   new(-12, 1, 5),  new(-15, 1, 5),
+            new(-10, 1, 5),  new(-5, 1, 5),   new(-2, 1, 5),   new(-1, 1, 5),
+            new(0, 1, 5),    new(-5, 1, 5),   new(-6, 1, 5),   new(-11, 1, 5),
+            new(-6, 1, 5),   new(-1, 1, 5),   new(0, 1, 5),    new(0, 5, 5),
+            new(0, 3, 5),    new(-1, 1, 5),   new(-5, 1, 5),   new(-5, 1, 5),
+            new(-4, 1, 5),   new(-1, 1, 5),   new(0, 5, 5),    new(0, 7, 5),
+            new(0, 5, 5),    new(0, 5, 5),    new(0, 2, 5),    new(-4, 1, 5),
+            new(-4, 1, 5),   new(0, 2, 5),    new(0, 6, 5),    new(0, 6, 5),
+            new(0, 6, 5),    new(0, 4, 5),    new(0, 3, 5),    new(-4, 1, 5),
+            new(-6, 1, 5),   new(-5, 1, 5),   new(0, 3, 5),    new(0, 3, 5),
+            new(0, 1, 5),    new(-2, 1, 5),   new(-5, 1, 5),   new(-10, 1, 5),
+            new(-6, 1, 5),   new(-2, 1, 5),   new(-6, 1, 5),   new(0, 1, 5),
+            new(-2, 1, 5),   new(-6, 1, 5),   new(-6, 1, 5),   new(-12, 1, 5),
+            new(-14, 1, 5),  new(-9, 1, 5),   new(-3, 1, 5),   new(-7, 1, 5),
+            new(-7, 1, 5),   new(-6, 1, 5),   new(-15, 1, 5),  new(-24, 1, 5),
+            new(-6, 1, 5),   new(-2, 1, 5),   new(-6, 1, 5),   new(-1, 1, 5),
+            new(-2, 1, 5),   new(-4, 1, 5),   new(-1, 1, 5),   new(-4, 1, 5),
+            new(-3, 1, 5),   new(-4, 1, 5),   new(-2, 1, 5),   new(0, 1, 5),
+            new(0, 2, 5),    new(-2, 1, 5),   new(-4, 1, 5),   new(-6, 1, 5),
+            new(-3, 1, 5),   new(-1, 1, 5),   new(0, 3, 5),    new(0, 3, 5),
+            new(0, 4, 5),    new(0, 2, 5),    new(-2, 1, 5),   new(-4, 1, 5),
+            new(-1, 1, 5),   new(0, 2, 5),    new(0, 4, 5),    new(0, 6, 5),
+            new(0, 3, 5),    new(0, 3, 5),    new(-1, 1, 5),   new(-2, 1, 5),
+            new(-1, 1, 5),   new(0, 3, 5),    new(0, 4, 5),    new(0, 3, 5),
+            new(0, 4, 5),    new(0, 3, 5),    new(0, 2, 5),    new(0, 1, 5),
+            new(0, 1, 5),    new(-2, 1, 5),   new(0, 1, 5),    new(0, 1, 5),
+            new(0, 1, 5),    new(0, 2, 5),    new(0, 1, 5),    new(0, 2, 5),
+            new(-2, 1, 5),   new(-1, 1, 5),   new(0, 3, 5),    new(-3, 1, 5),
+            new(-1, 1, 5),   new(-3, 1, 5),   new(-1, 1, 5),   new(-3, 1, 5),
+            new(-3, 1, 5),   new(-5, 1, 5),   new(-3, 1, 5),   new(-2, 1, 5),
+            new(-2, 1, 5),   new(-2, 1, 5),   new(-4, 1, 5),   new(-6, 1, 5),
+            new(-2, 1, 5),   new(0, 1, 5),    new(0, 2, 5),    new(0, 1, 5),
+            new(-1, 1, 5),   new(-3, 1, 5),   new(0, 2, 5),    new(-5, 1, 5),
+            new(-1, 1, 5),   new(-1, 1, 5),   new(0, 1, 5),    new(0, 1, 5),
+            new(-2, 1, 5),   new(-2, 1, 5),   new(-3, 1, 5),   new(-1, 1, 5),
+            new(-1, 1, 5),   new(0, 1, 5),    new(-1, 1, 5),   new(0, 1, 5),
+            new(-2, 1, 5),   new(-3, 1, 5),   new(-2, 1, 5),   new(-4, 1, 5),
+            new(0, 2, 5),    new(0, 2, 5),    new(0, 3, 5),    new(0, 2, 5),
+            new(-1, 1, 5),   new(-1, 1, 5),   new(-2, 1, 5),   new(-3, 1, 5),
+            new(0, 2, 5),    new(0, 2, 5),    new(0, 4, 5),    new(0, 1, 5),
+            new(0, 1, 5),    new(0, 1, 5),    new(0, 1, 5),    new(0, 1, 5),
+            new(0, 3, 5),    new(0, 3, 5),    new(0, 3, 5),    new(0, 2, 5),
+            new(0, 2, 5),    new(-1, 1, 5),   new(-1, 1, 5),   new(-1, 1, 5),
+            new(0, 4, 5),    new(0, 4, 5),    new(0, 4, 5),    new(0, 4, 5),
+            new(-1, 1, 5),   new(0, 2, 5),    new(0, 3, 5),    new(0, 2, 5),
+            new(0, 4, 5),    new(0, 3, 5),    new(0, 5, 5),    new(0, 5, 5),
+            new(0, 4, 5),    new(0, 4, 5),    new(0, 3, 5),    new(0, 2, 5),
+            new(-8, 1, 5),   new(-7, 1, 5),   new(-5, 1, 5),   new(-10, 1, 5),
+            new(-1, 1, 5),   new(-8, 1, 5),   new(-5, 1, 5),   new(-10, 1, 5),
+            new(-5, 1, 5),   new(-6, 1, 5),   new(-7, 1, 5),   new(-4, 1, 5),
+            new(-4, 1, 5),   new(-6, 1, 5),   new(-9, 1, 5),   new(-8, 1, 5),
+            new(-4, 1, 5),   new(-6, 1, 5),   new(0, 5, 5),    new(0, 2, 5),
+            new(0, 3, 5),    new(0, 5, 5),    new(0, 3, 5),    new(0, 2, 5),
+            new(-4, 1, 5),   new(0, 8, 5),    new(0, 6, 5),    new(0, 12, 5),
+            new(0, 8, 5),    new(0, 9, 5),    new(0, 10, 5),   new(0, 7, 5),
+            new(0, 2, 5),    new(0, 6, 5),    new(0, 7, 5),    new(0, 12, 5),
+            new(0, 15, 5),   new(0, 11, 5),   new(0, 15, 5),   new(0, 10, 5),
+            new(-5, 1, 5),   new(0, 2, 5),    new(0, 3, 5),    new(0, 13, 5),
+            new(0, 12, 5),   new(0, 9, 5),    new(0, 6, 5),    new(0, 3, 5),
+            new(-4, 1, 5),   new(0, 6, 5),    new(0, 9, 5),    new(0, 11, 5),
+            new(0, 15, 5),   new(0, 7, 5),    new(0, 8, 5),    new(0, 1, 5),
+            new(-2, 1, 5),   new(0, 6, 5),    new(0, 6, 5),    new(0, 7, 5),
+            new(0, 7, 5),    new(0, 6, 5),    new(0, 3, 5),    new(0, 6, 5),
+            new(-17, 1, 5),  new(-14, 3, 5),  new(-12, 6, 5),  new(-10, 8, 5),
+            new(-10, 8, 5),  new(-12, 6, 5),  new(-14, 3, 5),  new(-17, 1, 5),
+            new(-14, 3, 5),  new(-12, 6, 5),  new(-7, 8, 5),   new(-5, 11, 5),
+            new(-5, 11, 5),  new(-7, 8, 5),   new(-12, 6, 5),  new(-14, 3, 5),
+            new(-12, 6, 5),  new(-7, 8, 5),   new(0, 11, 5),   new(0, 13, 5),
+            new(0, 13, 5),   new(0, 11, 5),   new(-7, 8, 5),   new(-12, 6, 5),
+            new(-10, 8, 5),  new(-5, 11, 5),  new(0, 13, 5),   new(0, 15, 5),
+            new(0, 15, 5),   new(0, 13, 5),   new(-5, 11, 5),  new(-10, 8, 5),
+            new(-10, 8, 5),  new(-5, 11, 5),  new(0, 13, 5),   new(0, 15, 5),
+            new(0, 15, 5),   new(0, 13, 5),   new(-5, 11, 5),  new(-10, 8, 5),
+            new(-12, 6, 5),  new(-7, 8, 5),   new(0, 11, 5),   new(0, 13, 5),
+            new(0, 13, 5),   new(0, 12, 5),   new(-7, 12, 5),  new(-12, 6, 5),
+            new(-14, 3, 5),  new(-12, 6, 5),  new(-7, 8, 5),   new(-5, 11, 5),
+            new(-5, 11, 5),  new(-7, 10, 5),  new(-12, 7, 5),  new(-14, 4, 5),
+            new(-18, 1, 5),  new(-14, 3, 5),  new(-12, 6, 5),  new(-10, 8, 5),
+            new(-10, 8, 5),  new(-12, 6, 5),  new(-14, 3, 5),  new(-17, 1, 5),
+
+            new(-10, 1), new(-10, 1), new(-20, -4), new(-20, -4), new(-30, -9), new(-5, 1),
+            new(-5, 1), new(-5, 1), new(-5, 1), new(-5, 1), new(-5, 1), new(-80, 1),
+            new(-5, 1), new(-5, 1), new(-5, 1), new(-5, 1), new(-5, 1), new(-80, 1),
+            new(-5, 1), new(-5, 1), new(-5, 1), new(-5, 1), new(-5, 1), new(-40, 1),
+            new(-5, 1), new(-5, 1), new(-5, 1), new(-5, 1), new(-5, 1), new(-40, 1),
+            new(-5, 1), new(-5, 1), new(-5, 1), new(-5, 1), new(-5, 1), new(-20, 1),
+
+            new(-10, 1), new(-10, 1), new(-20, -4), new(-20, -4), new(-30, -9), new(-5, 1),
+            new(-5, 1), new(-5, 1), new(-5, 1), new(-5, 1), new(-5, 1), new(-80, 1),
+            new(-5, 1), new(-5, 1), new(-5, 1), new(-5, 1), new(-5, 1), new(-80, 1),
+            new(-5, 1), new(-5, 1), new(-5, 1), new(-5, 1), new(-5, 1), new(-40, 1),
+            new(-5, 1), new(-5, 1), new(-5, 1), new(-5, 1), new(-5, 1), new(-40, 1),
+            new(-5, 1), new(-5, 1), new(-5, 1), new(-5, 1), new(-5, 1), new(-20, 1),
+
+            new(-10, 1), new(-10, 1),
+
+            new(0, 5), new(0, 9), new(0, 1), new(0, 17), new(0, 25),
+            new(0, 5), new(0, 9), new(0, 9), new(0, 1), new(0, 25),
+            new(0, 5), new(0, 9), new(0, 1), new(0, 1), new(0, 1),
+
+            new(0, 5), new(0, 9), new(0, 1), new(0, 17), new(0, 25),
+            new(0, 5), new(0, 9), new(0, 9), new(0, 1), new(0, 25),
+            new(0, 5), new(0, 9), new(0, 1), new(0, 1), new(0, 1),
+
+            new(-20, 1), new(-20, 1),
+            new(-10, 1), new(-10, 1),
+            new(-10, 1), new(-10, 1),
+            new(0, 11), new(0, 11),
+            new(0, 5), new(0, 5),
+
+            new(0, 6), new(0, 6), new(0, 6), new(5, 26), new(5, 26), new(25, 101),
+            new(0, 6), new(5, 11), new(10, 21), new(20, 41), new(40, 81), new(80, 161),
+
+            new(0, 5), new(0, 5), new(3, 11), new(3, 11), new(6, 21), new(11, 41),
+            new(0, 5), new(0, 5), new(3, 11), new(3, 11), new(6, 21), new(11, 41),
+
+            new(10, 51), new(10, 51),
+            new(0, 11), new(5, 21),
+            new(0, 1), new(5, 21),
+            new(0, 1), new(0, 21),
+            new(5, 21), new(10, 41)
+            #endregion generator objects
+        };
+
+        /*
         private static readonly WtInfo[] wtInfos =
         {
             new WtInfo("opPhase", 0, 1, 1, 21),
-            new WtInfo("egPhase", 1, 2, 1, 79, 100),
-            new WtInfo("opMobility", 2, 3, 0, 101),
-            new WtInfo("egMobility", 3, 4, 0, 101),
-            new WtInfo("opKAttack", 4, 7, 0, 33),
-            new WtInfo("egKAttack", 7, 10, 0, 33),
-            new WtInfo("opDevelopment", 10, 11, 0, 41),
-            new WtInfo("egDevelopment", 11, 12, 0, 41),
-            new WtInfo("opPcVal", 12, 18, 10, 1801),
-            new WtInfo("egPcVal", 18, 24, 10, 1801),
-            new WtInfo("opPcSqr", 24, 408, -300, 301),
-            new WtInfo("egPcSqr", 408, 792, -300, 301),
-            new WtInfo("opBlockedPawn", 792, 828, -100, 1),
-            new WtInfo("egBlockedPawn", 828, 864, -100, 1),
-            new WtInfo("opBlockedDbl", 864, 865, -100, 1),
-            new WtInfo("egBlockedDbl", 865, 866, -100, 1),
-            new WtInfo("opPinned", 866, 881, -50, 101),
-            new WtInfo("egPinned", 881, 896, -50, 101),
-            new WtInfo("opIsolated", 896, 897, -100, 1),
-            new WtInfo("egIsolated", 897, 898, -100, 1),
-            new WtInfo("opBackward", 898, 899, -100, 1),
-            new WtInfo("egBackward", 899, 900, -100, 1),
-            new WtInfo("opDoubled", 900, 901, -100, 1),
-            new WtInfo("egDoubled", 901, 902, -100, 1),
-            new WtInfo("opNOutpost", 902, 903, 0, 51),
-            new WtInfo("egNOutpost", 903, 904, 0, 51),
-            new WtInfo("opBOutpost", 904, 905, 0, 51),
-            new WtInfo("egBOutpost", 905, 906, 0, 51),
-            new WtInfo("opPassed", 906, 912, 0, 401),
-            new WtInfo("egPassed", 912, 918, 0, 401),
-            new WtInfo("opAdjacent", 918, 924, 0, 401),
-            new WtInfo("egAdjacent", 924, 930, 0, 401),
-            new WtInfo("opBPair", 930, 931, 0, 101),
-            new WtInfo("egBPair", 931, 932, 0, 101),
-            new WtInfo("opPawnMajority", 932, 933, 0, 101),
-            new WtInfo("egPawnMajority", 933, 934, 0, 101),
-            new WtInfo("opKNearPp", 934, 935, 0, 101),
-            new WtInfo("egKNearPp", 935, 936, 0, 101),
-            new WtInfo("opGuardPPawn", 936, 937, 0, 101),
-            new WtInfo("egGuardPPawn", 937, 938, 0, 101),
-            new WtInfo("opAttackPPawn", 938, 939, 0, 101),
-            new WtInfo("egAttackPPawn", 939, 940, 0, 101)
+            new WtInfo("egPhase", 1, 2, 25, 70, 100),
+            new WtInfo("opMobility", 2, 3, 1, 21),
+            new WtInfo("egMobility", 3, 4, 1, 21),
+            new WtInfo("opKAttack1", 4, 5, 4, 17),
+            new WtInfo("opKAttack2", 5, 6, 2, 9),
+            new WtInfo("opKAttack3", 6, 7, 1, 5),
+            new WtInfo("egKAttack1", 7, 8, 4, 17),
+            new WtInfo("egKAttack2", 8, 9, 2, 9),
+            new WtInfo("egKAttack3", 9, 10, 1, 5),
+            new WtInfo("opDevelopment", 10, 11, 1, 11),
+            new WtInfo("egDevelopment", 11, 12, 0, 5),
+            new WtInfo("opPawnVal", 12, 13, 80, 121),
+            new WtInfo("opKnightVal", 13, 14, 192, 481),
+            new WtInfo("opBishopVal", 14, 15, 240, 481),
+            new WtInfo("opRookVal", 15, 16, 360, 841),
+            new WtInfo("opQueenVal", 16, 17, 632, 1621),
+            new WtInfo("opKingVal", 17, 18, 0, 1),
+            new WtInfo("egPawnVal", 18, 19, 80, 121),
+            new WtInfo("egKnightVal", 19, 20, 192, 481),
+            new WtInfo("egBishopVal", 20, 21, 240, 481),
+            new WtInfo("egRookVal", 21, 22, 360, 841),
+            new WtInfo("egQueenVal", 22, 23, 632, 1621),
+            new WtInfo("egKingVal", 23, 24, 0, 1),
+            new WtInfo("opPawnPcSqr", 24, 88, -42, 161),
+            new WtInfo("opKnightPcSqr", 88, 152, -200, 155),
+            new WtInfo("opBishopPcSqr", 152, 216, -98, 71),
+            new WtInfo("opRookPcSqr", 216, 280, -85, 97),
+            new WtInfo("opQueenPcSqr", 280, 344, -60, 71),
+            new WtInfo("opKingPcSqr", 344, 408, -78, 44),
+            new WtInfo("egPawnPcSqr", 408, 472, -10, 225),
+            new WtInfo("egKnightPcSqr", 472, 536, -119, 31),
+            new WtInfo("egBishopPcSqr", 536, 600, -32, 24),
+            new WtInfo("egRookPcSqr", 600, 664, -24, 23),
+            new WtInfo("egQueenPcSqr", 664, 728, -49, 71),
+            new WtInfo("egKingPcSqr", 728, 792, -89, 55),
+            new WtInfo("opBlockedPawn", 792, 828, -25, 1),
+            new WtInfo("egBlockedPawn", 828, 864, -25, 1),
+            new WtInfo("opBlockedDbl", 864, 865, -25, 1),
+            new WtInfo("egBlockedDbl", 865, 866, -25, 1),
+            new WtInfo("opPinned", 866, 881, -25, 51),
+            new WtInfo("egPinned", 881, 896, -25, 51),
+            new WtInfo("opIsolated", 896, 897, -25, 1),
+            new WtInfo("egIsolated", 897, 898, -25, 1),
+            new WtInfo("opBackward", 898, 899, -25, 1),
+            new WtInfo("egBackward", 899, 900, -25, 1),
+            new WtInfo("opDoubled", 900, 901, -25, 1),
+            new WtInfo("egDoubled", 901, 902, -25, 1),
+            new WtInfo("opNOutpost", 902, 903, 1, 26),
+            new WtInfo("egNOutpost", 903, 904, 1, 26),
+            new WtInfo("opBOutpost", 904, 905, 1, 26),
+            new WtInfo("egBOutpost", 905, 906, 1, 26),
+            new WtInfo("opPassed2", 906, 907, 1, 11),
+            new WtInfo("opPassed3", 907, 908, 1, 11),
+            new WtInfo("opPassed4", 908, 909, 1, 11),
+            new WtInfo("opPassed5", 909, 910, 5, 51),
+            new WtInfo("opPassed6", 910, 911, 5, 51),
+            new WtInfo("opPassed7", 911, 912, 50, 301),
+            new WtInfo("egPassed2", 912, 913, 1, 11),
+            new WtInfo("egPassed3", 913, 914, 5, 21),
+            new WtInfo("egPassed4", 914, 915, 10, 41),
+            new WtInfo("egPassed5", 915, 916, 20, 81),
+            new WtInfo("egPassed6", 916, 917, 40, 161),
+            new WtInfo("egPassed7", 917, 918, 80, 321),
+            new WtInfo("opAdjacent", 918, 924, 1, 26),
+            new WtInfo("egAdjacent", 924, 930, 1, 26),
+            new WtInfo("opBPair", 930, 931, 1, 76),
+            new WtInfo("egBPair", 931, 932, 1, 76),
+            new WtInfo("opPawnMajority", 932, 933, 1, 51),
+            new WtInfo("egPawnMajority", 933, 934, 1, 51),
+            new WtInfo("opKNearPp", 934, 935, 1, 51),
+            new WtInfo("egKNearPp", 935, 936, 1, 51),
+            new WtInfo("opGuardPPawn", 936, 937, 1, 51),
+            new WtInfo("egGuardPPawn", 937, 938, 1, 51),
+            new WtInfo("opClosestPPawn", 938, 939, 1, 51),
+            new WtInfo("egClosestPPawn", 939, 940, 1, 51)
         };
+        */
     }
 }

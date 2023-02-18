@@ -530,7 +530,7 @@ namespace Pedantic.Chess
             else
             {
                 throw new IndexOutOfRangeException(
-                    @$"Maximum game lenth exceeded - Hash {hash} BestMove {Move.ToString(move)}");
+                    @$"Maximum game length exceeded - Hash {hash} BestMove {Move.ToString(move)}");
             }
         }
 
@@ -582,7 +582,7 @@ namespace Pedantic.Chess
             {
                 return true;
             }
-
+            /*
             ulong bb = PieceMoves(Piece.Rook, index) &
                        (Pieces(color, Piece.Rook) | Pieces(color, Piece.Queen));
 
@@ -597,7 +597,16 @@ namespace Pedantic.Chess
                     return true;
                 }
             }
-            return false;
+            */
+
+            if ((GetPieceMoves(Piece.Rook, index) & 
+                (Pieces(color, Piece.Rook) | Pieces(color, Piece.Queen))) != 0)
+            {
+                return true;
+            }
+
+            return (GetPieceMoves(Piece.Bishop, index) &
+                    (Pieces(color, Piece.Bishop) | Pieces(color, Piece.Queen))) != 0;
         }
 
         #endregion
@@ -1225,6 +1234,8 @@ namespace Pedantic.Chess
         private static readonly FakeHistory fakeHistory = new();
 
         private static readonly int[] epOffset = { -8, 8 };
+
+        private static readonly int[] pieceMobilityWt = { 0, 2, 1, 0, 0, 2 };
 
         private static readonly int[] castleMask =
         {

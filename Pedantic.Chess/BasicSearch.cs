@@ -25,6 +25,7 @@ namespace Pedantic.Chess
 
             alpha = Math.Max(alpha, -Constants.CHECKMATE_SCORE + ply - 1);
             beta = Math.Min(beta, Constants.CHECKMATE_SCORE - ply);
+
             if (alpha >= beta)
             {
                 return new SearchResult(alpha);
@@ -32,7 +33,7 @@ namespace Pedantic.Chess
 
             if (depth <= 0)
             {
-                return new SearchResult(QuiesceTt(alpha, beta, ply));
+                return new SearchResult(Quiesce(alpha, beta, ply));
             }
 
             NodesVisited++;
@@ -54,7 +55,7 @@ namespace Pedantic.Chess
                 int R = nmp[depth];
                 if (board.MakeMove(Move.NullMove))
                 {
-                    SearchResult result = -SearchTt(-beta, -beta + 1, depth - R - 1, ply + 1, false, false);
+                    SearchResult result = -SearchTt(-beta, -beta + 1, Math.Max(depth - R - 1, 0), ply + 1, false, false);
                     board.UnmakeMove();
                     if (wasAborted)
                     {
@@ -73,7 +74,7 @@ namespace Pedantic.Chess
                 int threshold = alpha - 300 * depth;
                 if (eval < threshold)
                 {
-                    int score = QuiesceTt(alpha, beta, ply);
+                    int score = Quiesce(alpha, beta, ply);
                     if (score < threshold)
                     {
                         return new SearchResult(alpha);
@@ -128,10 +129,10 @@ namespace Pedantic.Chess
                     }
                     else
                     {
-                        result = -SearchTt(-alpha - 1, -alpha, depth + X - R - 1, ply + 1, true, false);
+                        result = -SearchTt(-alpha - 1, -alpha, Math.Max(depth + X - R - 1, 0), ply + 1, true, false);
                         if (result.Score > alpha)
                         {
-                            result = -SearchTt(-beta, -alpha, depth + X - R - 1, ply + 1, true, R == 0);
+                            result = -SearchTt(-beta, -alpha, Math.Max(depth + X - R - 1, 0), ply + 1, true, R == 0);
                         }
                     }
 
