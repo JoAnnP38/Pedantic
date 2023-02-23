@@ -22,6 +22,7 @@ namespace Pedantic.Chess
         public long NodesVisited { get; protected set; }
         public bool Pondering { get; set; }
         public bool CanPonder { get; set; }
+        public Evaluation Eval => evaluation;
 
         public bool MustAbort => NodesVisited >= maxNodes ||
                                  ((NodesVisited & CHECK_TC_NODES_MASK) == 0 && time.CheckTimeBudget());
@@ -141,7 +142,7 @@ namespace Pedantic.Chess
             return result;
         }
 
-        protected virtual int Quiesce(int alpha, int beta, int ply)
+        public virtual int Quiesce(int alpha, int beta, int ply)
         {
             int originalAlpha = alpha;
 

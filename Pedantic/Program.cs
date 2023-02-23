@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Runtime;
 using System.CommandLine;
 using System.Text;
+using System.Formats.Tar;
 
 
 namespace Pedantic
@@ -45,6 +46,14 @@ namespace Pedantic
                 name: "--error",
                 description: "Output errors to specified file.",
                 getDefaultValue: () => null);
+            var pgnFileOption = new Option<string?>(
+                name: "--pgn",
+                description: "Specifies a PGN input file.",
+                getDefaultValue: () => null);
+            var dataFileOption = new Option<string?>(
+                name: "--data",
+                description: "The name of the labeled data output file.",
+                getDefaultValue: () => null);
             var uciCommand = new Command("uci", "Start the pedantic application in UCI mode.")
             {
                 searchTypeOption,
@@ -57,19 +66,26 @@ namespace Pedantic
                 depthOption,
                 fenOption
             };
+            var labelCommand = new Command("label", "Pre-process and label PGN data.")
+            {
+                pgnFileOption,
+                dataFileOption
+            };
             var rootCommand = new RootCommand("The pedantic chess engine.")
             {
                 uciCommand,
-                perftCommand
+                perftCommand,
+                labelCommand
             };
 
             uciCommand.SetHandler(async (searchType, inFile, errFile) => await RunUci(searchType, inFile, errFile), searchTypeOption, commandFileOption, errorFileOption);
             perftCommand.SetHandler((runType, depth, fen) => RunPerft(runType, depth, fen), typeOption, depthOption, fenOption);
+            labelCommand.SetHandler((pgnFile, dataFile) => RunLabel(pgnFile, dataFile), pgnFileOption, dataFileOption);
 
             return rootCommand.InvokeAsync(args).Result;
         }
 
-        static async Task RunUci(SearchType searchType, string? inFile, string? errFile)
+        private static async Task RunUci(SearchType searchType, string? inFile, string? errFile)
         {
             TextReader? stdin = null;
             TextWriter? stderr = null;
@@ -448,6 +464,71 @@ namespace Pedantic
                 double Mnps = (double)counts.Nodes / (watch.Elapsed.TotalSeconds * 1000000.0D);
                 Console.WriteLine(@$"|{depth,4:N0}   | {Mnps,6:N2} |{counts.Nodes,13:N0} |{counts.Captures,11:N0} |{counts.EnPassants,8:N0} |{counts.Castles,10:N0} |{counts.Checks,11:N0} | {counts.Checkmates,10:N0} |{counts.Promotions,11:N0} |");
                 Console.WriteLine(@"+-------+--------+--------------+------------+---------+-----------+------------+------------+------------+");
+            }
+        }
+
+        private static void RunLabel(string? pgnFile, string? dataFile)
+        {
+            TextReader? stdin = null;
+            TextWriter? stdout = null;
+
+            if (pgnFile != null && File.Exists(pgnFile))
+            {
+                stdin = Console.In;
+                StreamReader inStream = new StreamReader(pgnFile, Encoding.UTF8);
+                Console.SetIn(inStream);
+            }
+
+            if (dataFile != null)
+            {
+                stdout = Console.Out;
+                StreamWriter dataStream = File.CreateText(dataFile);
+                Console.SetOut(dataStream);
+            }
+
+            try
+            {
+                long total = 0;
+                PgnPositionReader posReader = new();
+
+                long count = 0;
+                HashSet<ulong> hashes = new();
+                Console.WriteLine(@"Hash,Ply,GamePly,FEN,Score");
+                foreach (var p in posReader.Positions(Console.In))
+                {
+                    if (!hashes.Contains(p.Hash))
+                    {
+                        Console.Error.Write($"{++count}\r");
+                        hashes.Add(p.Hash);
+                        Console.WriteLine($@"{p.Hash:X16},{p.Ply},{p.GamePly},{p.Fen},{p.Score:F1}");
+                        Console.Out.Flush();
+                        if (++total >= 1000000)
+                        {
+                            break;
+                        }
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                Console.Error.WriteLine($"\n{e}");
+            }
+            finally
+            {
+                var input = Console.In;
+                var output = Console.Out;
+
+                if (stdin != null)
+                {
+                    input.Close();
+                    Console.SetIn(stdin);
+                }
+
+                if (stdout != null)
+                {
+                    output.Close();
+                    Console.SetOut(stdout);
+                }
             }
         }
     }

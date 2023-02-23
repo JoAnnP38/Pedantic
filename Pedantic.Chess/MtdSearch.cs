@@ -103,7 +103,7 @@ namespace Pedantic.Chess
             return guess;
         }
 
-        protected override int Quiesce(int alpha, int beta, int ply)
+        public override int Quiesce(int alpha, int beta, int ply)
         {
             pvList.AdvancePly(ply);
 
@@ -328,14 +328,14 @@ namespace Pedantic.Chess
                 {
                     pvList.Store(ply, move);
                     TtTran.Add(board.Hash, depth, ply, beta - 1, beta, score, move);
-                        if (!Move.IsCapture(move))
-                        {
-                            killerMoves.Add(move, ply);
-                            history.Update(Move.GetFrom(move), Move.GetTo(move), depth);
-                        }
+                    if (!Move.IsCapture(move))
+                    {
+                        killerMoves.Add(move, ply);
+                        history.Update(Move.GetFrom(move), Move.GetTo(move), depth);
+                    }
 
-                        MoveListPool.Return(moveList);
-                        return beta;
+                    MoveListPool.Return(moveList);
+                    return beta;
                 }
             }
 

@@ -393,7 +393,7 @@ namespace Pedantic.Chess
                     break;
 
                 case SearchType.Mtd:
-                    search = new MtdSearchNew(board, time, maxDepth, maxNodes)
+                    search = new MtdSearch(board, time, maxDepth, maxNodes)
                     {
                         CanPonder = CanPonder,
                         Pondering = IsPondering

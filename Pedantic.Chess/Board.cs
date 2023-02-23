@@ -1072,6 +1072,7 @@ namespace Pedantic.Chess
             }
         }
 
+        // traditional diagonal slider move resolution
         public static ulong GetBishopAttacks(int from, ulong blockers)
         {
             Ray ray = vectors[from];
@@ -1082,6 +1083,7 @@ namespace Pedantic.Chess
             return bb;
         }
 
+        // traditional orthogonal slider move resolution
         public static ulong GetRookAttacks(int from, ulong blockers)
         {
             Ray ray = vectors[from];
