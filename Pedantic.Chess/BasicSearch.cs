@@ -103,7 +103,7 @@ namespace Pedantic.Chess
                 bool isQuiet = Move.IsQuiet(move);
                 bool interesting = inCheck || checkingMove || !isQuiet || expandedNodes == 1;
 
-                if (canPrune && !interesting && expandedNodes < lmp[depth])
+                if (canPrune && !interesting && expandedNodes > lmp[depth])
                 {
                     board.UnmakeMove();
                     continue;

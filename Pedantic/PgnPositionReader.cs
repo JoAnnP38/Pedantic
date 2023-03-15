@@ -75,7 +75,7 @@ namespace Pedantic
             double score = 0.0;
             long lines = 0;
 
-            while (state != PositionState.Stop)
+            for(;;)
             {
                 string? line = reader.ReadLine();
 

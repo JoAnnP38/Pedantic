@@ -4,6 +4,11 @@ using System.Runtime;
 using System.CommandLine;
 using System.Text;
 using System.Formats.Tar;
+using System.Runtime.CompilerServices;
+using LiteDB;
+using Pedantic.Genetics;
+using Pedantic.Utilities;
+// ReSharper disable LocalizableElement
 
 
 namespace Pedantic
@@ -13,6 +18,7 @@ namespace Pedantic
         public const string PROGRAM_NAME_VER = "Pedantic v0.0.1";
         public const string AUTHOR = "JoAnn D. Peeler";
         public const string PROGRAM_URL = "https://github.com/JoAnnP38/Pedantic";
+        public const double CONVERGENCE_TOLERANCE = 0.0000005;
 
         enum PerftRunType
         {
@@ -54,33 +60,75 @@ namespace Pedantic
                 name: "--data",
                 description: "The name of the labeled data output file.",
                 getDefaultValue: () => null);
+            var sampleOption = new Option<int>(
+                name: "--sample",
+                description: "Specify the number of samples to use from learning data.",
+                getDefaultValue: () => 10000);
+            var iterOption = new Option<int>(
+                name: "--iter",
+                description: "Specify the maximum number of iterations before a solution is declared.",
+                getDefaultValue: () => 200);
+            var preserveOption = new Option<bool>(
+                name: "--preserve",
+                description: "When present intermediary versions of the solution will be saved.",
+                getDefaultValue: () => false);
+            var immortalOption = new Option<string?>(
+                name: "--immortal",
+                description: "Designate a new immortal set of weights.",
+                getDefaultValue: () => null);
+            var displayOption = new Option<string?>(
+                name: "--display",
+                description: "Display the specific set of weights as C# code.",
+                getDefaultValue: () => null);
+
             var uciCommand = new Command("uci", "Start the pedantic application in UCI mode.")
             {
                 searchTypeOption,
                 commandFileOption,
                 errorFileOption
             };
+
             var perftCommand = new Command("perft", "Run a standard Perft test.")
             {
                 typeOption,
                 depthOption,
                 fenOption
             };
+
             var labelCommand = new Command("label", "Pre-process and label PGN data.")
             {
                 pgnFileOption,
                 dataFileOption
             };
+
+            var learnCommand = new Command("learn", "Optimize evaluation function using training data.")
+            {
+                dataFileOption,
+                sampleOption,
+                iterOption,
+                preserveOption
+            };
+
+            var weightsCommand = new Command("weights", "Manipulate the weight database.")
+            {
+                immortalOption,
+                displayOption
+            };
+
             var rootCommand = new RootCommand("The pedantic chess engine.")
             {
                 uciCommand,
                 perftCommand,
-                labelCommand
+                labelCommand,
+                learnCommand,
+                weightsCommand
             };
 
             uciCommand.SetHandler(async (searchType, inFile, errFile) => await RunUci(searchType, inFile, errFile), searchTypeOption, commandFileOption, errorFileOption);
-            perftCommand.SetHandler((runType, depth, fen) => RunPerft(runType, depth, fen), typeOption, depthOption, fenOption);
-            labelCommand.SetHandler((pgnFile, dataFile) => RunLabel(pgnFile, dataFile), pgnFileOption, dataFileOption);
+            perftCommand.SetHandler(RunPerft, typeOption, depthOption, fenOption);
+            labelCommand.SetHandler(RunLabel, pgnFileOption, dataFileOption);
+            learnCommand.SetHandler(RunLearn, dataFileOption, sampleOption, iterOption, preserveOption);
+            weightsCommand.SetHandler(RunWeights, immortalOption, displayOption);
 
             return rootCommand.InvokeAsync(args).Result;
         }
@@ -502,7 +550,7 @@ namespace Pedantic
                         hashes.Add(p.Hash);
                         Console.WriteLine($@"{p.Hash:X16},{p.Ply},{p.GamePly},{p.Fen},{p.Score:F1}");
                         Console.Out.Flush();
-                        if (++total >= 1000000)
+                        if (++total >= 8000000)
                         {
                             break;
                         }
@@ -531,5 +579,511 @@ namespace Pedantic
                 }
             }
         }
+
+        private static void RunLearn(string? dataFile, int sampleSize = 10000, int maxPass = 200, bool preserve = false)
+        {
+            if (string.IsNullOrEmpty(dataFile))
+            {
+                Console.Error.WriteLine("ERROR: A data file path must be specified.");
+                return;
+            }
+            if (!File.Exists(dataFile))
+            {
+                Console.Error.WriteLine("ERROR: The specified data file does not exist.");
+                return;
+            }
+
+            if (sampleSize <= 0)
+            {
+                Console.Error.WriteLine("ERROR: Sample size must be greater than zero.");
+                return;
+            }
+
+            if (maxPass <= 0)
+            {
+                Console.Error.WriteLine("ERROR: Iterations must be greater than zero.");
+                return;
+            }
+
+            DateTime start = DateTime.Now;
+            TextReader savedIn = Console.In;
+            StreamReader streamReader = new StreamReader(dataFile, Encoding.UTF8);
+            Console.SetIn(streamReader);
+
+            try
+            {
+                Console.WriteLine($@"Sample size: {sampleSize}, Start time: {DateTime.Now:G}");
+                var slices = CreateSlices(LoadSample(sampleSize, streamReader));
+                using GeneticsRepository rep = new();
+                ChessWeights? startingWeight = rep.Weights
+                    .Find(w => w.IsActive && w.IsImmortal)
+                    .MinBy(w => w.CreatedOn);
+                if (startingWeight != null)
+                {
+                    short[] weights = EvalFeatures.GetCombinedWeights(startingWeight);
+                    double k = SolveKParallel(weights, slices);
+                    Console.WriteLine($@"K = {k:F2}");
+                    startingWeight.Fitness = EvalErrorParallel(weights, slices, k);
+                    ChessWeights guess = new ChessWeights(startingWeight)
+                    {
+                        IsImmortal = false
+                    };
+                    Console.WriteLine($@"Pass 0, K={k:F2}, Samples={sampleSize}");
+
+                    ChessWeights optimized = LocalOptimize(guess, weights, slices, k, maxPass,
+                        preserve);
+                    optimized.Description = "Optimized";
+                    optimized.UpdatedOn = DateTime.UtcNow;
+                    optimized.ParentIds = Array.Empty<ObjectId>();
+                    rep.Weights.Insert(optimized);
+                    DateTime end = DateTime.Now;
+                    Console.WriteLine($@"Optimization complete at: {DateTime.UtcNow:G}, Elapsed: {end - start:g}");
+                    PrintSolution(optimized);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"\n{ex}");
+            }
+            finally
+            {
+                Console.In.Close();
+                Console.SetIn(savedIn);
+            }
+        }
+
+        private static ChessWeights LocalOptimize(ChessWeights guess, short[] weights, List<PosRecord[]> slices, double k, int maxPass, bool preserve = false)
+        {
+            bool improved = true;
+            double curError = guess.Fitness;
+            double bestError = curError + CONVERGENCE_TOLERANCE * 2;
+            int wtLen = weights.Length;
+            int passes = 0;
+
+            Console.WriteLine($@"Optimization pass {passes,3}: {curError:F6}");
+            using var rep = new GeneticsRepository();
+            int[] index = new int[wtLen];
+            for (int n = 0; n < wtLen; n++)
+            {
+                index[n] = n;
+            }
+
+            while (improved && curError + CONVERGENCE_TOLERANCE < bestError && passes < maxPass)
+            {
+                improved = false;
+                bestError = curError;
+                Random.Shared.Shuffle(index);
+
+                for (int n = 0; n < wtLen; n++)
+                {
+                    int i = index[n];
+                    short increment = EvalFeatures.GetOptimizationIncrement(i);
+                    short oldValue = weights[i];
+                    weights[i] += increment;
+                    double error = EvalErrorParallel(weights, slices, k);
+                    bool goodIncrement = error < curError;
+                    improved = improved || goodIncrement;
+
+                    if (!goodIncrement)
+                    {
+                        weights[i] -= (short)(increment * 2);
+                        error = EvalErrorParallel(weights, slices, k);
+                        goodIncrement = error < curError;
+                        improved = improved || goodIncrement;
+
+                        if (!goodIncrement)
+                        {
+                            weights[i] = oldValue;
+                        }
+                    }
+
+                    if (goodIncrement)
+                    {
+                        curError = error;
+                    }
+                }
+
+                ++passes;
+                if (preserve && passes % 10 == 0 && improved)
+                {
+                    EvalFeatures.UpdateCombinedWeights(guess, weights);
+                    ChessWeights intermediate = new(guess)
+                    {
+                        Description = $"Pass {passes}",
+                        Fitness = curError
+                    };
+                    rep.Weights.Insert(intermediate);
+                    Console.WriteLine($@"Optimization pass {passes,3}: {curError:F6}, OID: {intermediate.Id}");
+                }
+                else
+                {
+                    Console.WriteLine($@"Optimization pass {passes,3}: {curError:F6}");
+                }
+            }
+
+            EvalFeatures.UpdateCombinedWeights(guess, weights);
+            guess.Description = "Optimized";
+            return guess;
+        }
+
+        public static PosRecord[] LoadSample(int sampleSize, StreamReader sr)
+        {
+            SortedSet<int> selections = GetSampleSelections(sampleSize, sr);
+            List<PosRecord> posRecordList = new List<PosRecord>(sampleSize);
+
+            int currLine = 0;
+            foreach (int selLine in selections)
+            {
+                while (currLine++ < selLine)
+                {
+                    if (Console.ReadLine() == null)
+                    {
+                        sr.BaseStream.Seek(0L, SeekOrigin.Begin);
+                        return posRecordList.ToArray();
+                    }
+                }
+
+                string? str = Console.ReadLine();
+                if (str == null)
+                {
+                    sr.BaseStream.Seek(0L, SeekOrigin.Begin);
+                    return posRecordList.ToArray();
+                }
+
+                string[] fields = str.Split(',');
+                ulong hash = Convert.ToUInt64(fields[0], 16);
+                short ply = short.Parse(fields[1]);
+                short gamePly = short.Parse(fields[2]);
+                short eval = short.Parse(fields[3]);
+                string fen = fields[4];
+                float result = float.Parse(fields[5]);
+                posRecordList.Add(new PosRecord(hash, ply, gamePly, eval, fen, result));
+            }
+
+            sr.BaseStream.Seek(0L, SeekOrigin.Begin);
+            return posRecordList.ToArray();
+        }
+
+        private static SortedSet<int> GetSampleSelections(int sampleSize, StreamReader sr)
+        {
+            int lineCount = 0;
+            while (Console.ReadLine() != null)
+            {
+                ++lineCount;
+            }
+
+            sr.BaseStream.Seek(0L, SeekOrigin.Begin);
+            SortedSet<int> sampleSelection = new SortedSet<int>();
+            for (int n = 0; n < sampleSize; ++n)
+            {
+                int num;
+                do
+                {
+                    num = Random.Shared.Next(1, lineCount + 1);
+                } 
+                while (sampleSelection.Contains(num));
+
+                sampleSelection.Add(num);
+            }
+
+            return sampleSelection;
+        }
+
+        public static List<PosRecord[]> CreateSlices(PosRecord[] records)
+        {
+            List<PosRecord[]> slices = new List<PosRecord[]>();
+#if DEBUG
+            int sliceCount = 1;
+            int sliceLength = records.Length;
+#else
+            int sliceCount = Math.Max(Environment.ProcessorCount - 2, 1);
+            int sliceLength = records.Length / sliceCount;
+#endif
+            for (int s = 0; s < sliceCount; s++)
+            {
+                int start = s * sliceLength;
+                int end = start + sliceLength;
+                PosRecord[] slice = s == sliceCount - 1 ? records[start..] : records[start..end];
+                slices.Add(slice);
+            }
+
+            return slices;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static double Sigmoid(double k, int qScore)
+        {
+            return 1.0 / (1.0 + Math.Pow(10.0, -k * qScore / 400.0));
+        }
+
+        private static double ErrorSquared(ReadOnlySpan<short> opWeights, ReadOnlySpan<short> egWeights, PosRecord rec, double k, double divisor)
+        {
+            int qScore = rec.Features.Compute(opWeights, egWeights);
+            qScore = rec.Features.SideToMove == Color.White ? qScore : -qScore;
+            double result = rec.Result - Sigmoid(k, qScore);
+            return divisor * result * result;
+        }
+
+        private static double EvalErrorSlice(short[] weights, PosRecord[] slice, double k, double divisor)
+        {
+            const int vecSize = EvalFeatures.FEATURE_SIZE + 1;
+            ReadOnlySpan<short> opWeights = new ReadOnlySpan<short>(weights, 0, vecSize);
+            ReadOnlySpan<short> egWeights = new ReadOnlySpan<short>(weights, vecSize, vecSize);
+
+            double result = 0.0;
+            foreach (PosRecord rec in slice)
+            {
+                result += ErrorSquared(opWeights, egWeights, rec, k, divisor);
+            }
+
+            return result;
+        }
+
+        public static double EvalErrorParallel(short[] weights, List<PosRecord[]> slices, double k)
+        {
+            int totalLength = slices.Sum(s => s.Length);
+            double divisor = 1.0 / totalLength;
+            Task<double>[] sliceTasks = new Task<double>[slices.Count];
+            for (int n = 0; n < slices.Count; n++)
+            {
+                PosRecord[] slice = slices[n];
+                sliceTasks[n] = Task<double>.Factory.StartNew(() => EvalErrorSlice(weights, slice, k, divisor));
+            }
+
+            // ReSharper disable once CoVariantArrayConversion
+            Task.WaitAll(sliceTasks);
+            return sliceTasks.Sum(t => t.Result);
+        }
+
+        private static double SolveKParallel(short[] weights, List<PosRecord[]> slices, double a = 0.0, double b = 2.0)
+        {
+            const double gr = 1.61803399;
+            double k1 = b - (b - a) / gr;
+            double k2 = a + (b - a) / gr;
+
+            while (Math.Abs(b - a) > 0.01)
+            {
+                double f_k1 = EvalErrorParallel(weights, slices, k1);
+                double f_k2 = EvalErrorParallel(weights, slices, k2);
+                if (f_k1 < f_k2)
+                {
+                    b = k2;
+                }
+                else
+                {
+                    a = k1;
+                }
+                k1 = b - (b - a) / gr;
+                k2 = a + (b - a) / gr;
+            }
+
+            return (b + a) / 2.0;
+        }
+
+        private static void PrintSolution(ChessWeights solution)
+        {
+            string[] pieceNames = { "pawns", "knights", "bishops", "rooks", "queens", "kings" };
+            short[] wts = solution.Weights;
+            Console.WriteLine($"// Solution fitness: {solution.Fitness:F5} generated on {DateTime.Now:R}");
+            Console.WriteLine($"Object ID: {solution.Id} - {solution.Description}");
+            Console.WriteLine("private static readonly short[] weights =");
+            Console.WriteLine("{");
+            Console.WriteLine("    /* Opening phase thru move */");
+            Console.WriteLine($"    {wts[0]},");
+            Console.WriteLine("\n    /* End game phase material */");
+            Console.WriteLine($"    {wts[1]},");
+            Console.WriteLine("\n    /* Opening mobility weight */");
+            Console.WriteLine($"    {wts[2]},");
+            Console.WriteLine("\n    /* End game mobility weight */");
+            Console.WriteLine($"    {wts[3]},");
+            Console.WriteLine("\n    /* Opening king proximity */");
+            Console.WriteLine($"    {wts[4]}, {wts[5]}, {wts[6]},");
+            Console.WriteLine("\n    /* End game king proximity */");
+            Console.WriteLine($"    {wts[7]}, {wts[8]}, {wts[9]},");
+            Console.WriteLine("\n    /* Unused weights */");
+            Console.WriteLine($"    {wts[10]}, {wts[11]},");
+            Console.WriteLine("\n    /* Opening piece values */");
+            Console.WriteLine($"    {wts[12]}, {wts[13]}, {wts[14]}, {wts[15]}, {wts[16]}, {wts[17]},");
+            Console.WriteLine("\n    /* End game piece values */");
+            Console.WriteLine($"    {wts[18]}, {wts[19]}, {wts[20]}, {wts[21]}, {wts[22]}, {wts[23]},");
+            Console.WriteLine("\n    /* Opening piece square tables */");
+            Console.WriteLine("    #region Opening piece square tables");
+            for (int pc = 0; pc < Constants.MAX_PIECES; pc++)
+            {
+                Console.WriteLine($"    // {pieceNames[pc]}");
+                for (int sq = 0; sq < Constants.MAX_SQUARES; sq++)
+                {
+                    if (sq % 8 == 0)
+                    {
+                        if (sq != 0)
+                        {
+                            Console.WriteLine();
+                        }
+                        Console.Write("    ");
+                    }
+                    Console.Write($"{wts[24 + (pc << 6) + sq],4}, ");
+                }
+
+                Console.WriteLine();
+            }
+            Console.WriteLine("    #endregion");
+            Console.WriteLine("\n    /* End game piece square tables */");
+            Console.WriteLine("    #region End game piece square tables");
+            for (int pc = 0; pc < Constants.MAX_PIECES; pc++)
+            {
+                Console.WriteLine($"    // {pieceNames[pc]}");
+                for (int sq = 0; sq < Constants.MAX_SQUARES; sq++)
+                {
+                    if (sq % 8 == 0)
+                    {
+                        if (sq != 0)
+                        {
+                            Console.WriteLine();
+                        }
+                        Console.Write("    ");
+                    }
+                    Console.Write($"{wts[408 + (pc << 6) + sq],4}, ");
+                }
+
+                Console.WriteLine();
+            }
+            Console.WriteLine("    #endregion");
+            Console.WriteLine("\n    /* Opening blocked pawns */");
+            Console.WriteLine("    #region Opening blocked pawns");
+            for (int pc = 0; pc < Constants.MAX_PIECES; pc++)
+            {
+                Console.WriteLine($"    // pawns blocked by {pieceNames[pc]}");
+                for (int rank = 0; rank < 6; rank++)
+                {
+                    Console.WriteLine($"    {wts[792 + (pc * 6) + rank]}, // rank {rank + 2}");
+                }
+
+                Console.WriteLine();
+            }
+            Console.WriteLine("    #endregion");
+            Console.WriteLine("\n    /* End game blocked pawns */");
+            Console.WriteLine("    #region End game blocked pawns");
+            for (int pc = 0; pc < Constants.MAX_PIECES; pc++)
+            {
+                Console.WriteLine($"    // pawns blocked by {pieceNames[pc]}");
+                for (int rank = 0; rank < 6; rank++)
+                {
+                    Console.WriteLine($"    {wts[828 + (pc * 6) + rank]}, // rank {rank + 2}");
+                }
+
+                Console.WriteLine();
+            }
+            Console.WriteLine("    #endregion");
+            Console.WriteLine("\n    /* Opening pawn double move blocked */");
+            Console.WriteLine($"    {wts[864]},");
+            Console.WriteLine("\n    /* End game pawn double move blocked */");
+            Console.WriteLine($"    {wts[865]},");
+            Console.WriteLine("\n    /* Opening king *not* in closest promote square */");
+            for (int rank = 0; rank < 6; rank++)
+            {
+                Console.WriteLine($"    {wts[866 + rank]}, // rank {rank + 2}");
+            }
+            Console.WriteLine("\n    /* End game king *not* in closest promote square */");
+            for (int rank = 0; rank < 6; rank++)
+            {
+                Console.WriteLine($"    {wts[872 + rank]}, // rank {rank + 2}");
+            }
+            Console.WriteLine("\n    /* Unused */");
+            Console.WriteLine("    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,");
+            Console.WriteLine("\n    /* Opening isolated pawn */");
+            Console.WriteLine($"    {wts[896]},");
+            Console.WriteLine("\n    /* End game isolated pawn */");
+            Console.WriteLine($"    {wts[897]},");
+            Console.WriteLine("\n    /* Opening backward pawn */");
+            Console.WriteLine($"    {wts[898]},");
+            Console.WriteLine("\n    /* End game backward pawn */");
+            Console.WriteLine($"    {wts[899]},");
+            Console.WriteLine("\n    /* Opening doubled pawn */");
+            Console.WriteLine($"    {wts[900]},");
+            Console.WriteLine("\n    /* End game doubled pawn */");
+            Console.WriteLine($"    {wts[901]},");
+            Console.WriteLine("\n    /* Opening knight on outpost */");
+            Console.WriteLine($"    {wts[902]},");
+            Console.WriteLine("\n    /* End game knight on outpost */");
+            Console.WriteLine($"    {wts[903]},");
+            Console.WriteLine("\n    /* Opening bishop on outpost */");
+            Console.WriteLine($"    {wts[904]},");
+            Console.WriteLine("\n    /* End game bishop on outpost */");
+            Console.WriteLine($"    {wts[905]},");
+            Console.WriteLine("\n    /* Opening passed pawn */");
+            Console.WriteLine("    #region Opening passed pawn");
+            for (int rank = 0; rank < 6; rank++)
+            {
+                Console.WriteLine($"    {wts[906 + rank]}, // rank {rank + 2}");
+            }
+            Console.WriteLine("    #endregion");
+            Console.WriteLine("\n    /* End game passed pawn */");
+            Console.WriteLine("    #region End game passed pawn");
+            for (int rank = 0; rank < 6; rank++)
+            {
+                Console.WriteLine($"    {wts[912 + rank]}, // rank {rank + 2}");
+            }
+            Console.WriteLine("    #endregion");
+            Console.WriteLine("\n    /* Opening adjacent pawn */");
+            Console.WriteLine("    #region Opening adjacent pawn");
+            for (int rank = 0; rank < 6; rank++)
+            {
+                Console.WriteLine($"    {wts[918 + rank]}, // rank {rank + 2}");
+            }
+            Console.WriteLine("    #endregion");
+            Console.WriteLine("\n    /* End game adjacent pawn */");
+            Console.WriteLine("    #region End game adjacent pawn");
+            for (int rank = 0; rank < 6; rank++)
+            {
+                Console.WriteLine($"    {wts[924 + rank]}, // rank {rank + 2}");
+            }
+            Console.WriteLine("    #endregion");
+            Console.WriteLine("\n    /* Opening bishop pair */");
+            Console.WriteLine($"    {wts[930]},");
+            Console.WriteLine("\n    /* End game bishop pair */");
+            Console.WriteLine($"    {wts[931]},");
+            Console.WriteLine("\n    /* Opening queen-side pawn majority */");
+            Console.WriteLine($"    {wts[932]},");
+            Console.WriteLine("\n    /* End game queen-side pawn majority */");
+            Console.WriteLine($"    {wts[933]},");
+            Console.WriteLine("\n    /* Opening king near passed pawn */");
+            Console.WriteLine($"    {wts[934]},");
+            Console.WriteLine("\n    /* End game king near passed pawn */");
+            Console.WriteLine($"    {wts[935]},");
+            Console.WriteLine("\n    /* Opening king-side pawn majority */");
+            Console.WriteLine($"    {wts[936]},");
+            Console.WriteLine("\n    /* End game king-side pawn majority */");
+            Console.WriteLine($"    {wts[937]},");
+            Console.WriteLine("\n    /* Unused */");
+            Console.WriteLine("    0, 0");
+            Console.WriteLine("};");
+        }
+
+        private static void RunWeights(string? immortalWt, string? printWt)
+        {
+            using var rep = new GeneticsRepository();
+            if (immortalWt != null)
+            {
+                ChessWeights? wt = rep.Weights.Find(w => w.Id == new ObjectId(immortalWt)).FirstOrDefault();
+                if (wt != null)
+                {
+                    wt.IsActive = true;
+                    wt.IsImmortal = true;
+                    wt.UpdatedOn = DateTime.UtcNow;
+                    rep.Weights.Update(wt);
+                }
+            }
+
+            if (printWt != null)
+            {
+                ChessWeights? wt = rep.Weights.Find(w => w.Id == new ObjectId(printWt)).FirstOrDefault();
+                if (wt != null)
+                {
+                    PrintSolution(wt);
+                }
+            }
+        }
+
+        
     }
 }

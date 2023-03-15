@@ -2,7 +2,7 @@
   "profiles": {
     "Pedantic": {
       "commandName": "Project",
-      "commandLineArgs": "label --pgn \"e:/pgn files/master-clean.pgn\" --data \"e:/pgn files/training_data.csv\"",
+      "commandLineArgs": "learn --data \"e:/pgn files/training_data.csv\" --sample 10000 --iter 10",
       "workingDirectory": "e:/pgn files/"
     }
   }

@@ -17,8 +17,8 @@ namespace Pedantic.Genetics
         public const int ENDGAME_MOBILITY_WEIGHT_OFFSET = 3;
         public const int OPENING_KING_ATTACK_WEIGHT_OFFSET = 4;
         public const int ENDGAME_KING_ATTACK_WEIGHT_OFFSET = 7;
-        public const int OPENING_DEVELOPMENT_WEIGHT_OFFSET = 10;
-        public const int ENDGAME_DEVELOPMENT_WEIGHT_OFFSET = 11;
+        public const int UNUSED_10 = 10;
+        public const int UNUSED_11 = 11;
         public const int OPENING_PIECE_WEIGHT_OFFSET = 12;
         public const int ENDGAME_PIECE_WEIGHT_OFFSET = 18;
         public const int OPENING_PIECE_SQUARE_WEIGHT_OFFSET = 24;
@@ -27,8 +27,8 @@ namespace Pedantic.Genetics
         public const int ENDGAME_BLOCKED_PAWN_OFFSET = 828;
         public const int OPENING_BLOCKED_PAWN_DBL_MOVE_OFFSET = 864;
         public const int ENDGAME_BLOCKED_PAWN_DBL_MOVE_OFFSET = 865;
-        public const int OPENING_PINNED_PIECE_OFFSET = 866;
-        public const int ENDGAME_PINNED_PIECE_OFFSET = 881;
+        public const int OPENING_KING_NOT_IN_CLOSEST_PROMOTE_OFFSET = 866;
+        public const int ENDGAME_KING_NOT_IN_CLOSEST_PROMOTE_OFFSET = 872;
         public const int OPENING_ISOLATED_PAWN_OFFSET = 896;
         public const int ENDGAME_ISOLATED_PAWN_OFFSET = 897;
         public const int OPENING_BACKWARD_PAWN_OFFSET = 898;
@@ -45,14 +45,12 @@ namespace Pedantic.Genetics
         public const int ENDGAME_ADJACENT_PAWNS_OFFSET = 924;
         public const int OPENING_BISHOP_PAIR_OFFSET = 930;
         public const int ENDGAME_BISHOP_PAIR_OFFSET = 931;
-        public const int OPENING_PAWN_MAJORITY_OFFSET = 932;
-        public const int ENDGAME_PAWN_MAJORITY_OFFSET = 933;
+        public const int OPENING_PAWN_QS_MAJORITY_OFFSET = 932;
+        public const int ENDGAME_PAWN_QS_MAJORITY_OFFSET = 933;
         public const int OPENING_KING_NEAR_PASSED_PAWN_OFFSET = 934;
         public const int ENDGAME_KING_NEAR_PASSED_PAWN_OFFSET = 935;
-        public const int OPENING_GUARDED_PASSED_PAWN_OFFSET = 936;
-        public const int ENDGAME_GUARDED_PASSED_PAWN_OFFSET = 937;
-        public const int OPENING_ATTACK_PASSED_PAWN_OFFSET = 938;
-        public const int ENDGAME_ATTACK_PASSED_PAWN_OFFSET = 939;
+        public const int OPENING_PAWN_KS_MAJORITY_OFFSET = 936;
+        public const int ENDGAME_PAWN_KS_MAJORITY_OFFSET = 937;
 
         public readonly struct WeightGenerator
         {
@@ -133,19 +131,37 @@ namespace Pedantic.Genetics
         }
 
         [BsonCtor]
-        public ChessWeights(ObjectId _id, bool isActive, bool isImmortal, int age, ObjectId[] parentIds, int wins,
-            int draws, int losses, short[] weights, DateTime updatedOn, DateTime createdOn)
+        public ChessWeights(ObjectId _id, bool isActive, bool isImmortal, string description, int age, ObjectId[] parentIds, int wins,
+            int draws, int losses, short[] weights, double fitness, DateTime updatedOn, DateTime createdOn)
         {
             Id = _id;
             IsActive = isActive;
             IsImmortal = isImmortal;
+            Description = description;
             Age = age;
             ParentIds = parentIds;
             Wins = wins;
             Draws = draws;
             Losses = losses;
             Weights = weights;
+            Fitness = fitness;
             UpdatedOn = updatedOn;
+        }
+
+        public ChessWeights(ChessWeights other)
+        {
+            Id = ObjectId.NewObjectId();
+            IsActive = other.IsActive;
+            IsImmortal = other.IsImmortal;
+            Description = other.Description;
+            Age = other.Age;
+            ParentIds = ArrayEx.Clone(other.ParentIds);
+            Wins = other.Wins;
+            Draws = other.Draws;
+            Losses = other.Losses;
+            Weights = ArrayEx.Clone(other.Weights);
+            Fitness = other.Fitness;
+            UpdatedOn = DateTime.UtcNow;
         }
 
         public ChessWeights(ChessWeights parent1, ChessWeights parent2, short[] weights)
@@ -153,12 +169,14 @@ namespace Pedantic.Genetics
             Id = ObjectId.NewObjectId();
             IsActive = true;
             IsImmortal = false;
+            Description = $"Child of {parent1.Id} and {parent2.Id}";
             Age = 0;
             Wins = 0;
             Losses = 0;
             Draws = 0;
             ParentIds = new [] { parent1.Id, parent2.Id };
             Weights = weights;
+            Fitness = 0.0;
             UpdatedOn = CreatedOn;
         }
 
@@ -167,12 +185,14 @@ namespace Pedantic.Genetics
             Id = ObjectId.NewObjectId();
             IsActive = true;
             IsImmortal = false;
+            Description = "Anonymous";
             Age = 0;
             Wins = 0;
             Losses = 0;
             Draws = 0;
             ParentIds = Array.Empty<ObjectId>();
             Weights = weights;
+            Fitness = 0.0;
             UpdatedOn = CreatedOn;
         }
 
@@ -181,24 +201,28 @@ namespace Pedantic.Genetics
             Id = ObjectId.Empty;
             IsActive = false;
             IsImmortal = false;
+            Description = string.Empty;
             Age = 0;
             Wins = 0;
             Losses = 0;
             Draws = 0;
             ParentIds = Array.Empty<ObjectId>();
             Weights = Array.Empty<short>();
+            Fitness = 0.0;
             UpdatedOn = CreatedOn;
         }
 
         public ObjectId Id { get; set; }
         public bool IsActive { get; set; }
         public bool IsImmortal { get; set; }
+        public string Description { get; set; }
         public int Age { get; set; }
-        public ObjectId[] ParentIds { get; init; }
+        public ObjectId[] ParentIds { get; set; }
         public int Wins { get; set; }
         public int Losses { get; set; }
         public int Draws { get; set; }
         public short[] Weights { get; init; }
+        public double Fitness { get; set; }
         public DateTime UpdatedOn { get; set; }
         public DateTime CreatedOn => Id.CreationTime;
 
@@ -332,36 +356,6 @@ namespace Pedantic.Genetics
             }
         }
 
-        /*
-        private static bool TryLookup(int index, out WtInfo wtInfo)
-        {
-            int length = wtInfos.Length;
-            int low = 0;
-            int high = length - 1;
-
-            while (low <= high)
-            {
-                int mid = (low + high) / 2;
-                if (wtInfos[mid].InRange(index, out bool isLow))
-                {
-                    wtInfo = wtInfos[mid];
-                    return true;
-                }
-                if (isLow)
-                {
-                    high = mid - 1;
-                }
-                else
-                {
-                    low = mid + 1;
-                }
-            }
-            
-            wtInfo = WtInfo.Empty;
-            return false;
-        }
-        */
-
         private static readonly Random rand = new();
 
         private static readonly short[] paragonWeights =
@@ -388,11 +382,8 @@ namespace Pedantic.Genetics
             4, // attacks to squares 2 squares from king
             2, // attacks to squares 3 squares from king
 
-            /* OpeningDevelopmentWeight */
-            2,
-
-            /* EndGameDevelopmentWeight */
-            0,
+            /* unused */
+            0, 0,
 
             /* opening piece values */
             82, 337, 365, 477, 1025, 0,
@@ -642,54 +633,24 @@ namespace Pedantic.Genetics
             /* end game pawn double move blocked */
             -5,
 
-            #region opening pinned piece tables
+            /* opening king *not* in closest promote square */
+            0,  // rank 2
+            0,  // rank 3
+            0,  // rank 4
+            0,  // rank 5
+            0,  // rank 6
+            0,  // rank 7
+            
+            /* end game king *not* in closest promote square */
+            -2, // rank 2
+            -2, // rank 3
+            -5, // rank 4
+            -10, // rank 5
+            -20, // rank 6
+            -40, // rank 7
 
-            /* opening pinned piece tables */
-            /* pins */
-            2, // bishop pins pawn
-            4, // bishop pins knight
-            0, // bishop pins bishop
-            8, // bishop pins rook
-            12, // bishop pins queen
-
-            2, // rook pins pawn
-            4, // rook pins knight
-            4, // rook pins bishop
-            0, // rook pins rook
-            12, // rook pins queen
-
-            2, // queen pins pawn
-            4, // queen pins knight
-            0, // queen pins bishop
-            0, // queen pins rook
-            0, // queen pins queen
-
-            #endregion
-
-            #region end game pinned piece tables
-
-            /* end game pinned piece tables */
-            /* pins */
-            2, // bishop pins pawn
-            4, // bishop pins knight
-            0, // bishop pins bishop
-            8, // bishop pins rook
-            12, // bishop pins queen
-
-            2, // rook pins pawn
-            4, // rook pins knight
-            4, // rook pins bishop
-            0, // rook pins rook
-            12, // rook pins queen
-
-            2, // queen pins pawn
-            4, // queen pins knight
-            0, // queen pins bishop
-            0, // queen pins rook
-            0, // queen pins queen
-
-            #endregion
-
+            /* unused */
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 
             /* opening isolated pawns */
             -10,
@@ -737,17 +698,17 @@ namespace Pedantic.Genetics
 
             /* end game passed pawns table */
 
-                #region end game passed pawns table
+            #region end game passed pawns table
 
-                /* passed pawns */
-                5, // rank 2
-                10, // rank 3
-                20, // rank 4
-                40, // rank 5
-                80, // rank 6
-                160, // rank 7
+            /* passed pawns */
+            5, // rank 2
+            10, // rank 3
+            20, // rank 4
+            40, // rank 5
+            80, // rank 6
+            160, // rank 7
 
-                #endregion
+            #endregion
 
             /* opening adjacent pawns table */
 
@@ -783,29 +744,26 @@ namespace Pedantic.Genetics
             /* end game bishop pair */
             20,
 
-            /* opening pawn majority bonus */
+            /* opening queen-side pawn majority bonus */
             5,
 
-            /* end game pawn majority bonus */
+            /* end game queen-side pawn majority bonus */
             10,
 
             /* opening king near passed pawn (inside its square) */
-            0, // not used
+            0, 
 
             /* endgame king near passed pawn (inside its square) */
-            10, // not used
+            10, 
 
-            /* opening guarded passed pawn */
-            0, // not used
+            /* opening king-side pawn majority bonus */
+            5,
 
-            /* endgame guarded passed pawn */
-            10, // not used
+            /* end game king-side pawn majority bonus */
+            10,
 
-            /* opening closest passed pawn */
-            10, // not used
-
-            /* endgame closest passed pawn */
-            20 // not used
+            /* unused */
+            0, 0
         };
 
         private static readonly WeightGenerator[] wtGens =
