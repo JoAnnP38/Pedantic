@@ -23,108 +23,16 @@ namespace Pedantic.UnitTests
             Board bd = new Board(fen);
             EvalFeatures features = new EvalFeatures(bd);
 
-            short[] weights = EvalFeatures.GetCombinedWeights(Evaluation.Weights);
+            short[] weights = Evaluation.Weights;
 
-            const int vecSize = EvalFeatures.FEATURE_SIZE + 1;
+            const int vecSize = EvalFeatures.FEATURE_SIZE;
             ReadOnlySpan<short> opWeights = new ReadOnlySpan<short>(weights, 0, vecSize);
             ReadOnlySpan<short> egWeights = new ReadOnlySpan<short>(weights, vecSize, vecSize);
 
-            Evaluation eval = new();
+            Evaluation eval = new(false);
             short expected = eval.Compute(bd);
             short actual = features.Compute(opWeights, egWeights);
             Assert.AreEqual(expected, actual);
-        }
-
-        [TestMethod]
-        public void VerifyWeightsInSyncTest()
-        {
-            short[] weights = EvalFeatures.GetCombinedWeights(Evaluation.Weights);
-            const int vecSize = EvalFeatures.FEATURE_SIZE + 1;
-            ReadOnlySpan<short> opWeights = new ReadOnlySpan<short>(weights, 0, vecSize);
-            ReadOnlySpan<short> egWeights = new ReadOnlySpan<short>(weights, vecSize, vecSize);
-
-            for (int pc = 0; pc < Constants.MAX_PIECES - 1; pc++)
-            {
-                Assert.AreEqual(Evaluation.OpeningPieceValues[pc], opWeights[EvalFeatures.MATERIAL + pc], $"OP Piece = {pc}");
-                Assert.AreEqual(Evaluation.EndGamePieceValues[pc], egWeights[EvalFeatures.MATERIAL + pc], $"EG Piece = {pc}");
-            }
-
-            for (int pc = 0; pc < Constants.MAX_PIECES; pc++)
-            {
-                for (int sq = 0; sq < Constants.MAX_SQUARES; sq++)
-                {
-                    Assert.AreEqual(Evaluation.OpeningPieceSquareTable[pc, sq], opWeights[EvalFeatures.PIECE_SQUARE_TABLES + (pc * 64) + sq], $"OP Piece = {pc}, Square = {sq}");
-                    Assert.AreEqual(Evaluation.EndGamePieceSquareTable[pc, sq], egWeights[EvalFeatures.PIECE_SQUARE_TABLES + (pc * 64) + sq], $"EG Piece = {pc}, Square = {sq}");
-                }
-            }
-
-            Assert.AreEqual(Evaluation.OpeningMobilityWeight, opWeights[EvalFeatures.MOBILITY], "OP Mobility");
-            Assert.AreEqual(Evaluation.EndGameMobilityWeight, egWeights[EvalFeatures.MOBILITY], "EG Mobility");
-
-            Assert.AreEqual(Evaluation.OpeningIsolatedPawn, opWeights[EvalFeatures.ISOLATED_PAWNS], "OP Isolated Pawn");
-            Assert.AreEqual(Evaluation.EndGameIsolatedPawn, egWeights[EvalFeatures.ISOLATED_PAWNS], "EG Isolated Pawn");
-
-            Assert.AreEqual(Evaluation.OpeningBackwardPawn, opWeights[EvalFeatures.BACKWARD_PAWNS], "OP Backward Pawn");
-            Assert.AreEqual(Evaluation.EndGameBackwardPawn, egWeights[EvalFeatures.BACKWARD_PAWNS], "EG Backward Pawn");
-
-            Assert.AreEqual(Evaluation.OpeningDoubledPawn, opWeights[EvalFeatures.DOUBLED_PAWNS], "OP Doubled Pawn");
-            Assert.AreEqual(Evaluation.EndGameDoubledPawn, egWeights[EvalFeatures.DOUBLED_PAWNS], "EG Doubled Pawn");
-
-            for (int rank = 0; rank < 6; rank++)
-            {
-                Assert.AreEqual(Evaluation.OpeningPassedPawn[rank + 1], opWeights[EvalFeatures.PASSED_PAWNS + rank], $"OP Passed Pawn, Rank = {rank}");
-                Assert.AreEqual(Evaluation.EndGamePassedPawn[rank + 1], egWeights[EvalFeatures.PASSED_PAWNS + rank], $"EG Passed Pawn, Rank = {rank}");
-
-                Assert.AreEqual(Evaluation.OpeningAdjacentPawn[rank + 1], opWeights[EvalFeatures.ADJACENT_PAWNS + rank], $"OP Adjacent Pawn, Rank = {rank}");
-                Assert.AreEqual(Evaluation.EndGameAdjacentPawn[rank + 1], egWeights[EvalFeatures.ADJACENT_PAWNS + rank], $"EG Adjacent Pawn, Rank = {rank}");
-            }
-
-            Assert.AreEqual(Evaluation.OpeningKingAttack[0], opWeights[EvalFeatures.KING_PROXIMITY], "OP King Proximity, D0");
-            Assert.AreEqual(Evaluation.OpeningKingAttack[1], opWeights[EvalFeatures.KING_PROXIMITY + 1], "OP King Proximity, D1");
-            Assert.AreEqual(Evaluation.OpeningKingAttack[2], opWeights[EvalFeatures.KING_PROXIMITY + 2], "OP King Proximity, D2");
-
-            Assert.AreEqual(Evaluation.EndGameKingAttack[0], egWeights[EvalFeatures.KING_PROXIMITY], "EG King Proximity, D0");
-            Assert.AreEqual(Evaluation.EndGameKingAttack[1], egWeights[EvalFeatures.KING_PROXIMITY + 1], "EG King Proximity, D1");
-            Assert.AreEqual(Evaluation.EndGameKingAttack[2], egWeights[EvalFeatures.KING_PROXIMITY + 2], "EG King Proximity, D2");
-
-            Assert.AreEqual(Evaluation.OpeningKnightOutpost, opWeights[EvalFeatures.KNIGHTS_ON_OUTPOST], "OP Knight on Outpost");
-            Assert.AreEqual(Evaluation.EndGameKnightOutpost, egWeights[EvalFeatures.KNIGHTS_ON_OUTPOST], "EG Knight on Outpost");
-
-            Assert.AreEqual(Evaluation.OpeningBishopOutpost, opWeights[EvalFeatures.BISHOPS_ON_OUTPOST], "OP Bishop on Outpost");
-            Assert.AreEqual(Evaluation.EndGameBishopOutpost, egWeights[EvalFeatures.BISHOPS_ON_OUTPOST], "EG Bishop on Outpost");
-
-            Assert.AreEqual(Evaluation.OpeningBishopPair, opWeights[EvalFeatures.BISHOP_PAIR], "OP Bishop Pair");
-            Assert.AreEqual(Evaluation.EndGameBishopPair, egWeights[EvalFeatures.BISHOP_PAIR], "EG Bishop Pair");
-
-            for (int pc = 0; pc < Constants.MAX_PIECES; pc++)
-            {
-                for (int rank = 0; rank < 6; rank++)
-                {
-                    Assert.AreEqual(Evaluation.OpeningBlockedPawnTable[pc][rank + 1], opWeights[EvalFeatures.BLOCKED_PAWNS + (pc * 6) + rank], $"OP Blocked Pawn, Piece = {pc}, Rank = {rank}");
-                    Assert.AreEqual(Evaluation.EndGameBlockedPawnTable[pc][rank + 1], egWeights[EvalFeatures.BLOCKED_PAWNS + (pc * 6) + rank], $"EG Blocked Pawn, Piece = {pc}, Rank = {rank}");
-                }
-            }
-
-            Assert.AreEqual(Evaluation.OpeningBlockedPawnDoubleMove, opWeights[EvalFeatures.BLOCKED_DBL_MOVE_PAWNS], "OP Blocked Pawn Double Move");
-            Assert.AreEqual(Evaluation.EndGameBlockedPawnDoubleMove, egWeights[EvalFeatures.BLOCKED_DBL_MOVE_PAWNS], "EG Blocked Pawn Double Move");
-
-            Assert.AreEqual(Evaluation.OpeningPawnMajorityQS, opWeights[EvalFeatures.QUEEN_SIDE_PAWN_MAJORITY], "OP Queen Side Majority");
-            Assert.AreEqual(Evaluation.EndGamePawnMajorityQS, egWeights[EvalFeatures.QUEEN_SIDE_PAWN_MAJORITY], "EG Queen Side Majority");
-
-            Assert.AreEqual(Evaluation.OpeningPawnMajorityKS, opWeights[EvalFeatures.KING_SIDE_PAWN_MAJORITY], "OP King Side Majority");
-            Assert.AreEqual(Evaluation.EndGamePawnMajorityKS, egWeights[EvalFeatures.KING_SIDE_PAWN_MAJORITY], "EG King Side Majority");
-
-            for (int rank = 0; rank < 6; rank++)
-            {
-                Assert.AreEqual(Evaluation.OpeningKingClosest[rank + 1], opWeights[EvalFeatures.KING_NOT_IN_CLOSEST_SQUARE + rank], $"OP King Not in Closest Square, Rank = {rank}");
-                Assert.AreEqual(Evaluation.EndGameKingClosest[rank + 1], egWeights[EvalFeatures.KING_NOT_IN_CLOSEST_SQUARE + rank], $"EG King Not in Closest Square, Rank = {rank}");
-            }
-
-            Assert.AreEqual(Evaluation.OpeningKingNearPassedPawn, opWeights[EvalFeatures.KING_IN_PROMOTE_SQUARE], "OP King in Promote Square");
-            Assert.AreEqual(Evaluation.EndGameKingNearPassedPawn, egWeights[EvalFeatures.KING_IN_PROMOTE_SQUARE], "EG King in Promote Square");
-
-            Assert.AreEqual(Evaluation.OpeningPhaseThruTurn, opWeights[EvalFeatures.GAME_PHASE_BOUNDARY], "OP Game Phase Boundary");
-            Assert.AreEqual(Evaluation.EndGamePhaseMaterial, egWeights[EvalFeatures.GAME_PHASE_BOUNDARY], "EG Game Phase Boundary");
         }
     }
 }

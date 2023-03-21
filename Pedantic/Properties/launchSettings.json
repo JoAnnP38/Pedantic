@@ -2,8 +2,8 @@
   "profiles": {
     "Pedantic": {
       "commandName": "Project",
-      "commandLineArgs": "learn --data \"e:/pgn files/training_data.csv\" --sample 10000 --iter 10",
-      "workingDirectory": "e:/pgn files/"
+      "commandLineArgs": "learn --data \"e:/pgn files/training_data_ver2.csv\" --sample 64000 --iter 200",
+      "workingDirectory": "e:\\repos\\Pedantic\\Pedantic\\bin\\Release\\net7.0\\publish"
     }
   }
 }

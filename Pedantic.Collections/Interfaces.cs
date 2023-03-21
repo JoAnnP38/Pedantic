@@ -17,4 +17,18 @@
         public void Fill(ref T value);
         public void Copy(IArray<T> array);
     }
+
+    public interface ISparseArray<T>
+    {
+        public T this[int i] { get; set; }
+        public Span<T> Slice(int start, int count);
+        public T DotProduct(ISparseArray<T> other);
+        public T DotProduct(T[] other);
+        public T DotProduct(ReadOnlySpan<T> other);
+        public void Add(int index, T item);
+        public bool ContainsItem(int index);
+        public T[] ToArray();
+        public bool RemoveAt(int index);
+
+    }
 }

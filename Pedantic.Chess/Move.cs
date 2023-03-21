@@ -89,7 +89,7 @@ namespace Pedantic.Chess
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsQuiet(ulong move)
         {
-            return !IsPawnMove(move) && !IsCapture(move) && !IsPromote(move);
+            return !IsCapture(move) && !IsPromote(move);
         }
 
         public static void UnpackMove(ulong move, out int from, out int to, out MoveType type, out Piece capture,

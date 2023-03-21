@@ -85,7 +85,7 @@
 
                     if (result.Score >= beta)
                     {
-                        if (Move.GetCapture(move) == Piece.None)
+                        if (Move.IsQuiet(move))
                         {
                             history.Update(Move.GetFrom(move), Move.GetTo(move), depth);
                             killerMoves.Add(move, ply);

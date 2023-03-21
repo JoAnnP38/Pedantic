@@ -247,5 +247,19 @@ namespace Pedantic.UnitTests
                 Console.WriteLine(Move.ToLongString(moveList[n]));
             }
         }
+
+        [TestMethod]
+        [DataRow("3k4/1P6/8/2p3qp/8/8/8/K7 w - - 1 14")]
+        public void GeneratePromotionsTest(string fen)
+        {
+            Board bd = new(fen);
+            MoveList list = new();
+            bd.GeneratePromotions(list);
+
+            for (int n = 0; n < list.Count; n++)
+            {
+                Console.WriteLine($"{n}: {Move.ToLongString(list[n])}");
+            }
+        }
     }
 }

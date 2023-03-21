@@ -35,7 +35,7 @@ namespace Pedantic
             public readonly int Ply;
             public readonly int GamePly;
             public readonly string Fen;
-            public readonly double Score;
+            public readonly float Result;
 
             public Position()
             {
@@ -43,16 +43,16 @@ namespace Pedantic
                 Ply = 0;
                 GamePly = 0;
                 Fen = string.Empty;
-                Score = 0.0;
+                Result = 0;
             }
 
-            public Position(ulong hash, int ply, int gamePly, string fen, double score)
+            public Position(ulong hash, int ply, int gamePly, string fen, float result)
             {
                 Hash = hash;
                 Ply = ply;
                 GamePly = gamePly;
                 Fen = fen;
-                Score = score;
+                Result = result;
             }
         }
         public PgnPositionReader(bool skipOpening = true, int openingCount = 8)
@@ -69,18 +69,19 @@ namespace Pedantic
                 Infinite = true
             };
             Board bd = new();
-            BasicSearch search = new BasicSearch(bd, tc, 0);
+            BasicSearch search = new BasicSearch(bd, tc, 0)
+            {
+                Evaluation = new Evaluation(false)
+            };
             PositionState state = PositionState.SeekHeader;
             List<string> moves = new();
-            double score = 0.0;
-            long lines = 0;
+            float result = 0;
 
             for(;;)
             {
                 string? line = reader.ReadLine();
 
                 if (line == null) break;
-                ++lines;
 
                 string[] tokens = line.Split(' ',
                     StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
@@ -110,17 +111,17 @@ namespace Pedantic
                             switch (token)
                             {
                                 case white_win_token:
-                                    score = 1.0;
+                                    result = 1.0f;
                                     state = PositionState.ReturnMoves;
                                     break;
 
                                 case draw_token:
-                                    score = 0.5;
+                                    result = 0.5f;
                                     state = PositionState.ReturnMoves;
                                     break;
 
                                 case black_win_token:
-                                    score = 0.0;
+                                    result = 0.0f;
                                     state = PositionState.ReturnMoves;
                                     break;
 
@@ -157,7 +158,7 @@ namespace Pedantic
                                     Constants.INFINITE_WINDOW, 0) - eval);
                                 if (delta == 0)
                                 {
-                                    yield return new Position(bd.Hash, ply, gamePly, bd.ToFenString(), score);
+                                    yield return new Position(bd.Hash, ply, gamePly, bd.ToFenString(), result);
                                 }
                             }
                             else

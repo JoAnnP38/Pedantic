@@ -273,6 +273,9 @@ namespace Pedantic.Chess
             bool canPrune = canReduce && Math.Abs(beta - 1) < Constants.CHECKMATE_BASE && depth < 8 &&
                             eval + futilityMargin[depth] <= beta - 1;
 
+#if DEBUG
+            string fen = board.ToFenString();
+#endif
             int expandedNodes = 0;
             history.SideToMove = board.SideToMove;
             MoveList moveList = MoveListPool.Get();
@@ -328,7 +331,7 @@ namespace Pedantic.Chess
                 {
                     pvList.Store(ply, move);
                     TtTran.Add(board.Hash, depth, ply, beta - 1, beta, score, move);
-                    if (!Move.IsCapture(move))
+                    if (Move.IsQuiet(move))
                     {
                         killerMoves.Add(move, ply);
                         history.Update(Move.GetFrom(move), Move.GetTo(move), depth);

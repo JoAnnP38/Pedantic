@@ -42,8 +42,6 @@ namespace Pedantic.Client
             label2.Text = $"Engine path: {Program.AppSettings.EnginePath}";
         }
 
-        public ConcurrentQueue<GameToPlay> GameQueue { get; }
-        public ConcurrentQueue<GameResult> ResultsQueue { get; }
 
         public CancellationTokenSource Source { get; set; }
 

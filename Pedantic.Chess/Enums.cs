@@ -48,4 +48,12 @@
         Minimal = 1,
         Mtd = 2
     }
+
+    public enum GamePhase : byte
+    {
+        Opening,
+        MidGame,
+        EndGame,
+        EndGameMopup
+    }
 }

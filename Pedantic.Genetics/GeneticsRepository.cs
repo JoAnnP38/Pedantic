@@ -32,10 +32,6 @@ namespace Pedantic.Genetics
         }
 
         public ILiteCollection<ChessWeights> Weights => db.GetCollection<ChessWeights>("weights");
-        public ILiteCollection<Evolution> Evolutions => db.GetCollection<Evolution>("evolutions");
-        public ILiteCollection<Generation> Generations => db.GetCollection<Generation>("generations");
-        public ILiteCollection<Match> Matches => db.GetCollection<Match>("matches");
-        public ILiteCollection<Game> Games => db.GetCollection<Game>("games");
 
         public bool BeginTransaction()
         {
@@ -58,10 +54,6 @@ namespace Pedantic.Genetics
             try
             {
                 commit = BeginTransaction();
-                Evolutions.DeleteAll();
-                Generations.DeleteAll();
-                Matches.DeleteAll();
-                Games.DeleteAll();
                 Weights.DeleteAll();
                 if (commit)
                 {
@@ -81,19 +73,7 @@ namespace Pedantic.Genetics
 
         public void EnsureIndices()
         {
-            Evolutions.EnsureIndex(e => e.ConvergedOn);
-            Evolutions.EnsureIndex(e => e.UpdatedOn);
-            Evolutions.EnsureIndex(e => e.State);
-            Generations.EnsureIndex(g => g.Evolution.Id);
-            Generations.EnsureIndex(g => g.State);
-            Generations.EnsureIndex(g => g.CreatedOn);
-            Matches.EnsureIndex(m => m.Generation.Id);
-            Matches.EnsureIndex(m => m.RoundNumber);
-            Matches.EnsureIndex(m => m.Player1.Id);
-            Matches.EnsureIndex(m => m.Player2.Id);
-            Games.EnsureIndex(g => g.Match.Id);
-            Games.EnsureIndex(g => g.WhitePlayer.Id);
-            Games.EnsureIndex(g => g.BlackPlayer.Id);
+            Weights.EnsureIndex(w => w.UpdatedOn);
         }
           
         public void Dispose() => db.Dispose();

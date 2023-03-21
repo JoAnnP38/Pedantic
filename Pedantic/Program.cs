@@ -60,6 +60,10 @@ namespace Pedantic
                 name: "--data",
                 description: "The name of the labeled data output file.",
                 getDefaultValue: () => null);
+            var maxPositionsOption = new Option<int>(
+                name: "--maxpos",
+                description: "Specify the maximum positions to output.",
+                getDefaultValue: () => 8000000);
             var sampleOption = new Option<int>(
                 name: "--sample",
                 description: "Specify the number of samples to use from learning data.",
@@ -98,7 +102,8 @@ namespace Pedantic
             var labelCommand = new Command("label", "Pre-process and label PGN data.")
             {
                 pgnFileOption,
-                dataFileOption
+                dataFileOption,
+                maxPositionsOption
             };
 
             var learnCommand = new Command("learn", "Optimize evaluation function using training data.")
@@ -126,7 +131,7 @@ namespace Pedantic
 
             uciCommand.SetHandler(async (searchType, inFile, errFile) => await RunUci(searchType, inFile, errFile), searchTypeOption, commandFileOption, errorFileOption);
             perftCommand.SetHandler(RunPerft, typeOption, depthOption, fenOption);
-            labelCommand.SetHandler(RunLabel, pgnFileOption, dataFileOption);
+            labelCommand.SetHandler(RunLabel, pgnFileOption, dataFileOption, maxPositionsOption);
             learnCommand.SetHandler(RunLearn, dataFileOption, sampleOption, iterOption, preserveOption);
             weightsCommand.SetHandler(RunWeights, immortalOption, displayOption);
 
@@ -515,7 +520,7 @@ namespace Pedantic
             }
         }
 
-        private static void RunLabel(string? pgnFile, string? dataFile)
+        private static void RunLabel(string? pgnFile, string? dataFile, int maxPositions = 8000000)
         {
             TextReader? stdin = null;
             TextWriter? stdout = null;
@@ -541,16 +546,16 @@ namespace Pedantic
 
                 long count = 0;
                 HashSet<ulong> hashes = new();
-                Console.WriteLine(@"Hash,Ply,GamePly,FEN,Score");
+                Console.WriteLine(@"Hash,Ply,GamePly,FEN,Result");
                 foreach (var p in posReader.Positions(Console.In))
                 {
                     if (!hashes.Contains(p.Hash))
                     {
                         Console.Error.Write($"{++count}\r");
                         hashes.Add(p.Hash);
-                        Console.WriteLine($@"{p.Hash:X16},{p.Ply},{p.GamePly},{p.Fen},{p.Score:F1}");
+                        Console.WriteLine($@"{p.Hash:X16},{p.Ply},{p.GamePly},{p.Fen},{p.Result:F1}");
                         Console.Out.Flush();
-                        if (++total >= 8000000)
+                        if (++total >= maxPositions)
                         {
                             break;
                         }
@@ -620,21 +625,18 @@ namespace Pedantic
                     .MinBy(w => w.CreatedOn);
                 if (startingWeight != null)
                 {
-                    short[] weights = EvalFeatures.GetCombinedWeights(startingWeight);
+                    short[] weights = ArrayEx.Clone(startingWeight.Weights);
                     double k = SolveKParallel(weights, slices);
                     Console.WriteLine($@"K = {k:F2}");
-                    startingWeight.Fitness = EvalErrorParallel(weights, slices, k);
+                    startingWeight.Fitness = (float)EvalErrorParallel(weights, slices, k);
                     ChessWeights guess = new ChessWeights(startingWeight)
                     {
                         IsImmortal = false
                     };
-                    Console.WriteLine($@"Pass 0, K={k:F2}, Samples={sampleSize}");
-
                     ChessWeights optimized = LocalOptimize(guess, weights, slices, k, maxPass,
                         preserve);
                     optimized.Description = "Optimized";
                     optimized.UpdatedOn = DateTime.UtcNow;
-                    optimized.ParentIds = Array.Empty<ObjectId>();
                     rep.Weights.Insert(optimized);
                     DateTime end = DateTime.Now;
                     Console.WriteLine($@"Optimization complete at: {DateTime.UtcNow:G}, Elapsed: {end - start:g}");
@@ -654,14 +656,16 @@ namespace Pedantic
 
         private static ChessWeights LocalOptimize(ChessWeights guess, short[] weights, List<PosRecord[]> slices, double k, int maxPass, bool preserve = false)
         {
+            DateTime startTime = DateTime.Now;
             bool improved = true;
             double curError = guess.Fitness;
             double bestError = curError + CONVERGENCE_TOLERANCE * 2;
             int wtLen = weights.Length;
             int passes = 0;
-
-            Console.WriteLine($@"Optimization pass {passes,3}: {curError:F6}");
+            int sampleSize = slices.Sum(s => s.Length);
             using var rep = new GeneticsRepository();
+
+            Console.WriteLine($"Pass stats {passes,3} - \u03B5: {curError:F6}");
             int[] index = new int[wtLen];
             for (int n = 0; n < wtLen; n++)
             {
@@ -670,17 +674,30 @@ namespace Pedantic
 
             while (improved && curError + CONVERGENCE_TOLERANCE < bestError && passes < maxPass)
             {
+                DateTime wtOptTime = DateTime.Now;
                 improved = false;
                 bestError = curError;
                 Random.Shared.Shuffle(index);
+                int optAttempts = 0;
+                int optHits = 0;
+                float effRate = 0;
 
                 for (int n = 0; n < wtLen; n++)
                 {
+                    double completed = ((double)n / wtLen) * 100.0;
+                    TimeSpan deltaT = DateTime.Now - wtOptTime;
+                    effRate = optAttempts > 0 ? (float)optHits / optAttempts : 0;
+                    Console.Write($"Pass stats {completed,3:F0}%- \u03B5: {curError:F6}, \u0394t: {deltaT:mm\\:ss}, eff: {effRate:F3} ({optHits}/{optAttempts})...\r");
                     int i = index[n];
                     short increment = EvalFeatures.GetOptimizationIncrement(i);
+                    if (Random.Shared.NextBoolean())
+                    {
+                        increment = (short)-increment;
+                    }
                     short oldValue = weights[i];
                     weights[i] += increment;
                     double error = EvalErrorParallel(weights, slices, k);
+                    optAttempts++;
                     bool goodIncrement = error < curError;
                     improved = improved || goodIncrement;
 
@@ -688,47 +705,63 @@ namespace Pedantic
                     {
                         weights[i] -= (short)(increment * 2);
                         error = EvalErrorParallel(weights, slices, k);
+                        optAttempts++;
                         goodIncrement = error < curError;
                         improved = improved || goodIncrement;
-
-                        if (!goodIncrement)
-                        {
-                            weights[i] = oldValue;
-                        }
                     }
-
+					
                     if (goodIncrement)
                     {
-                        curError = error;
+                        optHits++;
+						curError = error;
                     }
+					else
+					{
+						weights[i] = oldValue;
+					}
                 }
 
                 ++passes;
+                DateTime now = DateTime.Now;
+                TimeSpan totalElapsed = now - startTime;
+                TimeSpan avgT = totalElapsed.Divide(passes);
+                TimeSpan passT = now - wtOptTime;
+                
                 if (preserve && passes % 10 == 0 && improved)
                 {
-                    EvalFeatures.UpdateCombinedWeights(guess, weights);
-                    ChessWeights intermediate = new(guess)
+                    ChessWeights intermediate = new(weights)
                     {
                         Description = $"Pass {passes}",
-                        Fitness = curError
+                        Fitness = (float)curError,
+                        K = (float)k,
+                        TotalPasses = (short)passes,
+                        SampleSize = sampleSize,
+                        UpdatedOn = DateTime.UtcNow
                     };
                     rep.Weights.Insert(intermediate);
-                    Console.WriteLine($@"Optimization pass {passes,3}: {curError:F6}, OID: {intermediate.Id}");
+                    Console.WriteLine($"Pass stats {passes,3} - \u03B5: {curError:F6}, Δt: {passT:mm\\:ss}, eff: {effRate:F3}, OID: {intermediate.Id}");
                 }
                 else
                 {
-                    Console.WriteLine($@"Optimization pass {passes,3}: {curError:F6}");
+                    Console.WriteLine($"Pass stats {passes,3} - \u03B5: {curError:F6}, Δt: {passT:mm\\:ss}, eff: {effRate:F3}                        ");
                 }
             }
 
-            EvalFeatures.UpdateCombinedWeights(guess, weights);
-            guess.Description = "Optimized";
-            return guess;
+            ChessWeights optimized = new(weights)
+            {
+                Description = "Optimized",
+                Fitness = (float)curError,
+                K = (float)k,
+                TotalPasses = (short)passes,
+                SampleSize = sampleSize,
+                UpdatedOn = DateTime.UtcNow
+            };
+            return optimized;
         }
 
         public static PosRecord[] LoadSample(int sampleSize, StreamReader sr)
         {
-            SortedSet<int> selections = GetSampleSelections(sampleSize, sr);
+            int[] selections = GetSampleSelections(sampleSize, sr);
             List<PosRecord> posRecordList = new List<PosRecord>(sampleSize);
 
             int currLine = 0;
@@ -751,20 +784,16 @@ namespace Pedantic
                 }
 
                 string[] fields = str.Split(',');
-                ulong hash = Convert.ToUInt64(fields[0], 16);
-                short ply = short.Parse(fields[1]);
-                short gamePly = short.Parse(fields[2]);
-                short eval = short.Parse(fields[3]);
-                string fen = fields[4];
-                float result = float.Parse(fields[5]);
-                posRecordList.Add(new PosRecord(hash, ply, gamePly, eval, fen, result));
+                string fen = fields[3];
+                float result = float.Parse(fields[4]);
+                posRecordList.Add(new PosRecord(fen, result));
             }
 
             sr.BaseStream.Seek(0L, SeekOrigin.Begin);
             return posRecordList.ToArray();
         }
 
-        private static SortedSet<int> GetSampleSelections(int sampleSize, StreamReader sr)
+        private static int[] GetSampleSelections(int sampleSize, StreamReader sr)
         {
             int lineCount = 0;
             while (Console.ReadLine() != null)
@@ -773,20 +802,22 @@ namespace Pedantic
             }
 
             sr.BaseStream.Seek(0L, SeekOrigin.Begin);
-            SortedSet<int> sampleSelection = new SortedSet<int>();
+            int[] pop = new int[lineCount];
+            int i = lineCount - 1;
+            while (i >= 0) { pop[i] = i--; }
+
+            int[] sample = new int[sampleSize];
+
             for (int n = 0; n < sampleSize; ++n)
             {
-                int num;
-                do
-                {
-                    num = Random.Shared.Next(1, lineCount + 1);
-                } 
-                while (sampleSelection.Contains(num));
-
-                sampleSelection.Add(num);
+                int m = Random.Shared.Next(0, lineCount);
+                sample[n] = pop[m] + 1;
+                lineCount--;
+                pop[m] = pop[lineCount];
             }
 
-            return sampleSelection;
+            Array.Sort(sample);
+            return sample;
         }
 
         public static List<PosRecord[]> CreateSlices(PosRecord[] records)
@@ -796,9 +827,10 @@ namespace Pedantic
             int sliceCount = 1;
             int sliceLength = records.Length;
 #else
-            int sliceCount = Math.Max(Environment.ProcessorCount - 2, 1);
+            int sliceCount = Math.Max(Environment.ProcessorCount - 6, 1);
             int sliceLength = records.Length / sliceCount;
 #endif
+            slices.EnsureCapacity(sliceCount);
             for (int s = 0; s < sliceCount; s++)
             {
                 int start = s * sliceLength;
@@ -816,27 +848,27 @@ namespace Pedantic
             return 1.0 / (1.0 + Math.Pow(10.0, -k * qScore / 400.0));
         }
 
-        private static double ErrorSquared(ReadOnlySpan<short> opWeights, ReadOnlySpan<short> egWeights, PosRecord rec, double k, double divisor)
+        private static double ErrorSquared(ReadOnlySpan<short> opWeights, ReadOnlySpan<short> egWeights, PosRecord rec, double k)
         {
             int qScore = rec.Features.Compute(opWeights, egWeights);
             qScore = rec.Features.SideToMove == Color.White ? qScore : -qScore;
             double result = rec.Result - Sigmoid(k, qScore);
-            return divisor * result * result;
+            return result * result;
         }
 
         private static double EvalErrorSlice(short[] weights, PosRecord[] slice, double k, double divisor)
         {
-            const int vecSize = EvalFeatures.FEATURE_SIZE + 1;
+            const int vecSize = EvalFeatures.FEATURE_SIZE;
             ReadOnlySpan<short> opWeights = new ReadOnlySpan<short>(weights, 0, vecSize);
             ReadOnlySpan<short> egWeights = new ReadOnlySpan<short>(weights, vecSize, vecSize);
 
             double result = 0.0;
             foreach (PosRecord rec in slice)
             {
-                result += ErrorSquared(opWeights, egWeights, rec, k, divisor);
+                result += ErrorSquared(opWeights, egWeights, rec, k);
             }
 
-            return result;
+            return divisor * result;
         }
 
         public static double EvalErrorParallel(short[] weights, List<PosRecord[]> slices, double k)
@@ -852,7 +884,9 @@ namespace Pedantic
 
             // ReSharper disable once CoVariantArrayConversion
             Task.WaitAll(sliceTasks);
-            return sliceTasks.Sum(t => t.Result);
+            double result = sliceTasks.Sum(t => t.Result);
+            Array.ForEach(sliceTasks, t => t.Dispose());
+            return result;
         }
 
         private static double SolveKParallel(short[] weights, List<PosRecord[]> slices, double a = 0.0, double b = 2.0)
@@ -863,9 +897,9 @@ namespace Pedantic
 
             while (Math.Abs(b - a) > 0.01)
             {
-                double f_k1 = EvalErrorParallel(weights, slices, k1);
-                double f_k2 = EvalErrorParallel(weights, slices, k2);
-                if (f_k1 < f_k2)
+                double f1 = EvalErrorParallel(weights, slices, k1);
+                double f2 = EvalErrorParallel(weights, slices, k2);
+                if (f1 < f2)
                 {
                     b = k2;
                 }
@@ -882,181 +916,123 @@ namespace Pedantic
 
         private static void PrintSolution(ChessWeights solution)
         {
-            string[] pieceNames = { "pawns", "knights", "bishops", "rooks", "queens", "kings" };
             short[] wts = solution.Weights;
-            Console.WriteLine($"// Solution fitness: {solution.Fitness:F5} generated on {DateTime.Now:R}");
-            Console.WriteLine($"Object ID: {solution.Id} - {solution.Description}");
-            Console.WriteLine("private static readonly short[] weights =");
-            Console.WriteLine("{");
-            Console.WriteLine("    /* Opening phase thru move */");
-            Console.WriteLine($"    {wts[0]},");
-            Console.WriteLine("\n    /* End game phase material */");
-            Console.WriteLine($"    {wts[1]},");
-            Console.WriteLine("\n    /* Opening mobility weight */");
-            Console.WriteLine($"    {wts[2]},");
-            Console.WriteLine("\n    /* End game mobility weight */");
-            Console.WriteLine($"    {wts[3]},");
-            Console.WriteLine("\n    /* Opening king proximity */");
-            Console.WriteLine($"    {wts[4]}, {wts[5]}, {wts[6]},");
-            Console.WriteLine("\n    /* End game king proximity */");
-            Console.WriteLine($"    {wts[7]}, {wts[8]}, {wts[9]},");
-            Console.WriteLine("\n    /* Unused weights */");
-            Console.WriteLine($"    {wts[10]}, {wts[11]},");
-            Console.WriteLine("\n    /* Opening piece values */");
-            Console.WriteLine($"    {wts[12]}, {wts[13]}, {wts[14]}, {wts[15]}, {wts[16]}, {wts[17]},");
-            Console.WriteLine("\n    /* End game piece values */");
-            Console.WriteLine($"    {wts[18]}, {wts[19]}, {wts[20]}, {wts[21]}, {wts[22]}, {wts[23]},");
-            Console.WriteLine("\n    /* Opening piece square tables */");
-            Console.WriteLine("    #region Opening piece square tables");
-            for (int pc = 0; pc < Constants.MAX_PIECES; pc++)
+            indentLevel = 2;
+            WriteLine($"// Solution fitness: {solution.Fitness:F5} generated on {DateTime.Now:R}");
+            WriteLine($"// Object ID: {solution.Id} - {solution.Description}");
+            WriteLine("private static readonly short[] weights =");
+            WriteLine("{");
+            indentLevel++;
+            PrintSolutionSection(wts, "OPENING WEIGHTS", "opening");
+            WriteLine();
+            PrintSolutionSection(wts[ChessWeights.ENDGAME_WEIGHTS..], "END GAME WEIGHTS", "end game");
+            indentLevel--;            
+            WriteLine("};");
+        }
+
+        private static void PrintSolutionSection(short[] wts, string sectionTitle, string section)
+        {
+            string[] pieceNames = { "pawns", "knights", "bishops", "rooks", "queens", "kings" };
+            int centerLength = (60 - sectionTitle.Length) / 2;
+            string line = new string('-', centerLength - 3);
+            WriteLine($"/*{line} {sectionTitle} {line}*/");
+            WriteLine();
+            WriteLine($"/* {section} phase material boundary */");
+            WriteLine($"{wts[ChessWeights.GAME_PHASE_MATERIAL]},");
+            WriteLine();
+            WriteLine($"/* {section} piece values */");
+            WriteIndent();
+            for (int n = 0; n < 6; n++)
             {
-                Console.WriteLine($"    // {pieceNames[pc]}");
-                for (int sq = 0; sq < Constants.MAX_SQUARES; sq++)
+                Console.Write($"{wts[ChessWeights.PIECE_VALUES + n]}, ");
+            }
+            WriteLine();
+            WriteLine();
+            WriteLine($"/* {section} piece square values */");
+            WriteLine();
+            WriteLine($"#region {section} piece square values */");
+            WriteLine();
+            int table = 0;
+            for (int n = 0; n < 384; n++)
+            {
+                if (n % 8 == 0)
                 {
-                    if (sq % 8 == 0)
+                    if (n != 0)
                     {
-                        if (sq != 0)
-                        {
-                            Console.WriteLine();
-                        }
-                        Console.Write("    ");
+                        WriteLine();
                     }
-                    Console.Write($"{wts[24 + (pc << 6) + sq],4}, ");
-                }
-
-                Console.WriteLine();
-            }
-            Console.WriteLine("    #endregion");
-            Console.WriteLine("\n    /* End game piece square tables */");
-            Console.WriteLine("    #region End game piece square tables");
-            for (int pc = 0; pc < Constants.MAX_PIECES; pc++)
-            {
-                Console.WriteLine($"    // {pieceNames[pc]}");
-                for (int sq = 0; sq < Constants.MAX_SQUARES; sq++)
-                {
-                    if (sq % 8 == 0)
+                    if (n % 64 == 0)
                     {
-                        if (sq != 0)
+                        if (n != 0)
                         {
-                            Console.WriteLine();
+                            WriteLine();
                         }
-                        Console.Write("    ");
+                        WriteLine($"/* {pieceNames[table++]} */");
                     }
-                    Console.Write($"{wts[408 + (pc << 6) + sq],4}, ");
+                    WriteIndent();
                 }
+                Console.Write($"{wts[ChessWeights.PIECE_SQUARE_TABLE + n],4}, ");
+            }
+            WriteLine();
+            WriteLine();
+            WriteLine("#endregion");
+            WriteLine();
+            WriteLine($"/* {section} mobility weights */");
+            WriteLine();
+            for (int n = 0; n < 5; n++)
+            {
+                WriteLine($"{wts[ChessWeights.PIECE_MOBILITY + n]}, // {pieceNames[n + 1]}");
+            }
+            WriteLine();
+            WriteLine($"/* {section} squares attacked near enemy king */");
+            for (int n = 0; n < 3; n++)
+            {
+                WriteLine($"{wts[ChessWeights.KING_ATTACK + n]}, // attacks to squares {n + 1} from king");
+            }
+            WriteLine();
+            WriteLine($"/* {section} pawn shield/king safety */");
+            for (int n = 0; n < 3; n++)
+            {
+                WriteLine($"{wts[ChessWeights.PAWN_SHIELD + n]}, // # friendly pawns {n + 1} from king");
+            }
+            WriteLine();
+            WriteLine($"/* {section} isolated pawns */");
+            WriteLine($"{wts[ChessWeights.ISOLATED_PAWN]},");
+            WriteLine();
+            WriteLine($"/* {section} backward pawns */");
+            WriteLine($"{wts[ChessWeights.BACKWARD_PAWN]},");
+            WriteLine();
+            WriteLine($"/* {section} doubled pawns */");
+            WriteLine($"{wts[ChessWeights.DOUBLED_PAWN]},");
+            WriteLine();
+            WriteLine($"/* {section} adjacent/connected pawns */");
+            WriteLine($"{wts[ChessWeights.CONNECTED_PAWN]},");
+            WriteLine();
+            WriteLine($"/* {section} passed pawns */");
+            WriteLine($"{wts[ChessWeights.PASSED_PAWN]},");
+            WriteLine();
+            WriteLine($"/* {section} knight on outpost */");
+            WriteLine($"{wts[ChessWeights.KNIGHT_OUTPOST]},");
+            WriteLine();
+            WriteLine($"/* {section} bishop on outpost */");
+            WriteLine($"{wts[ChessWeights.BISHOP_OUTPOST]},");
+            WriteLine();
+            WriteLine($"/* {section} bishop pair */");
+            WriteLine($"{wts[ChessWeights.BISHOP_PAIR]},");
+            WriteLine();
+            WriteLine($"/* {section} rook on open file */");
+            WriteLine($"{wts[ChessWeights.ROOK_ON_OPEN_FILE]},");
+        }
 
-                Console.WriteLine();
-            }
-            Console.WriteLine("    #endregion");
-            Console.WriteLine("\n    /* Opening blocked pawns */");
-            Console.WriteLine("    #region Opening blocked pawns");
-            for (int pc = 0; pc < Constants.MAX_PIECES; pc++)
-            {
-                Console.WriteLine($"    // pawns blocked by {pieceNames[pc]}");
-                for (int rank = 0; rank < 6; rank++)
-                {
-                    Console.WriteLine($"    {wts[792 + (pc * 6) + rank]}, // rank {rank + 2}");
-                }
-
-                Console.WriteLine();
-            }
-            Console.WriteLine("    #endregion");
-            Console.WriteLine("\n    /* End game blocked pawns */");
-            Console.WriteLine("    #region End game blocked pawns");
-            for (int pc = 0; pc < Constants.MAX_PIECES; pc++)
-            {
-                Console.WriteLine($"    // pawns blocked by {pieceNames[pc]}");
-                for (int rank = 0; rank < 6; rank++)
-                {
-                    Console.WriteLine($"    {wts[828 + (pc * 6) + rank]}, // rank {rank + 2}");
-                }
-
-                Console.WriteLine();
-            }
-            Console.WriteLine("    #endregion");
-            Console.WriteLine("\n    /* Opening pawn double move blocked */");
-            Console.WriteLine($"    {wts[864]},");
-            Console.WriteLine("\n    /* End game pawn double move blocked */");
-            Console.WriteLine($"    {wts[865]},");
-            Console.WriteLine("\n    /* Opening king *not* in closest promote square */");
-            for (int rank = 0; rank < 6; rank++)
-            {
-                Console.WriteLine($"    {wts[866 + rank]}, // rank {rank + 2}");
-            }
-            Console.WriteLine("\n    /* End game king *not* in closest promote square */");
-            for (int rank = 0; rank < 6; rank++)
-            {
-                Console.WriteLine($"    {wts[872 + rank]}, // rank {rank + 2}");
-            }
-            Console.WriteLine("\n    /* Unused */");
-            Console.WriteLine("    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,");
-            Console.WriteLine("\n    /* Opening isolated pawn */");
-            Console.WriteLine($"    {wts[896]},");
-            Console.WriteLine("\n    /* End game isolated pawn */");
-            Console.WriteLine($"    {wts[897]},");
-            Console.WriteLine("\n    /* Opening backward pawn */");
-            Console.WriteLine($"    {wts[898]},");
-            Console.WriteLine("\n    /* End game backward pawn */");
-            Console.WriteLine($"    {wts[899]},");
-            Console.WriteLine("\n    /* Opening doubled pawn */");
-            Console.WriteLine($"    {wts[900]},");
-            Console.WriteLine("\n    /* End game doubled pawn */");
-            Console.WriteLine($"    {wts[901]},");
-            Console.WriteLine("\n    /* Opening knight on outpost */");
-            Console.WriteLine($"    {wts[902]},");
-            Console.WriteLine("\n    /* End game knight on outpost */");
-            Console.WriteLine($"    {wts[903]},");
-            Console.WriteLine("\n    /* Opening bishop on outpost */");
-            Console.WriteLine($"    {wts[904]},");
-            Console.WriteLine("\n    /* End game bishop on outpost */");
-            Console.WriteLine($"    {wts[905]},");
-            Console.WriteLine("\n    /* Opening passed pawn */");
-            Console.WriteLine("    #region Opening passed pawn");
-            for (int rank = 0; rank < 6; rank++)
-            {
-                Console.WriteLine($"    {wts[906 + rank]}, // rank {rank + 2}");
-            }
-            Console.WriteLine("    #endregion");
-            Console.WriteLine("\n    /* End game passed pawn */");
-            Console.WriteLine("    #region End game passed pawn");
-            for (int rank = 0; rank < 6; rank++)
-            {
-                Console.WriteLine($"    {wts[912 + rank]}, // rank {rank + 2}");
-            }
-            Console.WriteLine("    #endregion");
-            Console.WriteLine("\n    /* Opening adjacent pawn */");
-            Console.WriteLine("    #region Opening adjacent pawn");
-            for (int rank = 0; rank < 6; rank++)
-            {
-                Console.WriteLine($"    {wts[918 + rank]}, // rank {rank + 2}");
-            }
-            Console.WriteLine("    #endregion");
-            Console.WriteLine("\n    /* End game adjacent pawn */");
-            Console.WriteLine("    #region End game adjacent pawn");
-            for (int rank = 0; rank < 6; rank++)
-            {
-                Console.WriteLine($"    {wts[924 + rank]}, // rank {rank + 2}");
-            }
-            Console.WriteLine("    #endregion");
-            Console.WriteLine("\n    /* Opening bishop pair */");
-            Console.WriteLine($"    {wts[930]},");
-            Console.WriteLine("\n    /* End game bishop pair */");
-            Console.WriteLine($"    {wts[931]},");
-            Console.WriteLine("\n    /* Opening queen-side pawn majority */");
-            Console.WriteLine($"    {wts[932]},");
-            Console.WriteLine("\n    /* End game queen-side pawn majority */");
-            Console.WriteLine($"    {wts[933]},");
-            Console.WriteLine("\n    /* Opening king near passed pawn */");
-            Console.WriteLine($"    {wts[934]},");
-            Console.WriteLine("\n    /* End game king near passed pawn */");
-            Console.WriteLine($"    {wts[935]},");
-            Console.WriteLine("\n    /* Opening king-side pawn majority */");
-            Console.WriteLine($"    {wts[936]},");
-            Console.WriteLine("\n    /* End game king-side pawn majority */");
-            Console.WriteLine($"    {wts[937]},");
-            Console.WriteLine("\n    /* Unused */");
-            Console.WriteLine("    0, 0");
-            Console.WriteLine("};");
+        private static void WriteIndent()
+        {
+            string indent = new string(' ', indentLevel * 4);
+            Console.Write(indent);
+        }
+        private static void WriteLine(string text = "")
+        {
+            WriteIndent();
+            Console.WriteLine(text);
         }
 
         private static void RunWeights(string? immortalWt, string? printWt)
@@ -1084,6 +1060,6 @@ namespace Pedantic
             }
         }
 
-        
+        private static int indentLevel = 0;
     }
 }

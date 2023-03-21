@@ -134,7 +134,7 @@ namespace Pedantic.UnitTests
         {
             Engine.Infinite = true;
             Engine.UseOwnBook = false;
-            Engine.SearchType = SearchType.Mtd;
+            Engine.SearchType = SearchType.Pv;
             Program.ParseCommand(@$"position fen {fen}");
             Program.ParseCommand("go wtime 300000 btime 300000 winc 0 binc 0");
             Engine.Wait();
@@ -147,7 +147,7 @@ namespace Pedantic.UnitTests
         {
             Engine.Infinite = true;
             Engine.UseOwnBook = false;
-            Engine.SearchType = SearchType.Mtd;
+            Engine.SearchType = SearchType.Pv;
             Program.ParseCommand(@$"position fen {fen}");
             Program.ParseCommand("go wtime 300000 btime 300000 winc 0 binc 0");
             Engine.Wait();
@@ -160,7 +160,7 @@ namespace Pedantic.UnitTests
         {
             Engine.Infinite = true;
             Engine.UseOwnBook = false;
-            Engine.SearchType = SearchType.Mtd;
+            Engine.SearchType = SearchType.Pv;
             Program.ParseCommand(@$"position fen {fen}");
             Program.ParseCommand("go wtime 300000 btime 300000 winc 0 binc 0");
             Engine.Wait();
@@ -288,7 +288,7 @@ namespace Pedantic.UnitTests
         {
             //Engine.Infinite = true;
             Engine.SearchThreads = 1;
-            Engine.SearchType = SearchType.Mtd;
+            Engine.SearchType = SearchType.Pv;
             Program.ParseCommand("setoption name Hash value 128");
             //Program.ParseCommand("setoption name Evaluation_ID value 63da147260961e01d917f00f");
             Program.ParseCommand(
@@ -409,6 +409,28 @@ namespace Pedantic.UnitTests
             Thread.Sleep(1000);
             Program.ParseCommand("stop");
             Engine.Wait();
+        }
+
+        [TestMethod]
+        [DataRow("5rk1/1ppb3p/p1pb4/6q1/3P1p1r/2P1R2P/PP1BQ1P1/5RKN w - - 0 1", 9)]
+        [DataRow("1k3r2/1p4p1/p3p1Np/3b1p2/1bq5/2P2P2/PP1Q1PBP/1K1R2R1 w - - 5 27", 9)]
+        [DataRow("r1b1kb1r/3q1ppp/pBp1pn2/8/Np3P2/5B2/PPP3PP/R2Q1RK1 w kq - 0 1 ", 9)]
+        [DataRow("8/k1b5/P4p2/1Pp2p1p/K1P2P1P/8/3B4/8 w - - 0 1", 19)]
+        public void IncorrectMoveTest(string fen, int depth)
+        {
+            try
+            {
+                Evaluation.LoadWeights("64184f1893e12204c7e187bf");
+                Engine.SearchType = SearchType.Pv;
+                Program.ParseCommand($"position fen {fen}");
+                Program.ParseCommand($"go depth {depth}");
+                Engine.Wait();
+            }
+            catch (Exception ex)
+            {
+                Util.TraceError(ex.ToString());
+                Assert.Fail("Unexpected exception");
+            }
         }
     }
 }

@@ -65,6 +65,17 @@ namespace Pedantic.Chess
                 item.data = op1 | (op2 << 16) | (op3 << 32) | (op4 << 48);
                 item.hash = hash ^ item.data;
             }
+
+            public static void SetValue(ref TtPawnItem item, ulong hash, short[] opScore, short[] egScore)
+            {
+                ulong op1 = (ushort)opScore[(int)Color.White];
+                ulong op2 = (ushort)opScore[(int)Color.Black];
+                ulong op3 = (ushort)egScore[(int)Color.White];
+                ulong op4 = (ushort)egScore[(int)Color.Black];
+
+                item.data = op1 | (op2 << 16) | (op3 << 32) | (op4 << 48);
+                item.hash = hash ^ item.data;
+            }
         }
 
         private static TtPawnItem[] table;
@@ -87,6 +98,13 @@ namespace Pedantic.Chess
             int index = GetIndex(hash);
             ref TtPawnItem item = ref table[index];
             TtPawnItem.SetValue(ref item, hash, opScores, egScores);
+        }
+
+        public static void Add(ulong hash, short[] opScore, short[] egScore)
+        {
+            int index = GetIndex(hash);
+            ref TtPawnItem item = ref table[index];
+            TtPawnItem.SetValue(ref item, hash, opScore, egScore);
         }
 
         public static void Clear()

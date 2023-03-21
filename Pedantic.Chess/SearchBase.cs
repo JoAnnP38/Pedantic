@@ -178,6 +178,10 @@ namespace Pedantic.Chess
                 alpha = Math.Max(alpha, standPatScore);
             }
 
+#if DEBUG
+            string fen = board.ToFenString();
+#endif 
+
             int expandedNodes = 0;
             MoveList moveList = MoveListPool.Get();
             IEnumerable<ulong> moves =
@@ -368,7 +372,7 @@ namespace Pedantic.Chess
                 if (score >= beta)
                 {
                     TtTran.Add(board.Hash, depth, ply, beta - 1, beta, score, move);
-                    if (!Move.IsCapture(move))
+                    if (Move.IsQuiet(move))
                     {
                         killerMoves.Add(move, ply);
                         history.Update(Move.GetFrom(move), Move.GetTo(move), depth);

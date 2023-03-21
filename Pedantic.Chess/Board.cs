@@ -229,12 +229,15 @@ namespace Pedantic.Chess
         public bool GameDrawnByRepetition()
         {
             int matchCount = 1;
-            ReadOnlySpan<BoardState> stackSpan = gameStack.AsSpan();
-            for (int n = stackSpan.Length - 1; n >= stackSpan.Length - halfMoveClock && matchCount < 3; n--)
+            if (gameStack.Count > halfMoveClock)
             {
-                if (hash == stackSpan[n].Hash)
+                ReadOnlySpan<BoardState> stackSpan = gameStack.AsSpan();
+                for (int n = stackSpan.Length - 1; n >= stackSpan.Length - halfMoveClock && matchCount < 3; n--)
                 {
-                    matchCount++;
+                    if (hash == stackSpan[n].Hash)
+                    {
+                        matchCount++;
+                    }
                 }
             }
 
@@ -268,7 +271,7 @@ namespace Pedantic.Chess
             int mat = 0;
             for (Piece piece = Piece.Knight; piece <= Piece.Queen; piece++)
             {
-                mat += BitOps.PopCount(Pieces(color, piece)) * Evaluation.CanonicalPieceValues[(int)piece];
+                mat += BitOps.PopCount(Pieces(color, piece)) * Evaluation.CanonicalPieceValues(piece);
                 if (mat >= minMaterial)
                 {
                     return true;
@@ -431,7 +434,6 @@ namespace Pedantic.Chess
         {
             sideToMove = OpponentColor;
             BoardState state = gameStack.Pop();
-
             int from = Move.GetFrom(state.Move);
             int to = Move.GetTo(state.Move);
             MoveType type = Move.GetMoveType(state.Move);
@@ -540,6 +542,7 @@ namespace Pedantic.Chess
 
         public bool HasLegalMoves(MoveList moveList)
         {
+            moveList.Clear();
             GenerateMoves(moveList);
             for (int n = 0; n < moveList.Count; n++)
             {
@@ -582,22 +585,6 @@ namespace Pedantic.Chess
             {
                 return true;
             }
-            /*
-            ulong bb = PieceMoves(Piece.Rook, index) &
-                       (Pieces(color, Piece.Rook) | Pieces(color, Piece.Queen));
-
-            bb |= PieceMoves(Piece.Bishop, index) &
-                  (Pieces(color, Piece.Bishop) | Pieces(color, Piece.Queen));
-
-            for (; bb != 0; bb = BitOps.ResetLsb(bb))
-            {
-                int index2 = BitOps.TzCount(bb);
-                if ((between[index2, index] & All) == 0)
-                {
-                    return true;
-                }
-            }
-            */
 
             if ((GetPieceMoves(Piece.Rook, index) & 
                 (Pieces(color, Piece.Rook) | Pieces(color, Piece.Queen))) != 0)
@@ -617,12 +604,7 @@ namespace Pedantic.Chess
         {
             if (TtTran.TryGetBestMove(hash, out ulong bestMove))
             {
-                int from = Move.GetFrom(bestMove);
-                int to = Move.GetTo(bestMove);
-                if (board[from].Color == sideToMove && IsValidMove(board[from].Piece, from, to, out bestMove))
-                {
-                    yield return bestMove;
-                }
+                yield return bestMove;
             }
 
             moveList.Clear();
@@ -652,7 +634,9 @@ namespace Pedantic.Chess
             {
                 int from = Move.GetFrom(move);
                 int to = Move.GetTo(move);
-                if (board[from].Color == sideToMove && IsValidMove(board[from].Piece, from, to, out ulong validMove))
+                Square square = board[from];
+                moveList.Clear();
+                if (IsValidMove(square, from, to, out ulong validMove) && Move.Compare(validMove, bestMove) != 0)
                 {
                     yield return validMove;
                 }
@@ -690,14 +674,49 @@ namespace Pedantic.Chess
             }
         }
 
-        public bool IsValidMove(Piece piece, int from, int to, out ulong validMove)
+        public bool IsValidMove(Square square, int from, int to, out ulong validMove)
         {
+            Piece piece = square.Piece;
             validMove = 0;
-            ulong bbMoves = BitOps.AndNot(GetPieceMoves(piece, from), All);
-            for (; bbMoves != 0; bbMoves = BitOps.ResetLsb(bbMoves))
+
+            if (square.IsEmpty || square.Color != sideToMove || square.Piece == Piece.None)
             {
-                int validTo = BitOps.TzCount(bbMoves);
-                if (validTo == to)
+                return false;
+            }
+
+            if (piece == Piece.Pawn)
+            {
+                ulong bb1, bb2;
+                int normalRank = Index.GetRank(Index.NormalizedIndex[(int)sideToMove][to]);
+                ulong pawn = (1ul << from) & Pieces(sideToMove, Piece.Pawn);
+
+                if (sideToMove == Color.White)
+                {
+                    bb1 = BitOps.AndNot(pawn, All >> 8);
+                    bb2 = BitOps.AndNot(bb1 & MaskRanks[Index.A2], All >> 16);
+                }
+                else
+                {
+                    bb1 = BitOps.AndNot(pawn, All << 8);
+                    bb2 = BitOps.AndNot(bb1 & MaskRanks[Index.A7], All << 16);
+                }
+
+                if (bb1 != 0 && to == pawnPlus[(int)sideToMove, from] && normalRank != Coord.MaxValue)
+                {
+                    validMove = Move.PackMove(from, to, MoveType.PawnMove);
+                    return true;
+                }
+
+                if (bb2 != 0 && to == pawnDouble[(int)sideToMove, from])
+                {
+                    validMove = Move.PackMove(from, to, MoveType.DblPawnMove);
+                    return true;
+                }
+            }
+            else
+            {
+                ulong bb = BitOps.AndNot(GetPieceMoves(piece, from), All) & (1ul << to);
+                if (bb != 0)
                 {
                     validMove = Move.PackMove(from, to);
                     return true;
@@ -753,11 +772,47 @@ namespace Pedantic.Chess
                 for (ulong pcLoc = Pieces(color, piece); pcLoc != 0; pcLoc = BitOps.ResetLsb(pcLoc))
                 {
                     int from = BitOps.TzCount(pcLoc);
-                    mobility += (short)BitOps.PopCount(BitOps.AndNot(GetPieceMoves(piece, from), excluded));
+                    ulong moves = GetPieceMoves(piece, from);
+                    ulong mobMoves = moves & ~excluded;
+                    mobility += (short)BitOps.PopCount(mobMoves);
                 }
             }
 
             return mobility;
+        }
+
+        public void GetPieceMobility(Color color, short[] mobility, short[] kingAttacks)
+        {
+            Color other = (Color)((int)color ^ 1);
+            ulong pawnDefended = 0ul;
+            int kingIndex = BitOps.TzCount(Pieces(other, Piece.King));
+            Array.Clear(mobility);
+            Array.Clear(kingAttacks);
+
+            for (ulong pawns = Pieces(other, Piece.Pawn); pawns != 0ul; pawns = BitOps.ResetLsb(pawns))
+            {
+                int square = BitOps.TzCount(pawns);
+                pawnDefended |= PawnCaptures[(int)other][square];
+            }
+
+            ulong excluded = pawnDefended | Units(color);
+            ulong d0 = Evaluation.KingProximity[0][kingIndex];
+            ulong d1 = Evaluation.KingProximity[1][kingIndex];
+            ulong d2 = Evaluation.KingProximity[2][kingIndex];
+            for (Piece piece = Piece.Knight; piece <= Piece.King; piece++)
+            {
+                for (ulong pcLoc = Pieces(color, piece); pcLoc != 0; pcLoc = BitOps.ResetLsb(pcLoc))
+                {
+                    int from = BitOps.TzCount(pcLoc);
+                    ulong moves = GetPieceMoves(piece, from);
+                    ulong mobMoves = moves & ~excluded;
+                    ulong atkMoves = moves & ~pawnDefended;
+                    mobility[(int)piece] += (short)BitOps.PopCount(mobMoves);
+                    kingAttacks[0] += (short)BitOps.PopCount(atkMoves & d0);
+                    kingAttacks[1] += (short)BitOps.PopCount(atkMoves & d1);
+                    kingAttacks[2] += (short)BitOps.PopCount(atkMoves & d2);
+                }
+            }
         }
 
         public void GenerateMoves(MoveList list, IHistory? history = null)
@@ -864,7 +919,7 @@ namespace Pedantic.Chess
                 int to = pawnPlus[(int)sideToMove, from];
                 for (Piece p = Piece.Knight; p <= Piece.Queen; ++p)
                 {
-                    int score = Constants.PROMOTE_SCORE + Evaluation.CanonicalPieceValues[(int)p];
+                    int score = Constants.PROMOTE_SCORE + Evaluation.CanonicalPieceValues(p);
                     list.Add(from, to, MoveType.Promote, promote: p, score: score);
                 }
             }
@@ -1038,7 +1093,7 @@ namespace Pedantic.Chess
                 flags = flags == MoveType.Capture ? MoveType.PromoteCapture : MoveType.Promote;
                 for (Piece p = Piece.Knight; p <= Piece.Queen; ++p)
                 {
-                    score = Constants.PROMOTE_SCORE + Evaluation.CanonicalPieceValues[(int)p];
+                    score = Constants.PROMOTE_SCORE + Evaluation.CanonicalPieceValues(p);
                     list.Add(from, to, flags, capture, p, score);
                 }
             }
@@ -1143,6 +1198,12 @@ namespace Pedantic.Chess
 
         public void AddPiece(Color color, Piece piece, int square)
         {
+#if DEBUG
+            if (!board[square].IsEmpty)
+            {
+                Debugger.Break();
+            }
+#endif
             if (piece == Piece.Pawn)
             {
                 pawnHash = ZobristHash.HashPiece(pawnHash, color, piece, square);
@@ -1152,17 +1213,23 @@ namespace Pedantic.Chess
             pieces[(int)color, (int)piece] = BitOps.SetBit(Pieces(color, piece), square);
             units[(int)color] = BitOps.SetBit(units[(int)color], square);
             all = BitOps.SetBit(all, square);
-            material[(int)color] += Evaluation.CanonicalPieceValues[(int)piece];
-            opMaterial[(int)color] += Evaluation.OpeningPieceValues[(int)piece];
-            egMaterial[(int)color] += Evaluation.EndGamePieceValues[(int)piece];
+            material[(int)color] += Evaluation.CanonicalPieceValues(piece);
+            opMaterial[(int)color] += Evaluation.OpeningPieceValues(piece);
+            egMaterial[(int)color] += Evaluation.EndGamePieceValues(piece);
             opPcSquare[(int)color] +=
-                Evaluation.OpeningPieceSquareTable[(int)piece, Index.NormalizedIndex[(int)color][square]];
+                Evaluation.OpeningPieceSquareTable(piece, Index.NormalizedIndex[(int)color][square]);
             egPcSquare[(int)color] +=
-                Evaluation.EndGamePieceSquareTable[(int)piece, Index.NormalizedIndex[(int)color][square]];
+                Evaluation.EndGamePieceSquareTable(piece, Index.NormalizedIndex[(int)color][square]);
         }
 
         public void RemovePiece(Color color, Piece piece, int square)
         {
+#if DEBUG
+            if (board[square].IsEmpty || board[square].Color != color || board[square].Piece != piece)
+            {
+                Debugger.Break();
+            }
+#endif
             if (piece == Piece.Pawn)
             {
                 pawnHash = ZobristHash.HashPiece(pawnHash, color, piece, square);
@@ -1172,13 +1239,13 @@ namespace Pedantic.Chess
             pieces[(int)color, (int)piece] = BitOps.ResetBit(Pieces(color, piece), square);
             units[(int)color] = BitOps.ResetBit(Units(color), square);
             all = BitOps.ResetBit(all, square);
-            material[(int)color] -= Evaluation.CanonicalPieceValues[(int)piece];
-            opMaterial[(int)color] -= Evaluation.OpeningPieceValues[(int)piece];
-            egMaterial[(int)color] -= Evaluation.EndGamePieceValues[(int)piece];
+            material[(int)color] -= Evaluation.CanonicalPieceValues(piece);
+            opMaterial[(int)color] -= Evaluation.OpeningPieceValues(piece);
+            egMaterial[(int)color] -= Evaluation.EndGamePieceValues(piece);
             opPcSquare[(int)color] -=
-                Evaluation.OpeningPieceSquareTable[(int)piece, Index.NormalizedIndex[(int)color][square]];
+                Evaluation.OpeningPieceSquareTable(piece, Index.NormalizedIndex[(int)color][square]);
             egPcSquare[(int)color] -=
-                Evaluation.EndGamePieceSquareTable[(int)piece, Index.NormalizedIndex[(int)color][square]];
+                Evaluation.EndGamePieceSquareTable(piece, Index.NormalizedIndex[(int)color][square]);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

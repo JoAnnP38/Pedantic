@@ -2,6 +2,7 @@
 using System.Reflection;
 using Microsoft.VisualBasic;
 using Pedantic.Genetics;
+using Pedantic.Utilities;
 
 namespace Pedantic.Chess
 {
@@ -90,6 +91,17 @@ namespace Pedantic.Chess
             history.SideToMove = board.SideToMove;
             MoveList moveList = MoveListPool.Get();
 
+#if DEBUG
+            if (ply == 0)
+            {
+                foreach (ulong move in killerMoves.GetKillers(ply))
+                {
+                    Util.TraceInfo($"KILLERS: Depth {depth}, Ply {ply}, Move {Move.ToLongString(move)}");
+                }
+            }
+            string fen = board.ToFenString();
+#endif
+
             foreach (ulong move in board.Moves(ply, killerMoves, history, moveList))
             {
                 if (!board.MakeMove(move))
@@ -108,6 +120,13 @@ namespace Pedantic.Chess
                     board.UnmakeMove();
                     continue;
                 }
+
+#if DEBUG
+                if (ply == 0)
+                {
+                    Util.TraceInfo($"Depth {depth}, Ply {ply}, Move {Move.ToLongString(move)}");
+                }
+#endif
 
                 int R = 0;
                 if (!interesting && !killerMoves.Exists(ply, move))
@@ -160,7 +179,7 @@ namespace Pedantic.Chess
 
                     if (result.Score >= beta)
                     {
-                        if (!Move.IsCapture(move))
+                        if (Move.IsQuiet(move))
                         {
                             killerMoves.Add(move, ply);
                             history.Update(Move.GetFrom(move), Move.GetTo(move), depth);
@@ -185,6 +204,12 @@ namespace Pedantic.Chess
             }
 
             return new SearchResult(alpha, pv);
+        }
+
+        public Evaluation Evaluation
+        {
+            get => evaluation;
+            set => evaluation = value;
         }
     }
 }
