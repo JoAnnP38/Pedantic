@@ -4,6 +4,7 @@ using Pedantic.Collections;
 using Pedantic.Utilities;
 using System.Runtime.CompilerServices;
 using Pedantic.Genetics;
+using System.Threading.Tasks;
 
 namespace Pedantic.Chess
 {
@@ -35,36 +36,40 @@ namespace Pedantic.Chess
          * [392]        # bishop mobility
          * [393]        # rook mobility
          * [394]        # queen mobility
-         * [395]        # king mobility
-         * [396 - 398]  # king attack (d0 - d2)
-         * [399 - 401]  # pawn shield (d0 - d2)
-         * [402]        # isolated pawns
-         * [403]        # backward pawns
-         * [404]        # doubled pawns
-         * [405]        # connected/adjacent pawns
-         * [406]        # passed pawns
-         * [407]        # knights on outpost
-         * [408]        # bishops on outpost
-         * [409]        0-1 bishop pair
-         * [410]        # rooks on open file
+         * [395 - 397]  # king attack (d0 - d2)
+         * [398 - 400]  # pawn shield (d0 - d2)
+         * [401]        # isolated pawns
+         * [402]        # backward pawns
+         * [403]        # doubled pawns
+         * [404]        # connected/adjacent pawns
+         * [405]        # passed pawns
+         * [406]        # knights on outpost
+         * [407]        # bishops on outpost
+         * [408]        0-1 bishop pair
+         * [409]        # rooks on open file
+         * [410]        # rooks on half-open file
+         * [411]        # rooks behind passed pawn
+         * [412]        # doubled rooks on file
          */
-        public const int FEATURE_SIZE = 411;
+        public const int FEATURE_SIZE = 413;
         public const int GAME_PHASE_BOUNDARY = 0;
         public const int MATERIAL = 1;
         public const int PIECE_SQUARE_TABLES = 7;
         public const int MOBILITY = 391;
-        public const int KING_ATTACK = 396;
-        public const int PAWN_SHIELD = 399;
-        public const int ISOLATED_PAWNS = 402;
-        public const int BACKWARD_PAWNS = 403;
-        public const int DOUBLED_PAWNS = 404;
-        public const int ADJACENT_PAWNS = 405;
-        public const int PASSED_PAWNS = 406;
-        public const int KNIGHTS_ON_OUTPOST = 407;
-        public const int BISHOPS_ON_OUTPOST = 408;
-        public const int BISHOP_PAIR = 409;
-        public const int ROOK_OPEN_FILE = 410;
-
+        public const int KING_ATTACK = 395;
+        public const int PAWN_SHIELD = 398;
+        public const int ISOLATED_PAWNS = 401;
+        public const int BACKWARD_PAWNS = 402;
+        public const int DOUBLED_PAWNS = 403;
+        public const int ADJACENT_PAWNS = 404;
+        public const int PASSED_PAWNS = 405;
+        public const int KNIGHTS_ON_OUTPOST = 406;
+        public const int BISHOPS_ON_OUTPOST = 407;
+        public const int BISHOP_PAIR = 408;
+        public const int ROOK_OPEN_FILE = 409;
+        public const int ROOK_HALF_OPEN_FILE = 410;
+        public const int ROOK_BEHIND_PASSED_PAWN = 411;
+        public const int DOUBLED_ROOKS_ON_FILE = 412;
 
         private readonly SparseArray<short>[] sparse = { new(), new() };
 		private readonly short[][] features = { Array.Empty<short>(), Array.Empty<short>() };
@@ -98,7 +103,7 @@ namespace Pedantic.Chess
                 }
 
                 bd.GetPieceMobility(color, mobility, kingAttacks);
-                for (Piece pc = Piece.Knight; pc <= Piece.King; pc++)
+                for (Piece pc = Piece.Knight; pc <= Piece.Queen; pc++)
                 {
                     int p = (int)pc;
                     if (mobility[p] > 0)
@@ -131,6 +136,21 @@ namespace Pedantic.Chess
                     if ((otherPawns & Evaluation.PassedPawnMasks[c][sq]) == 0)
                     {
                         IncrementPassedPawns(v);
+
+                        Ray ray = Board.Vectors[sq];
+                        ulong bb;
+                        if (color == Color.White)
+                        {
+                            bb = BitOps.AndNot(ray.South, Board.RevVectors[BitOps.LzCount(ray.South & bd.All)].South);
+                        }
+                        else
+                        {
+                            bb = BitOps.AndNot(ray.North, Board.Vectors[BitOps.TzCount(ray.North & bd.All)].North);
+                        }
+                        if ((bb & bd.Pieces(color, Piece.Rook)) != 0)
+                        {
+                            IncrementRookBehindPassedPawn(v);
+                        }
                     }
 
                     if ((pawns & Evaluation.IsolatedPawnMasks[sq]) == 0)
@@ -196,16 +216,35 @@ namespace Pedantic.Chess
                 }
 
                 ulong allPawns = pawns | otherPawns;
+                ulong rooks = bd.Pieces(color, Piece.Rook);
+
                 for (ulong bb = bd.Pieces(color, Piece.Rook); bb != 0; bb = BitOps.ResetLsb(bb))
                 {
                     int sq = BitOps.TzCount(bb);
-                    if ((Board.MaskFiles[sq] & allPawns) == 0)
+                    ulong mask = Board.MaskFiles[sq];
+                    ulong potentials = mask & rooks;
+
+                    if ((mask & allPawns) == 0)
                     {
                         IncrementRookOnOpenFile(v);
+
+                        if (BitOps.PopCount(potentials) > 1 && Evaluation.IsDoubled(bd, potentials))
+                        {
+                            IncrementDoubledRook(v);
+                        }
+                    }
+
+                    if ((mask & pawns) == 0 && BitOps.PopCount(mask & otherPawns) == 1)
+                    {
+                        IncrementRookOnHalfOpenFile(v);
+
+                        if (BitOps.PopCount(potentials) > 1 && Evaluation.IsDoubled(bd, potentials))
+                        {
+                            IncrementDoubledRook(v);
+                        }
                     }
                 }
 
-				
 				features[c] = new short[sparse[c].Count];
 				indexMap[c] = new int[sparse[c].Count];
                 openingWts[c] = new short[sparse[c].Count];
@@ -270,7 +309,7 @@ namespace Pedantic.Chess
         public static short GetOptimizationIncrement(int index)
         {
             const int eg = FEATURE_SIZE;
-            return (short)(index == GAME_PHASE_BOUNDARY || index == (GAME_PHASE_BOUNDARY + eg) ? 50 : 1);
+            return (short)(index == GAME_PHASE_BOUNDARY || index == (GAME_PHASE_BOUNDARY + eg) ? 100 : 1);
         }
 
         private short DotProduct(ReadOnlySpan<short> f, ReadOnlySpan<short> weights)
@@ -470,6 +509,7 @@ namespace Pedantic.Chess
             v[BISHOP_PAIR] = 1;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void IncrementRookOnOpenFile(IDictionary<int, short> v)
         {
             if (v.ContainsKey(ROOK_OPEN_FILE))
@@ -479,6 +519,45 @@ namespace Pedantic.Chess
             else
             {
                 v.Add(ROOK_OPEN_FILE, 1);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void IncrementRookOnHalfOpenFile(IDictionary<int, short> v)
+        {
+            if (v.ContainsKey(ROOK_HALF_OPEN_FILE))
+            {
+                v[ROOK_HALF_OPEN_FILE]++;
+            }
+            else
+            {
+                v.Add(ROOK_HALF_OPEN_FILE, 1);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void IncrementRookBehindPassedPawn(IDictionary<int, short> v)
+        {
+            if (v.ContainsKey(ROOK_BEHIND_PASSED_PAWN))
+            {
+                v[ROOK_BEHIND_PASSED_PAWN]++;
+            }
+            else
+            {
+                v.Add(ROOK_BEHIND_PASSED_PAWN, 1);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void IncrementDoubledRook(IDictionary<int, short> v)
+        {
+            if (v.ContainsKey(DOUBLED_ROOKS_ON_FILE))
+            {
+                v[DOUBLED_ROOKS_ON_FILE]++;
+            }
+            else
+            {
+                v.Add(DOUBLED_ROOKS_ON_FILE, 1);
             }
         }
     }

@@ -5,25 +5,28 @@ namespace Pedantic.Genetics
 {
     public class ChessWeights
     {
-        public const int MAX_WEIGHTS = 822;
-        public const int ENDGAME_WEIGHTS = 411;
+        public const int MAX_WEIGHTS = 826;
+        public const int ENDGAME_WEIGHTS = 413;
         public const int PIECE_WEIGHT_LENGTH = 6;
         public const int PIECE_SQUARE_LENGTH = 384;
         public const int GAME_PHASE_MATERIAL = 0;
         public const int PIECE_VALUES = 1;
         public const int PIECE_SQUARE_TABLE = 7;
         public const int PIECE_MOBILITY = 391;
-        public const int KING_ATTACK = 396;
-        public const int PAWN_SHIELD = 399;
-        public const int ISOLATED_PAWN = 402;
-        public const int BACKWARD_PAWN = 403;
-        public const int DOUBLED_PAWN = 404;
-        public const int CONNECTED_PAWN = 405;
-        public const int PASSED_PAWN = 406;
-        public const int KNIGHT_OUTPOST = 407;
-        public const int BISHOP_OUTPOST = 408;
-        public const int BISHOP_PAIR = 409;
-        public const int ROOK_ON_OPEN_FILE = 410;
+        public const int KING_ATTACK = 395;
+        public const int PAWN_SHIELD = 398;
+        public const int ISOLATED_PAWN = 401;
+        public const int BACKWARD_PAWN = 402;
+        public const int DOUBLED_PAWN = 403;
+        public const int CONNECTED_PAWN = 404;
+        public const int PASSED_PAWN = 405;
+        public const int KNIGHT_OUTPOST = 406;
+        public const int BISHOP_OUTPOST = 407;
+        public const int BISHOP_PAIR = 408;
+        public const int ROOK_ON_OPEN_FILE = 409;
+        public const int ROOK_ON_HALF_OPEN_FILE = 410;
+        public const int ROOK_BEHIND_PASSED_PAWN = 411;
+        public const int DOUBLED_ROOKS_ON_FILE = 412;
 
         [BsonCtor]
         public ChessWeights(ObjectId _id, bool isActive, bool isImmortal, string description, short[] weights, 
@@ -123,7 +126,7 @@ namespace Pedantic.Genetics
             }
             else
             {
-                paragon = Empty;
+                paragon = p;
             }
             return true;
         }
@@ -209,7 +212,6 @@ namespace Pedantic.Genetics
             3, // Bishop
             2, // Rook
             1, // Queen
-            1, // King
 
             /* OpeningKingAttackWeight */
             9, // attacks to squares adjacent to king
@@ -247,6 +249,15 @@ namespace Pedantic.Genetics
 
             /* opening rook on open file */
             20,
+
+            /* opening rook on half open file */
+            10,
+
+            /* opening rook behind passed pawn */
+            30,
+
+            /* doubled rooks on file */
+            10,
 
             /*------------------------- END GAME WEIGHTS --------------------*/
 
@@ -326,7 +337,6 @@ namespace Pedantic.Genetics
             3, // Bishop
             2, // Rook
             1, // Queen
-            4, // King
 
             /* EndGameKingAttackWeight */
             9, // attacks to squares adjacent to king
@@ -363,7 +373,16 @@ namespace Pedantic.Genetics
             20,
 
             /* end game rook on open file */
-            20
+            20,
+
+            /* end game rook on half open file */
+            10,
+
+            /* end game rook behind passed pawn */
+            30,
+
+            /* end game doubled rooks on file */
+            10
         };
     }
 }

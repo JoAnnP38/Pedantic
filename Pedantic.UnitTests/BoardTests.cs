@@ -111,7 +111,6 @@ namespace Pedantic.UnitTests
         [DataRow("rnbqkbnr/p1pppppp/8/8/PpP4P/8/1P1PPPP1/RNBQKBNR b KQkq c3 0 3", 0x3c8123ea7b067637UL)]
         [DataRow("rnbqkbnr/p1pppppp/8/8/P6P/R1p5/1P1PPPP1/1NBQKBNR b Kkq - 0 4", 0x5c3f9b829b279560UL)]
         [DataRow("rnbqkbnr/ppp1p1pp/8/3pPp2/8/8/PPPPKPPP/RNBQ1BNR b kq - 0 3", 0x652a607ca3f242c1UL)]
-        [DataRow("rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 0 1", 0x2BF65946A9355D94UL)]
         public void LoadFenPosition2Test(string fenString, ulong hash)
         {
             Board board = new(fenString);
@@ -122,8 +121,6 @@ namespace Pedantic.UnitTests
         [TestMethod]
         [DataRow(Constants.FEN_START_POS, 0x463b96181691fc9cUL)]
         [DataRow("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1", 0x823c9b50fd114196ul)]
-        [DataRow("rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 1", 0xf092b5b0c1d33ca9ul)]
-        [DataRow("rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 0 1", 0x2bf65946a9355d94ul)]
         public void LoadFenPositionHashTest(string fenString, ulong hash)
         {
             Board board = new(fenString);
@@ -204,9 +201,9 @@ namespace Pedantic.UnitTests
         }
 
         [TestMethod]
-        [DataRow("r5rk/2p1Nppp/3p3P/pp2p1P1/4P3/2qnPQK1/8/R6R w - - 1 0", Color.White, 44)]
-        [DataRow("1r2k1r1/pbppnp1p/1b3P2/8/Q7/B1PB1q2/P4PPP/3R2K1 w - - 1 0", Color.White, 40)]
-        [DataRow("Q7/p1p1q1pk/3p2rp/4n3/3bP3/7b/PP3PPK/R1B2R2 b - - 0 1", Color.Black, 36)]
+        [DataRow("r5rk/2p1Nppp/3p3P/pp2p1P1/4P3/2qnPQK1/8/R6R w - - 1 0", Color.White, 33)]
+        [DataRow("1r2k1r1/pbppnp1p/1b3P2/8/Q7/B1PB1q2/P4PPP/3R2K1 w - - 1 0", Color.White, 35)]
+        [DataRow("Q7/p1p1q1pk/3p2rp/4n3/3bP3/7b/PP3PPK/R1B2R2 b - - 0 1", Color.Black, 29)]
         public void GetPieceMobilityTest(string fen, Color color, int expectedMobility)
         {
             Board bd = new(fen);

@@ -109,6 +109,12 @@ namespace Pedantic.Chess
         public short EndGameBishopPair => wt[ChessWeights.BISHOP_PAIR + ChessWeights.ENDGAME_WEIGHTS];
         public short OpeningRookOnOpenFile => wt[ChessWeights.ROOK_ON_OPEN_FILE];
         public short EndGameRookOnOpenFile => wt[ChessWeights.ROOK_ON_OPEN_FILE + ChessWeights.ENDGAME_WEIGHTS];
+        public short OpeningRookOnHalfOpenFile => wt[ChessWeights.ROOK_ON_HALF_OPEN_FILE];
+        public short EndGameRookOnHalfOpenFile => wt[ChessWeights.ROOK_ON_HALF_OPEN_FILE + ChessWeights.ENDGAME_WEIGHTS];
+        public short OpeningRookBehindPassedPawn => wt[ChessWeights.ROOK_BEHIND_PASSED_PAWN];
+        public short EndGameRookBehindPassedPawn => wt[ChessWeights.ROOK_BEHIND_PASSED_PAWN + ChessWeights.ENDGAME_WEIGHTS];
+        public short OpeningDoubledRooks => wt[ChessWeights.DOUBLED_ROOKS_ON_FILE];
+        public short EndGameDoubledRooks => wt[ChessWeights.DOUBLED_ROOKS_ON_FILE + ChessWeights.ENDGAME_WEIGHTS];
 
         private readonly short[] wt;
     }

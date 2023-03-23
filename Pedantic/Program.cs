@@ -44,14 +44,14 @@ namespace Pedantic
                 name: "--input",
                 description: "Specify a file read UCI commands from.",
                 getDefaultValue: () => null);
-            var searchTypeOption = new Option<SearchType>(
-                name: "--search",
-                description: "Specifies the search type to use.",
-                getDefaultValue: () => SearchType.Pv);
             var errorFileOption = new Option<string?>(
                 name: "--error",
                 description: "Output errors to specified file.",
                 getDefaultValue: () => null);
+            var randomSearchOption = new Option<bool>(
+                name: "--random",
+                description: "If specified adds small random amount to positional evaluations.",
+                getDefaultValue: () => false);
             var pgnFileOption = new Option<string?>(
                 name: "--pgn",
                 description: "Specifies a PGN input file.",
@@ -87,9 +87,9 @@ namespace Pedantic
 
             var uciCommand = new Command("uci", "Start the pedantic application in UCI mode.")
             {
-                searchTypeOption,
                 commandFileOption,
-                errorFileOption
+                errorFileOption,
+                randomSearchOption
             };
 
             var perftCommand = new Command("perft", "Run a standard Perft test.")
@@ -129,7 +129,7 @@ namespace Pedantic
                 weightsCommand
             };
 
-            uciCommand.SetHandler(async (searchType, inFile, errFile) => await RunUci(searchType, inFile, errFile), searchTypeOption, commandFileOption, errorFileOption);
+            uciCommand.SetHandler(async (inFile, errFile, random) => await RunUci(inFile, errFile, random), commandFileOption, errorFileOption, randomSearchOption);
             perftCommand.SetHandler(RunPerft, typeOption, depthOption, fenOption);
             labelCommand.SetHandler(RunLabel, pgnFileOption, dataFileOption, maxPositionsOption);
             learnCommand.SetHandler(RunLearn, dataFileOption, sampleOption, iterOption, preserveOption);
@@ -138,7 +138,7 @@ namespace Pedantic
             return rootCommand.InvokeAsync(args).Result;
         }
 
-        private static async Task RunUci(SearchType searchType, string? inFile, string? errFile)
+        private static async Task RunUci(string? inFile, string? errFile, bool random)
         {
             TextReader? stdin = null;
             TextWriter? stderr = null;
@@ -160,7 +160,7 @@ namespace Pedantic
             try
             {
                 Console.WriteLine(PROGRAM_NAME_VER);
-                Engine.SearchType = searchType;
+                Engine.RandomSearch = random;
                 Engine.Start();
                 while (Engine.IsRunning)
                 {
@@ -213,8 +213,8 @@ namespace Pedantic
                     Console.WriteLine(@"option name Clear Hash type button");
                     Console.WriteLine($@"option name MaxThreads type spin default 1 min 1 max {Math.Max(Environment.ProcessorCount - 2, 1)}");
                     Console.WriteLine($@"option name UCI_EngineAbout type string default {PROGRAM_NAME_VER} by {AUTHOR}, see {PROGRAM_URL}");
-                    Console.WriteLine(@"option name Search_Algorithm type combo default PV var PV var MTD(f) var Minimal");
                     Console.WriteLine(@"option name Evaluation_ID type string default <empty>");
+                    Console.WriteLine(@"option name Random_Search type check default false");
                     Console.WriteLine(@"uciok");
                     break;
 
@@ -333,17 +333,18 @@ namespace Pedantic
 
                         break;
 
-                    case "Search_Algorithm":
-                        if (tokens[3] == "value" && TryParse(tokens[4], out SearchType searchType))
-                        {
-                            Engine.SearchType = searchType;
-                        }
-
-                        break;
                     case "Evaluation_ID":
                         if (tokens[3] == "value")
                         {
                             Engine.EvaluationId = tokens.Length >= 5 ? tokens[4] : string.Empty;
+                        }
+
+                        break;
+
+                    case "Random_Search":
+                        if (tokens[3] == "value" && bool.TryParse(tokens[4], out bool randomSearch))
+                        {
+                            Engine.RandomSearch = randomSearch;
                         }
 
                         break;
@@ -378,29 +379,6 @@ namespace Pedantic
         static void Debug(string[] tokens)
         {
             Engine.Debug = tokens[1] == "on";
-        }
-
-        static bool TryParse(string s, out SearchType searchType)
-        {
-            searchType = SearchType.Pv;
-            s = s.ToLower();
-            if (s == "pv")
-            {
-                searchType = SearchType.Pv;
-                return true;
-            }
-            if (s == "mtd(f)")
-            {
-                searchType = SearchType.Mtd;
-                return true;
-            }
-            if (s == "minimal")
-            {
-                searchType = SearchType.Minimal;
-                return true;
-            }
-
-            return false;
         }
 
         static bool TryParse(string[] tokens, string name, out int value, int defaultValue = 0)
@@ -979,7 +957,7 @@ namespace Pedantic
             WriteLine();
             WriteLine($"/* {section} mobility weights */");
             WriteLine();
-            for (int n = 0; n < 5; n++)
+            for (int n = 0; n < 4; n++)
             {
                 WriteLine($"{wts[ChessWeights.PIECE_MOBILITY + n]}, // {pieceNames[n + 1]}");
             }
@@ -1022,6 +1000,15 @@ namespace Pedantic
             WriteLine();
             WriteLine($"/* {section} rook on open file */");
             WriteLine($"{wts[ChessWeights.ROOK_ON_OPEN_FILE]},");
+            WriteLine();
+            WriteLine($"/* {section} rook on half-open file */");
+            WriteLine($"{wts[ChessWeights.ROOK_ON_HALF_OPEN_FILE]},");
+            WriteLine();
+            WriteLine($"/* {section} rook behind passed pawn */");
+            WriteLine($"{wts[ChessWeights.ROOK_BEHIND_PASSED_PAWN]},");
+            WriteLine();
+            WriteLine($"/* {section} doubled rooks on file */");
+            WriteLine($"{wts[ChessWeights.DOUBLED_ROOKS_ON_FILE]},");
         }
 
         private static void WriteIndent()
@@ -1047,6 +1034,14 @@ namespace Pedantic
                     wt.IsImmortal = true;
                     wt.UpdatedOn = DateTime.UtcNow;
                     rep.Weights.Update(wt);
+                }
+
+                var otherWts = rep.Weights.Find(w => w.IsActive && w.IsImmortal && w.Id != new ObjectId(immortalWt));
+                foreach (var w in otherWts)
+                {
+                    w.IsActive = false;
+                    w.UpdatedOn = DateTime.UtcNow;
+                    rep.Weights.Update(w);
                 }
             }
 

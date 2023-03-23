@@ -169,6 +169,15 @@ namespace Pedantic.Chess
             return false;
         }
 
+        public static TtTranItem? Lookup(ulong hash)
+        {
+            if (GetLoadIndex(hash, out int index))
+            {
+                return table[index];
+            }
+            return null;
+        }
+
         public static bool TryGetScore(ulong hash, int depth, int ply, int alpha, int beta, out int score)
         {
             return TryGetScore(hash, depth, ply, ref alpha, ref beta, out score, out ulong _);
@@ -183,6 +192,7 @@ namespace Pedantic.Chess
             if (GetLoadIndex(hash, out int index))
             {
                 ref TtTranItem item = ref table[index];
+                move = item.BestMove;
 
                 if (item.Depth <= depth)
                 {
@@ -190,7 +200,6 @@ namespace Pedantic.Chess
                 }
 
                 score = item.Score;
-                move = item.BestMove;
 
                 if (Evaluation.IsCheckmate(score))
                 {

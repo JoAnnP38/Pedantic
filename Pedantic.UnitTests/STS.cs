@@ -12,7 +12,6 @@ namespace Pedantic.UnitTests
         public void StsPositionTest(string fen)
         {
             //Engine.Infinite = true;
-            Engine.SearchType = SearchType.Mtd;
             Program.ParseCommand("setoption name Hash value 128");
             Program.ParseCommand($"position fen {fen}");
             Program.ParseCommand("go movetime 6000");

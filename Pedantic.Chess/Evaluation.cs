@@ -19,9 +19,10 @@ namespace Pedantic.Chess
             wt = new (LoadWeights());
         }
 
-        public Evaluation(bool adjustMaterial = true)
+        public Evaluation(bool adjustMaterial = true, bool random = false)
         {
             this.adjustMaterial = adjustMaterial;
+            this.random = random;
         }
 
         public short Compute(Board board)
@@ -72,6 +73,11 @@ namespace Pedantic.Chess
             score = (short)((((opScore[0] - opScore[1]) * opWt) >> 7) +
                             (((egScore[0] - egScore[1]) * egWt) >> 7));
             score = board.SideToMove == Color.White ? score : (short)-score;
+
+            if (random)
+            {
+                score += (short)Random.Shared.Next(-8, 9);
+            }
             TtEval.Add(board.Hash, score);
             return score;
         }
@@ -87,7 +93,7 @@ namespace Pedantic.Chess
             short[] kingAttacks = new short[3];
             int c = (int)color;
             board.GetPieceMobility(color, mobility, kingAttacks);
-            for (Piece piece = Piece.Knight; piece <= Piece.King; piece++)
+            for (Piece piece = Piece.Knight; piece <= Piece.Queen; piece++)
             {
                 opScore[c] += (short)(mobility[(int)piece] * wt.OpeningPieceMobility(piece));
                 egScore[c] += (short)(mobility[(int)piece] * wt.EndGamePieceMobility(piece));
@@ -123,6 +129,22 @@ namespace Pedantic.Chess
                 {
                     opPawnScore[c] += wt.OpeningPassedPawn;
                     egPawnScore[c] += wt.EndGamePassedPawn;
+
+                    Ray ray = Board.Vectors[sq];
+                    ulong bb;
+                    if (color == Color.White)
+                    {
+                        bb = BitOps.AndNot(ray.South, Board.RevVectors[BitOps.LzCount(ray.South & board.All)].South);
+                    }
+                    else
+                    {
+                        bb = BitOps.AndNot(ray.North, Board.Vectors[BitOps.TzCount(ray.North & board.All)].North);
+                    }
+                    if ((bb & board.Pieces(color, Piece.Rook)) != 0)
+                    {
+                        opScore[c] += wt.OpeningRookBehindPassedPawn;
+                        egScore[c] += wt.EndGameRookBehindPassedPawn;
+                    }
                 }
 
                 if ((pawns & IsolatedPawnMasks[sq]) == 0)
@@ -199,13 +221,37 @@ namespace Pedantic.Chess
             }
 
             ulong allPawns = pawns | otherPawns;
-            for (ulong bb = board.Pieces(color, Piece.Rook); bb != 0; bb = BitOps.ResetLsb(bb))
+            ulong rooks = board.Pieces(color, Piece.Rook);
+
+            for (ulong bb = rooks; bb != 0; bb = BitOps.ResetLsb(bb))
             {
                 int sq = BitOps.TzCount(bb);
-                if ((Board.MaskFiles[sq] & allPawns) == 0)
+                ulong mask = Board.MaskFiles[sq];
+                ulong potentials = mask & rooks;
+
+                if ((mask & allPawns) == 0)
                 {
                     opScore[c] += wt.OpeningRookOnOpenFile;
                     egScore[c] += wt.EndGameRookOnOpenFile;
+
+                    
+                    if (BitOps.PopCount(potentials) > 1 && IsDoubled(board, potentials))
+                    {
+                        opScore[c] += wt.OpeningDoubledRooks;
+                        egScore[c] += wt.EndGameDoubledRooks;
+                    }
+                }
+
+                if ((mask & pawns) == 0 && BitOps.PopCount(mask & otherPawns) == 1)
+                {
+                    opScore[c] += wt.OpeningRookOnHalfOpenFile;
+                    egScore[c] += wt.EndGameRookOnHalfOpenFile;
+
+                    if (BitOps.PopCount(potentials) > 1 && IsDoubled(board, potentials))
+                    {
+                        opScore[c] += wt.OpeningDoubledRooks;
+                        egScore[c] += wt.EndGameDoubledRooks;
+                    }
                 }
             }
         }
@@ -229,6 +275,7 @@ namespace Pedantic.Chess
 
         public GamePhase GetGamePhase(Board board, out int opWt, out int egWt)
         {
+            int totalMaterial = board.Material(Color.White) + board.Material(Color.Black);
             GamePhase phase = GamePhase.Opening;
             opWt = 128;
             egWt = 0;
@@ -309,6 +356,15 @@ namespace Pedantic.Chess
             return wt.EndGamePieceSquareTable(piece, square);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool IsDoubled(Board bd, ulong piecesOnFile)
+        {
+            int sq1 = BitOps.TzCount(piecesOnFile);
+            piecesOnFile = BitOps.ResetLsb(piecesOnFile);
+            int sq2 = BitOps.TzCount(piecesOnFile);
+            return ((Board.Between[sq1, sq2] & bd.All) == 0);
+        }
+
         public static short OpeningPhaseMaterial => wt.OpeningPhaseMaterial;
         public static short EndGamePhaseMaterial => wt.EndGamePhaseMaterial;
 
@@ -316,6 +372,7 @@ namespace Pedantic.Chess
         public static EvalWeights EvalWts => wt;
 
         private readonly bool adjustMaterial = default;
+        private readonly bool random = false;
         private int totalPawns = default;
         private int totalMaterial = default;
         private readonly int[] adjust = { 10, 10 };

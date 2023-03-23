@@ -71,7 +71,7 @@ namespace Pedantic.Chess
         {
             for (int sq = 0; sq < Constants.MAX_SQUARES; ++sq)
             {
-                revVectors[63 - sq] = vectors[sq];
+                RevVectors[63 - sq] = Vectors[sq];
             }
 
             InitPieceMasks();
@@ -767,7 +767,7 @@ namespace Pedantic.Chess
             }
 
             ulong excluded = pawnDefended | Units(color);
-            for (Piece piece = Piece.Knight; piece <= Piece.King; piece++)
+            for (Piece piece = Piece.Knight; piece <= Piece.Queen; piece++)
             {
                 for (ulong pcLoc = Pieces(color, piece); pcLoc != 0; pcLoc = BitOps.ResetLsb(pcLoc))
                 {
@@ -799,7 +799,7 @@ namespace Pedantic.Chess
             ulong d0 = Evaluation.KingProximity[0][kingIndex];
             ulong d1 = Evaluation.KingProximity[1][kingIndex];
             ulong d2 = Evaluation.KingProximity[2][kingIndex];
-            for (Piece piece = Piece.Knight; piece <= Piece.King; piece++)
+            for (Piece piece = Piece.Knight; piece <= Piece.Queen; piece++)
             {
                 for (ulong pcLoc = Pieces(color, piece); pcLoc != 0; pcLoc = BitOps.ResetLsb(pcLoc))
                 {
@@ -944,24 +944,24 @@ namespace Pedantic.Chess
         {
             if (sideToMove == Color.White)
             {
-                if ((castling & CastlingRights.WhiteKingSide) != 0 && (between[Index.H1, Index.E1] & All) == 0)
+                if ((castling & CastlingRights.WhiteKingSide) != 0 && (Between[Index.H1, Index.E1] & All) == 0)
                 {
                     list.Add(Index.E1, Index.G1, MoveType.Castle, score: hist[Index.E1, Index.G1]);
                 }
 
-                if ((castling & CastlingRights.WhiteQueenSide) != 0 && (between[Index.A1, Index.E1] & All) == 0)
+                if ((castling & CastlingRights.WhiteQueenSide) != 0 && (Between[Index.A1, Index.E1] & All) == 0)
                 {
                     list.Add(Index.E1, Index.C1, MoveType.Castle, score: hist[Index.E1, Index.C1]);
                 }
             }
             else
             {
-                if ((castling & CastlingRights.BlackKingSide) != 0 && (between[Index.E8, Index.H8] & All) == 0)
+                if ((castling & CastlingRights.BlackKingSide) != 0 && (Between[Index.E8, Index.H8] & All) == 0)
                 {
                     list.Add(Index.E8, Index.G8, MoveType.Castle, score: hist[Index.E8, Index.G8]);
                 }
 
-                if ((castling & CastlingRights.BlackQueenSide) != 0 && (between[Index.E8, Index.A8] & All) == 0)
+                if ((castling & CastlingRights.BlackQueenSide) != 0 && (Between[Index.E8, Index.A8] & All) == 0)
                 {
                     list.Add(Index.E8, Index.C8, MoveType.Castle, score: hist[Index.E8, Index.C8]);
                 }
@@ -1130,22 +1130,22 @@ namespace Pedantic.Chess
         // traditional diagonal slider move resolution
         public static ulong GetBishopAttacks(int from, ulong blockers)
         {
-            Ray ray = vectors[from];
-            ulong bb = BitOps.AndNot(ray.NorthEast, vectors[BitOps.TzCount(ray.NorthEast & blockers)].NorthEast) |
-                       BitOps.AndNot(ray.NorthWest, vectors[BitOps.TzCount(ray.NorthWest & blockers)].NorthWest) |
-                       BitOps.AndNot(ray.SouthEast, revVectors[BitOps.LzCount(ray.SouthEast & blockers)].SouthEast) |
-                       BitOps.AndNot(ray.SouthWest, revVectors[BitOps.LzCount(ray.SouthWest & blockers)].SouthWest);
+            Ray ray = Vectors[from];
+            ulong bb = BitOps.AndNot(ray.NorthEast, Vectors[BitOps.TzCount(ray.NorthEast & blockers)].NorthEast) |
+                       BitOps.AndNot(ray.NorthWest, Vectors[BitOps.TzCount(ray.NorthWest & blockers)].NorthWest) |
+                       BitOps.AndNot(ray.SouthEast, RevVectors[BitOps.LzCount(ray.SouthEast & blockers)].SouthEast) |
+                       BitOps.AndNot(ray.SouthWest, RevVectors[BitOps.LzCount(ray.SouthWest & blockers)].SouthWest);
             return bb;
         }
 
         // traditional orthogonal slider move resolution
         public static ulong GetRookAttacks(int from, ulong blockers)
         {
-            Ray ray = vectors[from];
-            ulong bb = BitOps.AndNot(ray.North, vectors[BitOps.TzCount(ray.North & blockers)].North) |
-                       BitOps.AndNot(ray.East, vectors[BitOps.TzCount(ray.East & blockers)].East) |
-                       BitOps.AndNot(ray.South, revVectors[BitOps.LzCount(ray.South & blockers)].South) |
-                       BitOps.AndNot(ray.West, revVectors[BitOps.LzCount(ray.West & blockers)].West);
+            Ray ray = Vectors[from];
+            ulong bb = BitOps.AndNot(ray.North, Vectors[BitOps.TzCount(ray.North & blockers)].North) |
+                       BitOps.AndNot(ray.East, Vectors[BitOps.TzCount(ray.East & blockers)].East) |
+                       BitOps.AndNot(ray.South, RevVectors[BitOps.LzCount(ray.South & blockers)].South) |
+                       BitOps.AndNot(ray.West, RevVectors[BitOps.LzCount(ray.West & blockers)].West);
 
             return bb;
         }
@@ -1567,7 +1567,7 @@ namespace Pedantic.Chess
             #endregion
         };
 
-        private static readonly ulong[,] between = new ulong[,]
+        public static readonly ulong[,] Between = new ulong[,]
         {
             #region between data
             {
@@ -2725,7 +2725,7 @@ namespace Pedantic.Chess
             #endregion
         };
 
-        private static readonly Ray[] vectors = new Ray[]
+        public static readonly Ray[] Vectors = new Ray[]
         {
             #region vectors data
             new Ray(0x0101010101010100ul, 0x8040201008040200ul, 0x00000000000000FEul, 0x0000000000000000ul,
@@ -2861,7 +2861,7 @@ namespace Pedantic.Chess
             #endregion
         };
 
-        private static readonly Ray[] revVectors = new Ray[Constants.MAX_SQUARES + 1];
+        public static readonly Ray[] RevVectors = new Ray[Constants.MAX_SQUARES + 1];
 
         public static readonly ulong[] MaskFiles = new ulong[]
         {

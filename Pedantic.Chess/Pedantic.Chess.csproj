@@ -31,7 +31,23 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="MinimalSearch.cs" />
+    <Compile Remove="MtdSearch.cs" />
     <Compile Remove="OldEvaluation.cs" />
+    <Compile Remove="PvList.cs" />
+    <Compile Remove="SearchBase.cs" />
+    <Compile Remove="SearchResult.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="Old Book.bin" />
+    <None Remove="Pedantic.bin" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Pedantic.bin">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>

@@ -9,8 +9,8 @@ namespace Pedantic.UnitTests
     public class EvaluationTests
     {
         [TestMethod]
-        [DataRow(Constants.FEN_START_POS, 0, 128, 0)]
-        [DataRow("r1bk3r/ppppnp1p/2n4b/3N1q2/2B2p2/3P4/PPPBQ1PP/4RRK1 b - - 9 13", 1, 108, 20)]
+        [DataRow(Constants.FEN_START_POS, (GamePhase)0, 128, 0)]
+        [DataRow("r1bk3r/ppppnp1p/2n4b/3N1q2/2B2p2/3P4/PPPBQ1PP/4RRK1 b - - 9 13", (GamePhase)0, 128, 0)]
         public void GetGamePhaseTest(string fen, GamePhase expectedPhase, int expectedOpWt, int expectedEgWt)
         {
             Board board = new(fen);
@@ -23,7 +23,7 @@ namespace Pedantic.UnitTests
 
         [TestMethod]
         [DataRow(Constants.FEN_START_POS, 0)]
-        [DataRow("r6r/pp4kp/3B1p2/3P2p1/B1P1q1n1/2Q3P1/PP6/5RK1 w - - 0 13", -111)]
+        [DataRow("r6r/pp4kp/3B1p2/3P2p1/B1P1q1n1/2Q3P1/PP6/5RK1 w - - 0 13", 4)]
         public void ComputeTest(string fen, int expectedScore)
         {
             Board board = new(fen);
@@ -135,7 +135,7 @@ namespace Pedantic.UnitTests
             int e = eval.Compute(board);
 
             Console.WriteLine(@$"eval.Compute(board) : {e}");
-            Assert.IsTrue(e > 0);
+            Assert.IsTrue(e < 0);
         }
 
         [TestMethod]

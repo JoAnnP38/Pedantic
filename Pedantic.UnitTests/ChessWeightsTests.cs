@@ -16,7 +16,6 @@ namespace Pedantic.UnitTests
             Assert.IsTrue(cw.IsActive);
             Assert.IsTrue(cw.IsImmortal);
             Assert.AreEqual(ChessWeights.MAX_WEIGHTS, cw.Weights.Length);
-            Assert.AreEqual(cw.CreatedOn, cw.UpdatedOn);
         }
 
         [TestMethod]

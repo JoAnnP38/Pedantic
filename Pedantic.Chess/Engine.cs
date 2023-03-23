@@ -63,7 +63,7 @@ namespace Pedantic.Chess
                 color = value;
             }
         }
-        public static SearchType SearchType { get; set; } = SearchType.Mtd;
+        public static bool RandomSearch { get; set; } = false;
   
         public static PolyglotEntry[] BookEntries
         {
@@ -278,24 +278,34 @@ namespace Pedantic.Chess
         {
             try
             {
-                using MemoryStream ms = new(Resources.Book);
-                using BigEndianBinaryReader reader = new(ms);
+                string exeFullName = System.Reflection.Assembly.GetExecutingAssembly().Location;
+                string dirFullName = System.IO.Path.GetDirectoryName(exeFullName);
+                string bookPath = Path.Combine(dirFullName, "Pedantic.bin");
 
-                List<PolyglotEntry> entries = new();
-                while (reader.BaseStream.Position < reader.BaseStream.Length)
+                if (File.Exists(bookPath))
                 {
-                    PolyglotEntry entry = new()
+                    FileStream fs = new(bookPath, FileMode.Open, FileAccess.Read);
+                    using BigEndianBinaryReader reader = new(fs);
+
+                    List<PolyglotEntry> entries = new();
+                    while (reader.BaseStream.Position < reader.BaseStream.Length)
                     {
-                        Key = reader.ReadUInt64(),
-                        Move = reader.ReadUInt16(),
-                        Weight = reader.ReadUInt16(),
-                        Learn = reader.ReadUInt32()
-                    };
-                    // TODO: Remove bad entries from book 
-                    // TODO: Check (is e8h8 another way to specifiy castling?)
-                    entries.Add(entry);
+                        PolyglotEntry entry = new()
+                        {
+                            Key = reader.ReadUInt64(),
+                            Move = reader.ReadUInt16(),
+                            Weight = reader.ReadUInt16(),
+                            Learn = reader.ReadUInt32()
+                        };
+
+                        entries.Add(entry);
+                    }
+                    bookEntries = entries.ToArray();
                 }
-                bookEntries = entries.ToArray();
+                else
+                {
+                    bookEntries = Array.Empty<PolyglotEntry>();
+                }
             }
             catch (Exception e)
             {
@@ -370,47 +380,13 @@ namespace Pedantic.Chess
                 }
             }
 
-            ISearch search = CreateSearch(maxDepth, maxNodes);
+            var search = new BasicSearch(board, time, maxDepth, maxNodes, RandomSearch);
             searchThread = new Thread(search.Search)
             {
                 Priority = ThreadPriority.Highest
             };
             IsRunning = true;
             searchThread.Start();
-        }
-
-        private static ISearch CreateSearch(int maxDepth, long maxNodes)
-        {
-            ISearch search;
-            switch (SearchType)
-            {
-                case SearchType.Minimal:
-                    search = new MinimalSearch(board, time, maxDepth, maxNodes)
-                    {
-                        CanPonder = CanPonder,
-                        Pondering = IsPondering
-                    };
-                    break;
-
-                case SearchType.Mtd:
-                    search = new MtdSearch(board, time, maxDepth, maxNodes)
-                    {
-                        CanPonder = CanPonder,
-                        Pondering = IsPondering
-                    };
-                    break;
-
-                default:
-                    search = new BasicSearch(board, time, maxDepth, maxNodes)
-                    {
-
-                        CanPonder = CanPonder,
-                        Pondering = IsPondering
-                    };
-                    break;
-            }
-
-            return search;
         }
     }
 }

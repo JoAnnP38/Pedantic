@@ -46,7 +46,7 @@ namespace Pedantic.Chess
 
             for (int sq = 0; sq < Constants.MAX_SQUARES; ++sq)
             {
-                Ray ray = vectors[sq];
+                Ray ray = Vectors[sq];
                 bishopMasks[sq] = ray.NorthEast | ray.NorthWest | ray.SouthEast | ray.SouthWest;
                 bishopMasks[sq] = BitOps.AndNot(bishopMasks[sq], edgeSquares);
 
