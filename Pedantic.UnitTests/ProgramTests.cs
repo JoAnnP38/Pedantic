@@ -154,6 +154,7 @@ namespace Pedantic.UnitTests
         [TestMethod]
         [DataRow("r1b2r1k/pp4pp/3p4/3B4/8/1QN3Pn/PP3q1P/R3R2K b - - 0 1")]
         [DataRow("2r3k1/p4p2/3Rp2p/1p2P1pK/8/1P4P1/P3Q2P/1q6 b - - 0 1")]
+        [DataRow("8/1n3Np1/1N4Q1/1bkP4/p1p2p2/P1P2R2/3P2PK/B2R4 w - - 0 1")]
         public void CheckMateInThreeTest(string fen)
         {
             Engine.Infinite = true;

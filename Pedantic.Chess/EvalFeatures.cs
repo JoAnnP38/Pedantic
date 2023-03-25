@@ -245,10 +245,11 @@ namespace Pedantic.Chess
                     }
                 }
 
-				features[c] = new short[sparse[c].Count];
-				indexMap[c] = new int[sparse[c].Count];
-                openingWts[c] = new short[sparse[c].Count];
-                endGameWts[c] = new short[sparse[c].Count];
+                int length = sparse[c].Count;
+				features[c] = new short[length];
+				indexMap[c] = new int[length];
+                openingWts[c] = new short[length];
+                endGameWts[c] = new short[length];
 
 				int i = 0;
 				foreach (var kvp in sparse[c])
@@ -270,12 +271,12 @@ namespace Pedantic.Chess
 
                 MapWeights(opWeights, egWeights);
 
-                for (Color color = Color.White; color <= Color.Black; color++)
-                {
-                    int c = (int)color;
-                    opScore[c] = DotProduct(features[c], openingWts[c]);
-                    egScore[c] = DotProduct(features[c], endGameWts[c]);
-                }
+                    for (Color color = Color.White; color <= Color.Black; color++)
+                    {
+                        int c = (int)color;
+                        opScore[c] = DotProduct(features[c], openingWts[c]);
+                        egScore[c] = DotProduct(features[c], endGameWts[c]);
+                    }
 
                 GamePhase gamePhase = GetGamePhase(opWeights[GAME_PHASE_BOUNDARY],
                     egWeights[GAME_PHASE_BOUNDARY], out int opWt, out int egWt);
@@ -308,8 +309,23 @@ namespace Pedantic.Chess
         
         public static short GetOptimizationIncrement(int index)
         {
-            const int eg = FEATURE_SIZE;
-            return (short)(index == GAME_PHASE_BOUNDARY || index == (GAME_PHASE_BOUNDARY + eg) ? 100 : 1);
+            switch (index)
+            {
+                case GAME_PHASE_BOUNDARY:
+                case GAME_PHASE_BOUNDARY + FEATURE_SIZE:
+                    return 100;
+
+                case MATERIAL + (int)Piece.King:
+                case MATERIAL + (int)Piece.King + FEATURE_SIZE:
+                    return 0;
+
+                case >= MATERIAL and < (MATERIAL + (int)Piece.King):
+                case >= (MATERIAL + FEATURE_SIZE) and < (MATERIAL + (int)Piece.King + FEATURE_SIZE):
+                    return 5;
+
+                default:
+                    return 1;
+            }
         }
 
         private short DotProduct(ReadOnlySpan<short> f, ReadOnlySpan<short> weights)

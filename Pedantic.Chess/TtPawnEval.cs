@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using System.Reflection.Metadata.Ecma335;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
@@ -13,7 +14,7 @@ namespace Pedantic.Chess
 {
     public static class TtPawnEval
     {
-        public const int DEFAULT_SIZE_MB = 12;
+        public const int DEFAULT_SIZE_MB = 16;
         public const int MAX_SIZE_MB = 512;
         public const int ITEM_SIZE = 16;
         public const int MB_SIZE = 1024 * 1024;
@@ -80,13 +81,16 @@ namespace Pedantic.Chess
 
         private static TtPawnItem[] table;
         private static int capacity;
+        private static uint mask;
 
         static TtPawnEval()
         {
             capacity = (DEFAULT_SIZE_MB * MB_SIZE) / ITEM_SIZE;
             table = new TtPawnItem[capacity];
+            mask = (uint)(capacity - 1);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool TryLookup(ulong hash, out TtPawnItem item)
         {
             item = table[GetIndex(hash)];
@@ -107,6 +111,7 @@ namespace Pedantic.Chess
             TtPawnItem.SetValue(ref item, hash, opScore, egScore);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void Clear()
         {
             Array.Clear(table);
@@ -114,14 +119,19 @@ namespace Pedantic.Chess
 
         public static void Resize(int sizeMb)
         {
+            if (!BitOps.IsPow2(sizeMb))
+            {
+                sizeMb = BitOps.GreatestPowerOfTwoLessThan(sizeMb);
+            }
             // resizing also clears the hash table. No attempt to rehash.
             capacity = (Math.Min(sizeMb, MAX_SIZE_MB) * MB_SIZE) / ITEM_SIZE;
             table = new TtPawnItem[capacity];
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static int GetIndex(ulong hash)
         {
-            return (int)(hash % (ulong)capacity);
+            return (int)(hash & mask);
         }
     }
 }

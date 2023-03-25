@@ -90,6 +90,9 @@ namespace Pedantic.UnitTests
         {
             int actual = BitOps.GreatestPowerOfTwoLessThan(2000);
             Assert.AreEqual(1024, actual);
+
+            actual = BitOps.GreatestPowerOfTwoLessThan(128);
+            Assert.AreEqual(64, actual);
         }
     }
 }

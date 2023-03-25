@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Pedantic.Utilities;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -9,7 +10,7 @@ namespace Pedantic.Chess
 {
     public static class TtEval
     {
-        public const int DEFAULT_SIZE_MB = 25;
+        public const int DEFAULT_SIZE_MB = 32;
         public const int MAX_SIZE_MB = 1024;
         public const int ITEM_SIZE = 16;
         public const int MB_SIZE = 1024 * 1024;
@@ -43,11 +44,13 @@ namespace Pedantic.Chess
 
         private static TtEvalItem[] table;
         private static int capacity;
+        private static uint mask;
 
         static TtEval()
         {
             capacity = (DEFAULT_SIZE_MB * MB_SIZE) / ITEM_SIZE;
             table = new TtEvalItem[capacity];
+            mask = (uint)(capacity - 1);
         }
 
         public static void Add(ulong hash, short score)
@@ -79,14 +82,19 @@ namespace Pedantic.Chess
 
         public static void Resize(int sizeMb)
         {
+            if (!BitOps.IsPow2(sizeMb))
+            {
+                sizeMb = BitOps.GreatestPowerOfTwoLessThan(sizeMb);
+            }
             capacity = (Math.Min(sizeMb, MAX_SIZE_MB) * MB_SIZE) / ITEM_SIZE;
             table = new TtEvalItem[capacity];
+            mask = (uint)(capacity - 1);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static int GetIndex(ulong hash)
         {
-            return (int)(hash % (ulong)capacity);
+            return (int)(hash & mask);
         }
     }
 }

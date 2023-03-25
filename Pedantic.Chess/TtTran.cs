@@ -12,7 +12,7 @@ namespace Pedantic.Chess
             LowerBound
         }
 
-        public const int DEFAULT_SIZE_MB = 45;
+        public const int DEFAULT_SIZE_MB = 64;
         public const int MAX_SIZE_MB = 2047;
         public const int ITEM_SIZE = 16;
         public const int MB_SIZE = 1024 * 1024;
@@ -59,40 +59,13 @@ namespace Pedantic.Chess
 
         private static TtTranItem[] table;
         private static int capacity;
+        private static uint mask;
 
         static TtTran()
         {
             capacity = (DEFAULT_SIZE_MB * MB_SIZE) / ITEM_SIZE;
             table = new TtTranItem[capacity];
-        }
-
-        public static void Add(ulong hash, int depth, int ply, int beta, int score, ulong move)
-        {
-            int index = GetStoreIndex(hash);
-            ref TtTranItem item = ref table[index];
-            ulong bestMove = move;
-
-            if (item.IsValid(hash))
-            {
-                if (item.Depth > depth)
-                {
-                    return;
-                }
-
-                if (bestMove == 0ul)
-                {
-                    bestMove = item.BestMove;
-                }
-            }
-
-            if (Evaluation.IsCheckmate(score))
-            {
-                score += Math.Sign(score) * ply;
-            }
-
-            sbyte itemDepth = (sbyte)depth;
-            TtFlag flag = score < beta ? TtFlag.UpperBound : TtFlag.LowerBound;
-            TtTranItem.SetValue(ref item, hash, (short)score, itemDepth, flag, bestMove);
+            mask = (uint)(capacity - 1);
         }
 
         public static void Add(ulong hash, int depth, int ply, int alpha, int beta, int score, ulong move)
@@ -138,9 +111,14 @@ namespace Pedantic.Chess
 
         public static void Resize(int sizeMb)
         {
+            if (!BitOps.IsPow2(sizeMb))
+            {
+                sizeMb = BitOps.GreatestPowerOfTwoLessThan(sizeMb);
+            }
             // resizing also clears the hash table. No attempt to rehash.
             capacity = (Math.Min(sizeMb, MAX_SIZE_MB) * MB_SIZE) / ITEM_SIZE;
             table = new TtTranItem[capacity];
+            mask = (uint)(capacity - 1);
         }
 
         public static int Capacity => capacity;
@@ -227,14 +205,16 @@ namespace Pedantic.Chess
             return false;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static int GetStoreIndex(ulong hash)
         {
-            return (int)(hash % (ulong)capacity);
+            return (int)(hash & mask);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static bool GetLoadIndex(ulong hash, out int index)
         {
-            index = (int)(hash % (ulong)capacity);
+            index = (int)(hash & mask);
             return table[index].IsValid(hash);
         }
     }

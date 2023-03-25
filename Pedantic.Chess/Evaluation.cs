@@ -52,17 +52,17 @@ namespace Pedantic.Chess
                     opScore[c] += item.GetOpeningScore(color);
                     egScore[c] += item.GetEndGameScore(color);
                 }
-                else
+                else if (totalPawns > 0)
                 {
                     ComputePawns(color, board);
                     opScore[c] += opPawnScore[c];
                     egScore[c] += egPawnScore[c];
                 }
 
-                opScore[c] += (short)(AdjustMaterial(board.OpeningMaterial[c], adjust[c]) +
-                                      board.OpeningPieceSquare[c]);
-                egScore[c] += (short)(AdjustMaterial(board.EndGameMaterial[c], adjust[c]) +
-                                      board.EndGamePieceSquare[c]);
+            opScore[c] += (short)(AdjustMaterial(board.OpeningMaterial[c], adjust[c]) +
+                                    board.OpeningPieceSquare[c]);
+            egScore[c] += (short)(AdjustMaterial(board.EndGameMaterial[c], adjust[c]) +
+                                    board.EndGamePieceSquare[c]);
             }
 
             if (!pawnsCalculated)
@@ -72,6 +72,7 @@ namespace Pedantic.Chess
 
             score = (short)((((opScore[0] - opScore[1]) * opWt) >> 7) +
                             (((egScore[0] - egScore[1]) * egWt) >> 7));
+
             score = board.SideToMove == Color.White ? score : (short)-score;
 
             if (random)
@@ -108,11 +109,6 @@ namespace Pedantic.Chess
 
         public void ComputePawns(Color color, Board board)
         {
-            if (totalPawns == 0)
-            {
-                return;
-            }
-
             int c = (int)color;
             int o = c ^ 1;
             Color other = (Color)o;

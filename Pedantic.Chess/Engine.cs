@@ -146,6 +146,11 @@ namespace Pedantic.Chess
 
         public static void ResizeHashTable(int sizeMb)
         {
+            if (!BitOps.IsPow2(sizeMb))
+            {
+                sizeMb = BitOps.GreatestPowerOfTwoLessThan(sizeMb);
+            }
+
             TtTran.Resize(sizeMb);
             TtEval.Resize(sizeMb >> 1);
             TtPawnEval.Resize(sizeMb >> 2);
@@ -278,11 +283,12 @@ namespace Pedantic.Chess
         {
             try
             {
-                string exeFullName = System.Reflection.Assembly.GetExecutingAssembly().Location;
-                string dirFullName = System.IO.Path.GetDirectoryName(exeFullName);
-                string bookPath = Path.Combine(dirFullName, "Pedantic.bin");
 
-                if (File.Exists(bookPath))
+                string? exeFullName = Environment.ProcessPath;
+                string? dirFullName = System.IO.Path.GetDirectoryName(exeFullName);
+                string? bookPath = (exeFullName != null && dirFullName != null) ? Path.Combine(dirFullName, "Pedantic.bin") : null;
+
+                if (bookPath != null && File.Exists(bookPath))
                 {
                     FileStream fs = new(bookPath, FileMode.Open, FileAccess.Read);
                     using BigEndianBinaryReader reader = new(fs);

@@ -135,7 +135,7 @@ namespace Pedantic.Chess
             if (canNull && canReduce && depth >= 3 && !isPv && eval >= beta && 
                 board.HasMinorMajorPieces(board.OpponentColor, 600))
             {
-                int R = nmp[depth];
+                int R = 2 + nmp[depth];
                 if (board.MakeMove(Move.NullMove))
                 {
                     score = -Search(-beta, -beta + 1, Math.Max(depth - R - 1, 0), ply + 1, false, false);
@@ -147,6 +147,7 @@ namespace Pedantic.Chess
 
                     if (score >= beta)
                     {
+                        TtTran.Add(board.Hash, depth, ply, originalAlpha, beta, score, 0ul);
                         return beta;
                     }
                 }
@@ -154,7 +155,7 @@ namespace Pedantic.Chess
 
             if (canNull && canReduce && !isPv && depth <= 2 && !Move.IsPawnMove(board.LastMove))
             {
-                int threshold = alpha - 300 * depth;
+                int threshold = alpha - 200 * depth;
                 if (eval < threshold)
                 {
                     score = Quiesce(alpha, beta, ply);
@@ -165,7 +166,7 @@ namespace Pedantic.Chess
                 }
             }
 
-            bool canPrune = canReduce && !isPv && Math.Abs(alpha) < Constants.CHECKMATE_BASE && depth < 8 &&
+            bool canPrune = canReduce && !isPv && Math.Abs(alpha) < Constants.CHECKMATE_BASE && depth <= 10 &&
                             eval + futilityMargin[depth] <= alpha;
 
             ulong[] pv = EmptyPv;
@@ -388,7 +389,7 @@ namespace Pedantic.Chess
         private void ReportSearchResults(ref ulong bestMove, ref ulong? ponderMove)
         {
             ulong[] newPv = ExtractPv(Depth);
-            if (PV.Length <= 1 && newPv.Length > PV.Length)
+            if (newPv.Length >= 2 || PV.Length == 0)
             {
                 PV = newPv;
             }
@@ -587,7 +588,7 @@ namespace Pedantic.Chess
 
         protected static readonly ulong[] EmptyPv = Array.Empty<ulong>();
         protected static readonly int[] window = { 25, 75, Constants.INFINITE_WINDOW };
-        protected static readonly int[] futilityMargin = { 0, 100, 150, 200, 250, 300, 400, 500 };
+        protected static readonly int[] futilityMargin = { 50, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850 };
         protected static readonly ulong recaptureMask = 0x0ffc;
 
         protected static readonly int[][] lmr =
@@ -820,7 +821,7 @@ namespace Pedantic.Chess
             #endregion lmr data
         };
 
-        protected static readonly int[] lmp = { 3, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60 };
+        protected static readonly int[] lmp = { 5, 5, 11, 15, 18, 21, 22, 24, 25, 26, 28, 28, 29, 30, 31, 32, 32 };
 
         protected static readonly int[] nmp =
         {

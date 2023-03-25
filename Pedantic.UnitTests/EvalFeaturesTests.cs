@@ -27,6 +27,9 @@ namespace Pedantic.UnitTests
         [DataRow("7k/1ppn2pp/p1p1bp2/4p3/4P3/1PP1N3/P4PPP/R5K1 w - - 0 22")]
         [DataRow("r1bqr1k1/p1p2ppp/1bpp1n2/8/3BP3/2PB1Q2/PP1N1PPP/R4RK1 b - - 5 12")]
         [DataRow("4k3/b2q1pp1/4p1nr/3pPnN1/PPr2P1p/2PQ4/3BN1PP/R4R1K w - - 3 23 ")]
+        [DataRow("8/8/1k6/1r6/4K3/8/8/8 w - - 2 90")]
+        [DataRow("8/8/1k6/1r6/3K4/8/8/8 b - - 3 90")]
+        [DataRow("2K5/4r3/5k2/8/8/8/8/8 b - - 9 81")]
         public void ComputeTest(string fen)
         {
             Evaluation.LoadWeights("641a9312a0624206d2bc8ab9");

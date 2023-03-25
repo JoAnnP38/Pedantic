@@ -139,7 +139,7 @@ namespace Pedantic.Genetics
             7200,
 
             /* opening piece values */
-            82, 337, 365, 477, 1025, 0,
+            80, 335, 365, 475, 1025, 0,
 
             /* opening piece square values */
 
@@ -265,7 +265,7 @@ namespace Pedantic.Genetics
             3900,
 
             /* end game piece values */
-            94, 281, 297, 512, 936, 0,
+            95, 280, 295, 510, 935, 0,
 
             /* end game piece square values */
             #region end game piece square values

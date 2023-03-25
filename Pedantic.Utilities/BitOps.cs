@@ -112,6 +112,12 @@ namespace Pedantic.Utilities
 #endif
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool IsPow2(int value)
+        {
+            return BitOperations.IsPow2(value);
+        }
+
         public static int GreatestPowerOfTwoLessThan(int n)
         {
             int v = n;

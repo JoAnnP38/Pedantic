@@ -637,9 +637,12 @@ namespace Pedantic
             DateTime startTime = DateTime.Now;
             bool improved = true;
             double curError = guess.Fitness;
+            double refError = MiniEvalErrorParallel(weights, slices, k, 0);
             double bestError = curError + CONVERGENCE_TOLERANCE * 2;
+            short[] bestWeights = ArrayEx.Clone(weights);
             int wtLen = weights.Length;
             int passes = 0;
+            int failureCount = 0;
             int sampleSize = slices.Sum(s => s.Length);
             using var rep = new GeneticsRepository();
 
@@ -650,53 +653,63 @@ namespace Pedantic
                 index[n] = n;
             }
 
-            while (improved && curError + CONVERGENCE_TOLERANCE < bestError && passes < maxPass)
+            while (improved && failureCount < 3 && passes < maxPass)
             {
-                DateTime wtOptTime = DateTime.Now;
                 improved = false;
-                bestError = curError;
+                if (curError < bestError)
+                {
+                    bestError = curError;
+                    Array.Copy(weights, bestWeights, bestWeights.Length);
+                }
+
+                DateTime wtOptTime = DateTime.Now;
                 Random.Shared.Shuffle(index);
                 int optAttempts = 0;
                 int optHits = 0;
                 float effRate = 0;
+                refError = MiniEvalErrorParallel(weights, slices, k, passes);
+                double errAdjust = curError / refError;
 
                 for (int n = 0; n < wtLen; n++)
                 {
                     double completed = ((double)n / wtLen) * 100.0;
                     TimeSpan deltaT = DateTime.Now - wtOptTime;
                     effRate = optAttempts > 0 ? (float)optHits / optAttempts : 0;
-                    Console.Write($"Pass stats {completed,3:F0}%- \u03B5: {curError:F6}, \u0394t: {deltaT:mm\\:ss}, eff: {effRate:F3} ({optHits}/{optAttempts})...\r");
+                    Console.Write($"Pass stats {completed,3:F0}%- \u03B5: {refError * errAdjust:F6}, \u0394t: {deltaT:mm\\:ss}, eff: {effRate:F3} ({optHits}/{optAttempts})...\r");
                     int i = index[n];
                     short increment = EvalFeatures.GetOptimizationIncrement(i);
-                    if (Random.Shared.NextBoolean())
+                    if (increment > 0)
                     {
-                        increment = (short)-increment;
-                    }
-                    short oldValue = weights[i];
-                    weights[i] += increment;
-                    double error = EvalErrorParallel(weights, slices, k);
-                    optAttempts++;
-                    bool goodIncrement = error < curError;
-                    improved = improved || goodIncrement;
-
-                    if (!goodIncrement)
-                    {
-                        weights[i] -= (short)(increment * 2);
-                        error = EvalErrorParallel(weights, slices, k);
+                        if (Random.Shared.NextBoolean())
+                        {
+                            increment = (short)-increment;
+                        }
+                        short oldValue = weights[i];
+                        weights[i] += increment;
+                        double error = MiniEvalErrorParallel(weights, slices, k, passes);
                         optAttempts++;
-                        goodIncrement = error < curError;
+                        bool goodIncrement = error < refError;
                         improved = improved || goodIncrement;
+
+                        if (!goodIncrement)
+                        {
+                            weights[i] -= (short)(increment * 2);
+                            error = MiniEvalErrorParallel(weights, slices, k, passes);
+                            optAttempts++;
+                            goodIncrement = error < refError;
+                            improved = improved || goodIncrement;
+                        }
+
+                        if (goodIncrement)
+                        {
+                            optHits++;
+                            refError = error;
+                        }
+                        else
+                        {
+                            weights[i] = oldValue;
+                        }
                     }
-					
-                    if (goodIncrement)
-                    {
-                        optHits++;
-						curError = error;
-                    }
-					else
-					{
-						weights[i] = oldValue;
-					}
                 }
 
                 ++passes;
@@ -704,7 +717,8 @@ namespace Pedantic
                 TimeSpan totalElapsed = now - startTime;
                 TimeSpan avgT = totalElapsed.Divide(passes);
                 TimeSpan passT = now - wtOptTime;
-                
+                curError = EvalErrorParallel(weights, slices, k);
+
                 if (preserve && passes % 10 == 0 && improved)
                 {
                     ChessWeights intermediate = new(weights)
@@ -723,9 +737,18 @@ namespace Pedantic
                 {
                     Console.WriteLine($"Pass stats {passes,3} - \u03B5: {curError:F6}, Δt: {passT:mm\\:ss}, eff: {effRate:F3}                        ");
                 }
+
+                if (curError + CONVERGENCE_TOLERANCE < bestError)
+                {
+                    failureCount = 0;
+                }
+                else
+                {
+                    ++failureCount;
+                }
             }
 
-            ChessWeights optimized = new(weights)
+            ChessWeights optimized = new(bestWeights)
             {
                 Description = "Optimized",
                 Fitness = (float)curError,
@@ -798,16 +821,23 @@ namespace Pedantic
             return sample;
         }
 
+        public static int UsableProcessorCount
+        {
+            get
+            {
+                int processorCount = 1;
+
+                processorCount = Math.Max(Environment.ProcessorCount - 6, 1);
+                return processorCount;
+            }
+        }
+
         public static List<PosRecord[]> CreateSlices(PosRecord[] records)
         {
             List<PosRecord[]> slices = new List<PosRecord[]>();
-#if DEBUG
-            int sliceCount = 1;
-            int sliceLength = records.Length;
-#else
-            int sliceCount = Math.Max(Environment.ProcessorCount - 6, 1);
+            int sliceCount = UsableProcessorCount;
             int sliceLength = records.Length / sliceCount;
-#endif
+
             slices.EnsureCapacity(sliceCount);
             for (int s = 0; s < sliceCount; s++)
             {
@@ -834,7 +864,7 @@ namespace Pedantic
             return result * result;
         }
 
-        private static double EvalErrorSlice(short[] weights, PosRecord[] slice, double k, double divisor)
+        private static double EvalErrorSlice(short[] weights, ReadOnlySpan<PosRecord> slice, double k, double divisor)
         {
             const int vecSize = EvalFeatures.FEATURE_SIZE;
             ReadOnlySpan<short> opWeights = new ReadOnlySpan<short>(weights, 0, vecSize);
@@ -864,6 +894,33 @@ namespace Pedantic
             Task.WaitAll(sliceTasks);
             double result = sliceTasks.Sum(t => t.Result);
             Array.ForEach(sliceTasks, t => t.Dispose());
+            return result;
+        }
+
+        public static double MiniEvalErrorParallel(short[] weights, List<PosRecord[]> slices, double k, int batch)
+        {
+            int totalLength = slices.Sum(s => s.Length);
+            int miniBatchSize = totalLength / 10;
+            if (UsableProcessorCount == 1)
+            {
+                return EvalErrorParallel(weights, slices, k);
+            }
+
+            int sliceLen = totalLength / UsableProcessorCount;
+            int batchLen = miniBatchSize / UsableProcessorCount;
+            int totalBatches = sliceLen / batchLen;
+            int start = (batch % totalBatches) * batchLen;
+            double divisor = 1.0 / (batchLen * UsableProcessorCount);
+            Task<double>[] tasks = new Task<double>[slices.Count];
+            for (int n = 0; n < slices.Count; n++)
+            {
+                PosRecord[] slice = slices[n];
+                tasks[n] = Task<double>.Factory.StartNew(() => EvalErrorSlice(weights, slice.AsSpan(start, batchLen), k, divisor));
+            }
+
+            Task.WaitAll(tasks);
+            double result = tasks.Sum(t => t.Result);
+            Array.ForEach(tasks, t => t.Dispose());
             return result;
         }
 
