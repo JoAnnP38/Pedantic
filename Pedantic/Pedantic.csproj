@@ -6,28 +6,29 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
-    <Platforms>AnyCPU;x64</Platforms>
+    <Platforms>x64</Platforms>
     <StartupObject>Pedantic.Program</StartupObject>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <DefineConstants>$(DefineConstants);TRACE</DefineConstants>
-    <DebugType>full</DebugType>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
-    <DefineConstants>$(DefineConstants);TRACE</DefineConstants>
-    <Optimize>True</Optimize>
-    <DebugType>full</DebugType>
+    <Configurations>Debug;Release;ReleaseNoIntrinsics;DebugNoIntrinsics</Configurations>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <DefineConstants>$(DefineConstants);TRACE;X64</DefineConstants>
+    <DefineConstants>$(DefineConstants);X64</DefineConstants>
     <DebugType>full</DebugType>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <DefineConstants>$(DefineConstants);TRACE;X64</DefineConstants>
+    <DefineConstants>$(DefineConstants);X64</DefineConstants>
+    <Optimize>True</Optimize>
+    <DebugType>full</DebugType>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugNoIntrinsics|x64'">
+    <DefineConstants>$(DefineConstants)</DefineConstants>
+    <DebugType>full</DebugType>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseNoIntrinsics|x64'">
+    <DefineConstants>$(DefineConstants)</DefineConstants>
     <Optimize>True</Optimize>
     <DebugType>full</DebugType>
   </PropertyGroup>
