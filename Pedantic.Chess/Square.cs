@@ -1,9 +1,20 @@
-﻿using System.Data.SqlTypes;
+﻿// ***********************************************************************
+// Assembly         : Pedantic.Chess
+// Author           : JoAnn D. Peeler
+// Created          : 01-17-2023
+//
+// Last Modified By : JoAnn D. Peeler
+// Last Modified On : 03-27-2023
+// ***********************************************************************
+// <copyright file="Square.cs" company="Pedantic.Chess">
+//     Copyright (c) . All rights reserved.
+// </copyright>
+// <summary>
+//     A structure representing a square on a chess board and its contents
+//     (if any)
+// </summary>
+// ***********************************************************************
 using System.Runtime.CompilerServices;
-using Pedantic.Chess;
-
-using Color = Pedantic.Chess.Color;
-using Piece = Pedantic.Chess.Piece;
 
 namespace Pedantic.Chess
 {

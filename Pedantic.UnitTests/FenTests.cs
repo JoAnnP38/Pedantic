@@ -15,7 +15,7 @@ namespace Pedantic.UnitTests
             Assert.IsTrue(fen.Squares.Count == 0);
             Assert.AreEqual(Color.White, fen.SideToMove);
             Assert.AreEqual(CastlingRights.None, fen.Castling);
-            Assert.AreEqual(Index.None, fen.EnPassant);
+            Assert.AreEqual(Index.NONE, fen.EnPassant);
             Assert.AreEqual(0, fen.HalfMoveClock);
             Assert.AreEqual(0, fen.FullMoveCounter);
         }
@@ -44,7 +44,7 @@ namespace Pedantic.UnitTests
             Assert.AreEqual(32, fen.Squares.Count);
             Assert.AreEqual(Color.White, fen.SideToMove);
             Assert.AreEqual(CastlingRights.All, fen.Castling);
-            Assert.AreEqual(Index.None, fen.EnPassant);
+            Assert.AreEqual(Index.NONE, fen.EnPassant);
             Assert.AreEqual(0, fen.HalfMoveClock);
             Assert.AreEqual(1, fen.FullMoveCounter);
         }

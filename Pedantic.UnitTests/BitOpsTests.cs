@@ -1,3 +1,4 @@
+using System.Runtime.Intrinsics.X86;
 using Pedantic.Utilities;
 
 namespace Pedantic.UnitTests
@@ -93,6 +94,15 @@ namespace Pedantic.UnitTests
 
             actual = BitOps.GreatestPowerOfTwoLessThan(128);
             Assert.AreEqual(64, actual);
+        }
+
+        [TestMethod]
+        public void ParallelBitDepositText()
+        {
+            ulong expected = Bmi2.X64.ParallelBitDeposit(10107ul, 0x0ff0ff0fful);
+            ulong actual = BitOps.ParallelBitDeposit(10107ul, 0x0ff0ff0fful);
+            Assert.AreEqual(expected, actual);
+
         }
     }
 }

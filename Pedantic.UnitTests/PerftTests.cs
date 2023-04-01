@@ -20,7 +20,7 @@ namespace Pedantic.UnitTests
         [DataRow(6, 119060324ul)]
         public void ExecuteTest(int depth, ulong expectedNodes)
         {
-            Perft perft = new Perft();
+            Perft perft = new();
             Stopwatch watch = new();
             watch.Start();
             ulong actual = perft.Execute(depth);
@@ -45,7 +45,7 @@ namespace Pedantic.UnitTests
         [DataRow("r3k2r/pb3p2/5npp/n2p4/1p1PPB2/6P1/P2N1PBP/R3K2R w KQkq - 0 1", 5, 29179893ul)]
         public void Execute2Test(string position, int depth, ulong expectedNodes)
         {
-            Perft perft = new Perft();
+            Perft perft = new();
             perft.Initialize(position);
             ulong actual = perft.Execute(depth);
             Assert.AreEqual(expectedNodes, actual);

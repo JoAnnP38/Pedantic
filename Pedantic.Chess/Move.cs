@@ -1,7 +1,22 @@
-﻿using System.Diagnostics;
+﻿// ***********************************************************************
+// Assembly         : Pedantic.Chess
+// Author           : JoAnn D. Peeler
+// Created          : 01-17-2023
+//
+// Last Modified By : JoAnn D. Peeler
+// Last Modified On : 03-27-2023
+// ***********************************************************************
+// <copyright file="Move.cs" company="Pedantic.Chess">
+//     Copyright (c) . All rights reserved.
+// </copyright>
+// <summary>
+//     Move class encapsulates a set of methods on chess moves stored in
+//     a 64 bit integer (i.e ulong).
+// </summary>
+// ***********************************************************************
+using Pedantic.Utilities;
 using System.Runtime.CompilerServices;
 using System.Text;
-using Pedantic.Utilities;
 
 namespace Pedantic.Chess
 {
@@ -13,7 +28,7 @@ namespace Pedantic.Chess
         {
             Util.Assert(Index.IsValid(from));
             Util.Assert(Index.IsValid(to));
-            Util.Assert(score >= 0 && score <= short.MaxValue);
+            Util.Assert(score is >= 0 and <= short.MaxValue);
             ulong move = ((ulong)from & 0x3f) |
                          (((ulong)to & 0x3f) << 6) |
                          (((ulong)type & 0x0f) << 12) |
@@ -207,14 +222,9 @@ namespace Pedantic.Chess
                 {
                     if (ambiguous.Any(m => Index.GetFile(Move.GetFrom(m)) == Index.GetFile(from)))
                     {
-                        if (ambiguous.Any(m => Index.GetRank(Move.GetFrom(m)) == Index.GetRank(from)))
-                        {
-                            sb.Append(Index.ToString(from));
-                        }
-                        else
-                        {
-                            sb.Append(Coord.ToRank(Index.GetRank(from)));
-                        }
+                        sb.Append(ambiguous.Any(m => Index.GetRank(Move.GetFrom(m)) == Index.GetRank(from))
+                            ? Index.ToString(from)
+                            : Coord.ToRank(Index.GetRank(from)));
                     }
                     else
                     {

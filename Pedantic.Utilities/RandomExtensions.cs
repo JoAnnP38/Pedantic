@@ -1,6 +1,18 @@
-﻿using System;
-
-
+﻿// ***********************************************************************
+// Assembly         : Pedantic.Utilities
+// Author           : JoAnn D. Peeler
+// Created          : 02-09-2023
+//
+// Last Modified By : JoAnn D. Peeler
+// Last Modified On : 03-27-2023
+// ***********************************************************************
+// <copyright file="RandomExtensions.cs" company="Pedantic.Utilities">
+//     Copyright (c) . All rights reserved.
+// </copyright>
+// <summary>
+//     Extension methods for the Random class.
+// </summary>
+// ***********************************************************************
 namespace Pedantic.Utilities
 {
     public static class RandomExtensions

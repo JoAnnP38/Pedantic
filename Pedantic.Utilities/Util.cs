@@ -1,4 +1,19 @@
-﻿#undef DEBUG
+﻿// ***********************************************************************
+// Assembly         : Pedantic.Utilities
+// Author           : JoAnn D. Peeler
+// Created          : 01-17-2023
+//
+// Last Modified By : JoAnn D. Peeler
+// Last Modified On : 01-17-2023
+// ***********************************************************************
+// <copyright file="Util.cs" company="Pedantic.Utilities">
+//     Copyright (c) . All rights reserved.
+// </copyright>
+// <summary>
+//     Methods used to ensure correctness of the application in real-time.
+// </summary>
+// ***********************************************************************
+#undef DEBUG
 using System.Diagnostics;
 
 namespace Pedantic.Utilities
@@ -34,11 +49,12 @@ namespace Pedantic.Utilities
             }
         }
 
+#pragma warning disable CA2211
         public static TraceSwitch TraceSwitch = new("General", "Entire Application")
         {
             Level = TraceLevel.Verbose
         };
-
+#pragma warning restore CA2211
 
         [Conditional("DEBUG")]
         public static void Assert(bool condition)

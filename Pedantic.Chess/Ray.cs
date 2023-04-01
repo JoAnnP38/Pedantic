@@ -1,4 +1,20 @@
-﻿namespace Pedantic.Chess
+﻿// ***********************************************************************
+// Assembly         : Pedantic.Chess
+// Author           : JoAnn D. Peeler
+// Created          : 01-17-2023
+//
+// Last Modified By : JoAnn D. Peeler
+// Last Modified On : 01-17-2023
+// ***********************************************************************
+// <copyright file="Ray.cs" company="Pedantic.Chess">
+//     Copyright (c) . All rights reserved.
+// </copyright>
+// <summary>
+//     A structure that holds the ray masks in every direction from a 
+//     square on the chess board.
+// </summary>
+// ***********************************************************************
+namespace Pedantic.Chess
 {
     public readonly struct Ray
     {

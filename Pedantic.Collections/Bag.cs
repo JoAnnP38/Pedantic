@@ -1,4 +1,19 @@
-﻿using System.Collections;
+﻿// ***********************************************************************
+// Assembly         : Pedantic.Collections
+// Author           : JoAnn D. Peeler
+// Created          : 01-17-2023
+//
+// Last Modified By : JoAnn D. Peeler
+// Last Modified On : 01-17-2023
+// ***********************************************************************
+// <copyright file="Bag.cs" company="Pedantic.Collections">
+//     Copyright (c) . All rights reserved.
+// </copyright>
+// <summary>
+//     Specialized collection for class objects.
+// </summary>
+// ***********************************************************************
+using System.Collections;
 
 namespace Pedantic.Collections
 {

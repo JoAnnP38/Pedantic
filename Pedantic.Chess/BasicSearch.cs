@@ -1,15 +1,27 @@
-﻿using System.ComponentModel;
-using System.Reflection;
-using Microsoft.VisualBasic;
-using Pedantic.Genetics;
+﻿// ***********************************************************************
+// Assembly         : Pedantic.Chess
+// Author           : JoAnn D. Peeler
+// Created          : 03-12-2023
+//
+// Last Modified By : JoAnn D. Peeler
+// Last Modified On : 03-27-2023
+// ***********************************************************************
+// <copyright file="BasicSearch.cs" company="Pedantic.Chess">
+//     Copyright (c) . All rights reserved.
+// </copyright>
+// <summary>
+//     Define the <c>BasicSearch</c> class that implement the Principal
+//     Variation search.
+// </summary>
+// ***********************************************************************
 using Pedantic.Utilities;
 
 namespace Pedantic.Chess
 {
-    public class BasicSearch
+    public sealed class BasicSearch
     {
         public const int CHECK_TC_NODES_MASK = 31;
-        protected const int WAIT_TIME = 50;
+        internal const int WAIT_TIME = 50;
 
 
         public BasicSearch(Board board, TimeControl time, int maxSearchDepth, long maxNodes = long.MaxValue - 100, bool randomSearch = false) 
@@ -32,36 +44,44 @@ namespace Pedantic.Chess
             ulong? ponderMove = null;
             bool oneLegalMove = board.OneLegalMove(out ulong bestMove);
             evaluation.CalcMaterialAdjustment(board);
+            bool inCheck = board.IsChecked();
+            Score = Quiesce(-Constants.INFINITE_WINDOW, Constants.INFINITE_WINDOW, 0);
 
             while (Depth++ < maxSearchDepth && time.CanSearchDeeper() && (!IsCheckmate(Score, out int mateIn) || Math.Abs(mateIn) * 2 >= Depth))
             {
                 time.StartInterval();
                 history.Rescale();
                 UpdateTtWithPv(PV, Depth);
+                int iAlpha = 0, iBeta = 0, result, alpha, beta;
 
-                for (int i = 0; i < window.Length; i++)
+                do
                 {
-                    int alpha = Score - window[i];
-                    int beta = Score + window[i];
-
-                    Score = Search(alpha, beta, Depth, 0);
+                    alpha = Window[iAlpha] == -Constants.INFINITE_WINDOW ? -Constants.INFINITE_WINDOW : Score - Window[iAlpha];
+                    beta = Window[iBeta] == Constants.INFINITE_WINDOW ? Constants.INFINITE_WINDOW : Score + Window[iBeta];
+                    result = Search(alpha, beta, Depth, 0, inCheck);
 
                     if (wasAborted)
                     {
                         break;
                     }
 
-                    if (Score > alpha && Score < beta)
+                    if (result <= alpha)
                     {
-                        break;
+                        ++iAlpha;
                     }
-                }
+                    else if (result >= beta)
+                    {
+                        ++iBeta;
+                    }
+
+                } while (result <= alpha || result >= beta);
 
                 if (wasAborted)
                 {
                     break;
                 }
 
+                Score = result;
                 ReportSearchResults(ref bestMove, ref ponderMove);
 
                 if (Depth == 5 && oneLegalMove)
@@ -70,6 +90,10 @@ namespace Pedantic.Chess
                 }
             }
 
+            // If program was pondering next move and the search loop was exited for 
+            // reasons not due to the client telling us to stop, then sleep until 
+            // we get a stop from the client (i.e. Engine will change the Infinite
+            // property to false resulting in CanSearchDeeper returning false.)
             if (Pondering)
             {
                 bool waiting = false;
@@ -87,7 +111,7 @@ namespace Pedantic.Chess
             Uci.BestMove(bestMove, CanPonder ? ponderMove : null);
         }
 
-        public int Search(int alpha, int beta, int depth, int ply, bool canNull = true, bool isPv = true)
+        public int Search(int alpha, int beta, int depth, int ply, bool inCheck, bool canNull = true, bool isPv = true)
         {
             int originalAlpha = alpha;
 
@@ -101,6 +125,8 @@ namespace Pedantic.Chess
                 return evaluation.Compute(board);
             }
 
+            // This is a trick from CPW-Engine which I do not understand
+            // but I leave the code here anyways.
             alpha = Math.Max(alpha, -Constants.CHECKMATE_SCORE + ply - 1);
             beta = Math.Min(beta, Constants.CHECKMATE_SCORE - ply);
 
@@ -127,18 +153,18 @@ namespace Pedantic.Chess
                 return 0;
             }
 
-            bool inCheck = board.IsChecked();
             int X = CalcExtension(inCheck);
-            bool canReduce = X == 0;
             int eval = evaluation.Compute(board);
 
-            if (canNull && canReduce && depth >= 3 && !isPv && eval >= beta && 
+            // null move pruning
+            if (depth >= 3 && canNull && !isPv && eval >= beta && !inCheck &&
                 board.HasMinorMajorPieces(board.OpponentColor, 600))
             {
-                int R = 2 + nmp[depth];
+                /* 2 + nmp[depth] : nmp[depth] */
+                int R = 2 + NMP[depth];
                 if (board.MakeMove(Move.NullMove))
                 {
-                    score = -Search(-beta, -beta + 1, Math.Max(depth - R - 1, 0), ply + 1, false, false);
+                    score = -Search(-beta, -beta + 1, Math.Max(depth - R - 1, 0), ply + 1, false, false, false);
                     board.UnmakeMove();
                     if (wasAborted)
                     {
@@ -153,9 +179,11 @@ namespace Pedantic.Chess
                 }
             }
 
-            if (canNull && canReduce && !isPv && depth <= 2 && !Move.IsPawnMove(board.LastMove))
+            // bool imminentPromotion = board.ImminentPromotionThreat(board.OpponentColor);
+            // razoring 300 - (depth - 1) * 60 : 300 * depth 
+            if (canNull && !inCheck && !isPv && ttMove == 0 && depth <= 3)
             {
-                int threshold = alpha - 200 * depth;
+                int threshold = alpha - 300 - (depth - 1) * 60;
                 if (eval < threshold)
                 {
                     score = Quiesce(alpha, beta, ply);
@@ -166,13 +194,13 @@ namespace Pedantic.Chess
                 }
             }
 
-            bool canPrune = canReduce && !isPv && Math.Abs(alpha) < Constants.CHECKMATE_BASE && depth <= 10 &&
-                            eval + futilityMargin[depth] <= alpha;
+            /* depth <= 8 : depth < 8 .... && !imminentPromotion */
+            bool canPrune = !inCheck && !isPv && Math.Abs(alpha) < Constants.CHECKMATE_BASE && depth <= 8 &&
+                            eval + FutilityMargin[Math.Min(depth, 8)] <= alpha;
 
-            ulong[] pv = EmptyPv;
             int expandedNodes = 0;
             history.SideToMove = board.SideToMove;
-            MoveList moveList = MoveListPool.Get();
+            MoveList moveList = moveListPool.Get();
             ulong bestMove = 0ul;
 
 #if DEBUG
@@ -199,7 +227,7 @@ namespace Pedantic.Chess
                 bool isQuiet = Move.IsQuiet(move);
                 bool interesting = inCheck || checkingMove || !isQuiet || expandedNodes == 1;
 
-                if (canPrune && !interesting && expandedNodes > lmp[depth])
+                if (canPrune && !interesting && expandedNodes > LMP[depth])
                 {
                     board.UnmakeMove();
                     continue;
@@ -215,7 +243,7 @@ namespace Pedantic.Chess
                 int R = 0;
                 if (!interesting && !killerMoves.Exists(ply, move))
                 {
-                    R = lmr[Math.Min(depth, 31)][Math.Min(expandedNodes, 63)];
+                    R = LMR[Math.Min(depth, 31)][Math.Min(expandedNodes, 63)];
                 }
 
                 if (X > 0 && R > 0)
@@ -227,14 +255,14 @@ namespace Pedantic.Chess
                 {
                     if (expandedNodes == 1)
                     {
-                        score = -Search(-beta, -alpha, depth + X - 1, ply + 1, true, isPv);
+                        score = -Search(-beta, -alpha, depth + X - 1, ply + 1, checkingMove, true, isPv);
                     }
                     else
                     {
-                        score = -Search(-alpha - 1, -alpha, Math.Max(depth + X - R - 1, 0), ply + 1, true, false);
+                        score = -Search(-alpha - 1, -alpha, Math.Max(depth + X - R - 1, 0), ply + 1, checkingMove, true, false);
                         if (score > alpha)
                         {
-                            score = -Search(-beta, -alpha, Math.Max(depth + X - R - 1, 0), ply + 1, true, R == 0);
+                            score = -Search(-beta, -alpha, Math.Max(depth + X - R - 1, 0), ply + 1, checkingMove, true, R == 0);
                         }
                     }
 
@@ -273,7 +301,7 @@ namespace Pedantic.Chess
                 }
             }
 
-            MoveListPool.Return(moveList);
+            moveListPool.Return(moveList);
 
             if (wasAborted)
             {
@@ -291,8 +319,6 @@ namespace Pedantic.Chess
 
         public int Quiesce(int alpha, int beta, int ply)
         {
-            int originalAlpha = alpha;
-
             NodesVisited++;
 
             if (MustAbort || wasAborted)
@@ -330,7 +356,7 @@ namespace Pedantic.Chess
 #endif 
 
             int expandedNodes = 0;
-            MoveList moveList = MoveListPool.Get();
+            MoveList moveList = moveListPool.Get();
             IEnumerable<ulong> moves =
                 inCheck ? board.Moves(ply, killerMoves, history, moveList) : board.CaptureMoves(moveList);
 
@@ -355,7 +381,7 @@ namespace Pedantic.Chess
                     alpha = score;
                     if (score >= beta)
                     {
-                        MoveListPool.Return(moveList);
+                        moveListPool.Return(moveList);
                         return beta;
                     }
                 }
@@ -363,7 +389,7 @@ namespace Pedantic.Chess
 
             if (wasAborted)
             {
-                MoveListPool.Return(moveList);
+                moveListPool.Return(moveList);
                 return 0;
             }
 
@@ -371,18 +397,18 @@ namespace Pedantic.Chess
             {
                 if (inCheck)
                 {
-                    MoveListPool.Return(moveList);
+                    moveListPool.Return(moveList);
                     return -Constants.CHECKMATE_SCORE + ply;
                 }
 
                 if (!board.HasLegalMoves(moveList))
                 {
-                    MoveListPool.Return(moveList);
+                    moveListPool.Return(moveList);
                     return Contempt;
                 }
             }
 
-            MoveListPool.Return(moveList);
+            moveListPool.Return(moveList);
             return alpha;
         }
 
@@ -433,39 +459,7 @@ namespace Pedantic.Chess
             }
         }
 
-        private ulong[] ExtractPv(ulong[] pv, int depth)
-        {
-            List<ulong> result = new(pv);
-
-            if (result.Count < depth)
-            {
-                Board bd = board.Clone();
-                foreach (ulong move in pv)
-                {
-                    if (!bd.IsLegalMove(move))
-                    {
-                        break;
-                    }
-
-                    bd.MakeMove(move);
-                }
-
-                while (result.Count < depth && TtTran.TryGetBestMove(bd.Hash, out ulong bestMove) && bd.IsLegalMove(bestMove))
-                {
-                    if (!bd.IsLegalMove(bestMove))
-                    {
-                        break;
-                    }
-
-                    bd.MakeMove(bestMove);
-                    result.Add(bestMove);
-                }
-            }
-
-            return result.ToArray();
-        }
-
-        protected ulong[] ExtractPv(int depth)
+        private ulong[] ExtractPv(int depth)
         {
             int maxDepth = depth + 4;
             List<ulong> result = new(maxDepth);
@@ -486,7 +480,7 @@ namespace Pedantic.Chess
             return result.ToArray();
         }
 
-        private ulong[] MergeMove(ulong[] pv, ulong move)
+        private static ulong[] MergeMove(ulong[] pv, ulong move)
         {
             Array.Resize(ref pv, pv.Length + 1);
             Array.Copy(pv, 0, pv, 1, pv.Length - 1);
@@ -576,22 +570,21 @@ namespace Pedantic.Chess
         public Evaluation Eval => evaluation;
 
 
-        private Board board;
-        private TimeControl time;
+        private readonly Board board;
+        private readonly TimeControl time;
         private Evaluation evaluation;
-        private int maxSearchDepth;
-        private long maxNodes;
-        private History history = new();
-        private KillerMoves killerMoves = new();
+        private readonly int maxSearchDepth;
+        private readonly long maxNodes;
+        private readonly History history = new();
+        private readonly KillerMoves killerMoves = new();
         private bool wasAborted = false;
-        private readonly ObjectPool<MoveList> MoveListPool = new(Constants.MAX_PLY);
+        private readonly ObjectPool<MoveList> moveListPool = new(Constants.MAX_PLY);
 
-        protected static readonly ulong[] EmptyPv = Array.Empty<ulong>();
-        protected static readonly int[] window = { 25, 75, Constants.INFINITE_WINDOW };
-        protected static readonly int[] futilityMargin = { 50, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850 };
-        protected static readonly ulong recaptureMask = 0x0ffc;
+        internal static readonly ulong[] EmptyPv = Array.Empty<ulong>();
+        internal static readonly int[] Window = { 25, 100, Constants.INFINITE_WINDOW };
+        internal static readonly int[] FutilityMargin = { 0, 100, 150, 200, 250, 300, 400, 500, 600 };
 
-        protected static readonly int[][] lmr =
+        internal static readonly int[][] LMR =
         {
             #region lmr data
             new []
@@ -624,210 +617,211 @@ namespace Pedantic.Chess
             },
             new []
             {
-                0, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2,
+                0, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
                 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
                 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
                 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2
             },
             new []
             {
-                0, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+                0, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3,
                 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
                 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
                 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3
             },
             new []
             {
-                0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3,
-                3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4,
+                0, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3,
+                3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
                 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
                 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4
             },
             new []
             {
-                0, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3,
-                3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4,
-                4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
-                4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5
-            },
-            new []
-            {
-                0, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3,
-                3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
-                4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5,
-                5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5
-            },
-            new []
-            {
-                0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3,
-                3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
-                4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
-                5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5
-            },
-            new []
-            {
                 0, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3,
                 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
-                5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+                4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
                 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5
             },
             new []
             {
-                0, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 4,
-                4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5,
+                0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 4, 4,
+                4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5,
                 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
-                5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6
+                5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6
             },
             new []
             {
-                0, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4,
+                0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4,
                 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5,
                 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
-                5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6
+                5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6
             },
             new []
             {
-                0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4,
-                4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5,
+                0, 1, 1, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4,
+                4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5,
                 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6,
                 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6
             },
             new []
             {
-                0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4,
-                4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5,
-                5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6,
-                6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6
-            },
-            new []
-            {
-                0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4,
+                0, 1, 1, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4,
                 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
-                5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+                5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6,
                 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6
             },
             new []
             {
-                0, 1, 1, 1, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4,
-                4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+                0, 1, 1, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4,
+                4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
                 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
                 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6
             },
             new []
             {
-                0, 1, 1, 1, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4,
-                4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
-                5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
-                6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7
-            },
-            new []
-            {
-                0, 1, 1, 1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4,
+                0, 1, 1, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4,
                 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+                5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+                6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7
+            },
+            new []
+            {
+                0, 1, 1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4,
+                4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6,
                 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
-                6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7
+                6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7
             },
             new []
             {
-                0, 1, 1, 1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4,
-                4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6,
+                0, 1, 1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4,
+                5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6,
                 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
-                6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7
-            },
-            new []
-            {
-                0, 1, 1, 1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4,
-                4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6,
-                6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
-                6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7
-            },
-            new []
-            {
-                0, 1, 1, 1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4,
-                5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6,
-                6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
-                7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7
-            },
-            new []
-            {
-                0, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4,
-                5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6,
-                6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7,
-                7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7
-            },
-            new []
-            {
-                0, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 4, 5,
-                5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6,
-                6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7,
-                7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7
+                6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7
             },
             new []
             {
                 0, 1, 1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 5,
-                5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6,
-                6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7,
-                7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7
-            },
-            new []
-            {
-                0, 1, 1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5,
-                5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6,
-                6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7,
-                7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7
-            },
-            new []
-            {
-                0, 1, 1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5,
-                5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6,
-                6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+                5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6,
+                6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
                 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7
             },
             new []
             {
                 0, 1, 1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 4, 5, 5,
-                5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
-                6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
-                7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8, 8
+                5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6,
+                6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7,
+                7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7
+            },
+            new []
+            {
+                0, 1, 1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 4, 5, 5,
+                5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6,
+                6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7,
+                7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7
+            },
+            new []
+            {
+                0, 1, 1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5,
+                5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+                6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7,
+                7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7
             },
             new []
             {
                 0, 1, 1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5,
                 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+                6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+                7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7
+            },
+            new []
+            {
+                0, 1, 1, 2, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5,
+                5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
                 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
-                7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8
+                7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8
             },
             new []
             {
-                0, 1, 1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5,
-                5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+                0, 1, 1, 2, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5,
+                5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
                 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
-                7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 8
+                7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8
             },
             new []
             {
-                0, 1, 1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5,
-                5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
-                6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
-                7, 7, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 8, 8, 8
-            },
-            new []
-            {
-                0, 1, 1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5,
+                0, 1, 1, 2, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5,
                 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
                 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+                7, 7, 7, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 8, 8
+            },
+            new []
+            {
+                0, 1, 1, 2, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5,
+                5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+                7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
                 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8
             },
+            new []
+            {
+                0, 1, 1, 2, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5,
+                5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7,
+                7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+                7, 7, 7, 7, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8
+            },
+            new []
+            {
+                0, 1, 1, 2, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5,
+                5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7,
+                7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+                7, 7, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8
+            },
+            new []
+            {
+                0, 1, 1, 2, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5,
+                5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7,
+                7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+                8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8
+            },
+            new []
+            {
+                0, 1, 1, 2, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5,
+                5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7,
+                7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8, 8,
+                8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8
+            },
+            new []
+            {
+                0, 1, 1, 2, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5,
+                5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7,
+                7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8, 8, 8,
+                8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8
+            },
+            new []
+            {
+                0, 1, 1, 2, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5,
+                6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7,
+                7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8,
+                8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8
+            },
+            new []
+            {
+                0, 1, 1, 2, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5,
+                6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7,
+                7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 8,
+                8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8
+            }
             #endregion lmr data
         };
 
-        protected static readonly int[] lmp = { 5, 5, 11, 15, 18, 21, 22, 24, 25, 26, 28, 28, 29, 30, 31, 32, 32 };
+        internal static readonly int[] LMP = { 3, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60 };
+                                               
 
-        protected static readonly int[] nmp =
+        internal static readonly int[] NMP =
         {
             #region nmp data
-            0, 0, 0, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5,
-            5, 5, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 8, 9, 9, 9, 9, 9, 9, 10, 10, 10, 10, 10
+            0, 0, 0, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 
+            5, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 8, 9, 9, 9, 9, 9, 9, 10, 10, 10, 10, 10, 10, 10
             #endregion nmp data
         };
 

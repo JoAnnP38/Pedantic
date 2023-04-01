@@ -1,14 +1,23 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations.Schema;
-using System.Linq;
-using System.Reflection.Metadata.Ecma335;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading.Tasks;
-using System.Xml.Schema;
+﻿// ***********************************************************************
+// Assembly         : Pedantic.Chess
+// Author           : JoAnn D. Peeler
+// Created          : 01-17-2023
+//
+// Last Modified By : JoAnn D. Peeler
+// Last Modified On : 03-27-2023
+// ***********************************************************************
+// <copyright file="TtPawnEval.cs" company="Pedantic.Chess">
+//     Copyright (c) . All rights reserved.
+// </copyright>
+// <summary>
+//     A secondary transposition table dedicated to the evaluation;
+//     however, this one is dedicated purely to pawn structure. 
+//     If the pawn structure hasn't changed there is no reason to 
+//     recompute its value.
+// </summary>
+// ***********************************************************************
 using Pedantic.Utilities;
+using System.Runtime.CompilerServices;
 
 namespace Pedantic.Chess
 {
@@ -126,6 +135,7 @@ namespace Pedantic.Chess
             // resizing also clears the hash table. No attempt to rehash.
             capacity = (Math.Min(sizeMb, MAX_SIZE_MB) * MB_SIZE) / ITEM_SIZE;
             table = new TtPawnItem[capacity];
+            mask = (uint)(capacity - 1);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

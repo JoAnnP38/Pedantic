@@ -1,10 +1,21 @@
-﻿using Pedantic.Utilities;
-using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿// ***********************************************************************
+// Assembly         : Pedantic.Chess
+// Author           : JoAnn D. Peeler
+// Created          : 01-17-2023
+//
+// Last Modified By : JoAnn D. Peeler
+// Last Modified On : 03-28-2023
+// ***********************************************************************
+// <copyright file="TtEval.cs" company="Pedantic.Chess">
+//     Copyright (c) . All rights reserved.
+// </copyright>
+// <summary>
+//     A transposition table dedicated strictly to the evaluation
+//     function. 
+// </summary>
+// ***********************************************************************
+using Pedantic.Utilities;
 using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Pedantic.Chess
 {
@@ -58,7 +69,6 @@ namespace Pedantic.Chess
             int index = GetIndex(hash);
             ref TtEvalItem item = ref table[index];
             TtEvalItem.SetValue(ref item, hash, score);
-
         }
 
         public static bool TryGetScore(ulong hash, out short score)

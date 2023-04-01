@@ -1,9 +1,18 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
+﻿// ***********************************************************************
+// Assembly         : Pedantic.Utilities
+// Author           : JoAnn D. Peeler
+// Created          : 03-13-2023
+//
+// Last Modified By : JoAnn D. Peeler
+// Last Modified On : 03-27-2023
+// ***********************************************************************
+// <copyright file="ArrayEx.cs" company="Pedantic.Utilities">
+//     Copyright (c) . All rights reserved.
+// </copyright>
+// <summary>
+//     Additional array functionality.
+// </summary>
+// ***********************************************************************
 namespace Pedantic.Utilities
 {
     public static class ArrayEx
@@ -11,7 +20,7 @@ namespace Pedantic.Utilities
 
         public static T[] Clone<T>(T[] array)
         {
-            T[] clone = new T[array.Length];
+            var clone = new T[array.Length];
             Array.Copy(array, clone, array.Length);
             return clone;
         }

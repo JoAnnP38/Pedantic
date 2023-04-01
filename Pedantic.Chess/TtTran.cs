@@ -1,4 +1,19 @@
-﻿using System.Runtime.CompilerServices;
+﻿// ***********************************************************************
+// Assembly         : Pedantic.Chess
+// Author           : JoAnn D. Peeler
+// Created          : 01-17-2023
+//
+// Last Modified By : JoAnn D. Peeler
+// Last Modified On : 03-26-2023
+// ***********************************************************************
+// <copyright file="TtTran.cs" company="Pedantic.Chess">
+//     Copyright (c) . All rights reserved.
+// </copyright>
+// <summary>
+//     A transposition table dedicated to search. 
+// </summary>
+// ***********************************************************************
+using System.Runtime.CompilerServices;
 using Pedantic.Utilities;
 
 namespace Pedantic.Chess
@@ -13,21 +28,23 @@ namespace Pedantic.Chess
         }
 
         public const int DEFAULT_SIZE_MB = 64;
-        public const int MAX_SIZE_MB = 2047;
+        public const int MAX_SIZE_MB = 2048;
         public const int ITEM_SIZE = 16;
         public const int MB_SIZE = 1024 * 1024;
+        public const int CAPACITY_MULTIPLIER = MB_SIZE / ITEM_SIZE;
 
         public struct TtTranItem
         {
             private ulong hash;
             private ulong data;
 
-            public TtTranItem(ulong hash, short score, sbyte depth, TtFlag ttFlag, ulong bestMove)
+            public TtTranItem(ulong hash, short score, sbyte depth, byte age, TtFlag ttFlag, ulong bestMove)
             {
                 data = (bestMove & 0x0fffffful) |
                        (((ulong)score & 0x0fffful) << 24) |
                        (((ulong)ttFlag & 0x03ul) << 40) |
-                       (((byte)depth & 0x0fful) << 42);
+                       (((byte)depth & 0x0fful) << 42) |
+                       (((byte)age & 0x0fful) << 50);
 
                 this.hash = hash ^ data;
             }
@@ -38,6 +55,11 @@ namespace Pedantic.Chess
             public short Score => (short)BitOps.BitFieldExtract(data, 24, 16);
             public TtFlag Flag => (TtFlag)BitOps.BitFieldExtract(data, 40, 2);
             public sbyte Depth => (sbyte)BitOps.BitFieldExtract(data, 42, 8);
+            public byte Age
+            {
+                get => (byte) BitOps.BitFieldExtract(data, 50, 8);
+                set => BitOps.BitFieldSet(data, value, 50, 8);
+            }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public bool IsValid(ulong hash)
@@ -45,13 +67,14 @@ namespace Pedantic.Chess
                 return (this.hash ^ data)  == hash;
             }
 
-            public static void SetValue(ref TtTranItem item, ulong hash, short score, sbyte depth, TtFlag flag,
-                ulong bestMove)
+            public static void SetValue(ref TtTranItem item, ulong hash, short score, sbyte depth, byte age, 
+                TtFlag flag, ulong bestMove)
             {
                 item.data = (Move.ClearScore(bestMove)) |
                             (((ulong)score & 0x0fffful) << 24) |
                             (((ulong)flag & 0x03ul) << 40) |
-                            (((byte)depth & 0x0fful) << 42);
+                            (((byte)depth & 0x0fful) << 42) |
+                            (((byte)age & 0x0fful) << 50);
                 item.hash = hash ^ item.data;
             }
         }
@@ -63,7 +86,7 @@ namespace Pedantic.Chess
 
         static TtTran()
         {
-            capacity = (DEFAULT_SIZE_MB * MB_SIZE) / ITEM_SIZE;
+            capacity = DEFAULT_SIZE_MB * CAPACITY_MULTIPLIER;
             table = new TtTranItem[capacity];
             mask = (uint)(capacity - 1);
         }
@@ -101,7 +124,7 @@ namespace Pedantic.Chess
                 flag = TtFlag.LowerBound;
             }
 
-            TtTranItem.SetValue(ref item, hash, (short)score, itemDepth, flag, bestMove);
+            TtTranItem.SetValue(ref item, hash, (short)score, itemDepth, 0, flag, bestMove);
         }
 
         public static void Clear()
@@ -116,7 +139,7 @@ namespace Pedantic.Chess
                 sizeMb = BitOps.GreatestPowerOfTwoLessThan(sizeMb);
             }
             // resizing also clears the hash table. No attempt to rehash.
-            capacity = (Math.Min(sizeMb, MAX_SIZE_MB) * MB_SIZE) / ITEM_SIZE;
+            capacity = Math.Min(sizeMb, MAX_SIZE_MB) * CAPACITY_MULTIPLIER;
             table = new TtTranItem[capacity];
             mask = (uint)(capacity - 1);
         }
@@ -205,17 +228,40 @@ namespace Pedantic.Chess
             return false;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static int GetStoreIndex(ulong hash)
         {
-            return (int)(hash & mask);
+            int index = (int)(hash & mask);
+            ref TtTranItem item0 = ref table[index];
+            ref TtTranItem item1 = ref table[index ^ 1];
+
+            if (item0.IsValid(hash))
+            {
+                return index;
+            }
+
+            if (item1.IsValid(hash))
+            {
+                return index ^ 1;
+            }
+
+            return (++item0.Age - item0.Depth) > (++item1.Age - item1.Depth) ? index : index ^ 1;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static bool GetLoadIndex(ulong hash, out int index)
         {
             index = (int)(hash & mask);
-            return table[index].IsValid(hash);
+            if (!table[index].IsValid(hash))
+            {
+                index ^= 1;
+
+                if (!table[index].IsValid(hash))
+                {
+                    return false;
+                }
+            }
+
+            table[index].Age = 0;
+            return true;
         }
     }
 }

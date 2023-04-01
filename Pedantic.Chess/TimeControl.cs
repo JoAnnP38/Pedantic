@@ -1,18 +1,32 @@
-﻿using System;
-using System.Collections.Generic;
+﻿// ***********************************************************************
+// Assembly         : Pedantic.Chess
+// Author           : JoAnn D. Peeler
+// Created          : 01-17-2023
+//
+// Last Modified By : JoAnn D. Peeler
+// Last Modified On : 03-28-2023
+// ***********************************************************************
+// <copyright file="TimeControl.cs" company="Pedantic.Chess">
+//     Copyright (c) . All rights reserved.
+// </copyright>
+// <summary>
+//     A class designed to manage the time the engine spends calculating
+//     its next move. This class was blatantly ripped off of the 
+//     <see href="https://github.com/lithander/MinimalChessEngine">
+//         MinimalChess
+//     </see> engine.
+// </summary>
+// ***********************************************************************
 using System.Diagnostics;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Pedantic.Chess
 {
     public sealed class TimeControl : ICloneable
     {
-        const int time_margin = 50;
-        const int branching_factor_estimate = 5;
+        private const int time_margin = 50;
+        private const int branching_factor_estimate = 5;
         private const int branching_factor_denominator = 2;
-        const int max_time_remaining = int.MaxValue / 3;
+        private const int max_time_remaining = int.MaxValue / 3;
 
         private int movesToGo;
         private int increment;
@@ -38,8 +52,8 @@ namespace Pedantic.Chess
         public int TimePerMoveWithMargin => (remaining + (movesToGo - 1) * increment) / movesToGo - time_margin;
         public int TimeRemainingWithMargin => remaining - time_margin;
         private long Now => Stopwatch.GetTimestamp();
-        public long Elapsed => MilliSeconds(Now - t0);
-        public long ElapsedInterval => MilliSeconds(Now - tN);
+        public long Elapsed => Milliseconds(Now - t0);
+        public long ElapsedInterval => Milliseconds(Now - tN);
 
         public bool Infinite
         {
@@ -59,7 +73,7 @@ namespace Pedantic.Chess
             }
         }
 
-        private long MilliSeconds(long ticks)
+        private static long Milliseconds(long ticks)
         {
             return (ticks * 1000L) / Stopwatch.Frequency;
         }
@@ -154,7 +168,7 @@ namespace Pedantic.Chess
 
         public TimeControl Clone()
         {
-            return new(this);
+            return new TimeControl(this);
         }
 
         object ICloneable.Clone()

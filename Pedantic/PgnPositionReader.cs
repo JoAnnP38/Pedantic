@@ -1,19 +1,27 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
+﻿// ***********************************************************************
+// Assembly         : Pedantic
+// Author           : JoAnn D. Peeler
+// Created          : 03-12-2023
+//
+// Last Modified By : JoAnn D. Peeler
+// Last Modified On : 03-27-2023
+// ***********************************************************************
+// <copyright file="PgnPositionReader.cs" company="Pedantic">
+//     Copyright (c) . All rights reserved.
+// </copyright>
+// <summary>
+//     Read and enumerate positions represented in a PGN file. 
+// </summary>
+// ***********************************************************************
 using Pedantic.Chess;
 using Pedantic.Utilities;
 
 namespace Pedantic
 {
-    public class PgnPositionReader
+    public sealed class PgnPositionReader
     {
-        private bool skipOpening;
-        private int openingCount;
+        private readonly bool skipOpening;
+        private readonly int openingCount;
 
         enum PositionState
         {
@@ -27,7 +35,6 @@ namespace Pedantic
         private const string white_win_token = "1-0";
         private const string draw_token = "1/2-1/2";
         private const string black_win_token = "0-1";
-        private const int eval_margin = 5;
 
         public readonly struct Position
         {
@@ -69,7 +76,7 @@ namespace Pedantic
                 Infinite = true
             };
             Board bd = new();
-            BasicSearch search = new BasicSearch(bd, tc, 0)
+            BasicSearch search = new(bd, tc, 0)
             {
                 Evaluation = new Evaluation(false)
             };

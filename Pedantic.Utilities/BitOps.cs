@@ -1,4 +1,19 @@
-﻿using System.Numerics;
+﻿// ***********************************************************************
+// Assembly         : Pedantic.Utilities
+// Author           : JoAnn D. Peeler
+// Created          : 01-17-2023
+//
+// Last Modified By : JoAnn D. Peeler
+// Last Modified On : 03-27-2023
+// ***********************************************************************
+// <copyright file="BitOps.cs" company="Pedantic.Utilities">
+//     Copyright (c) . All rights reserved.
+// </copyright>
+// <summary>
+//     Bit twiddling utility ops using instrinsics if possible.
+// </summary>
+// ***********************************************************************
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.Intrinsics.X86;
 
@@ -101,18 +116,6 @@ namespace Pedantic.Utilities
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe ulong MultX(ulong left, ulong right)
-        {
-#if X64
-            ulong low = 0;
-            Bmi2.X64.MultiplyNoFlags(left, right, &low);
-            return low;
-#else
-            return left * right;
-#endif
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsPow2(int value)
         {
             return BitOperations.IsPow2(value);
@@ -132,36 +135,22 @@ namespace Pedantic.Utilities
             return v >> 1; // previous power of 2
         }
 
-        private static readonly int[] lsb64Table =
+        public static ulong ParallelBitDeposit(ulong value, ulong mask)
         {
-            63, 30,  3, 32, 59, 14, 11, 33,
-            60, 24, 50,  9, 55, 19, 21, 34,
-            61, 29,  2, 53, 51, 23, 41, 18,
-            56, 28,  1, 43, 46, 27,  0, 35,
-            62, 31, 58,  4,  5, 49, 54,  6,
-            15, 52, 12, 40,  7, 42, 45, 16,
-            25, 57, 48, 13, 10, 39,  8, 44,
-            20, 47, 38, 22, 17, 37, 36, 26
-        };
-
-        private static readonly ulong[] bitMask =
-        {
-            0x0000000000000001ul, 0x0000000000000002ul, 0x0000000000000004ul, 0x0000000000000008ul,
-            0x0000000000000010ul, 0x0000000000000020ul, 0x0000000000000040ul, 0x0000000000000080ul,
-            0x0000000000000100ul, 0x0000000000000200ul, 0x0000000000000400ul, 0x0000000000000800ul,
-            0x0000000000001000ul, 0x0000000000002000ul, 0x0000000000004000ul, 0x0000000000008000ul,
-            0x0000000000010000ul, 0x0000000000020000ul, 0x0000000000040000ul, 0x0000000000080000ul,
-            0x0000000000100000ul, 0x0000000000200000ul, 0x0000000000400000ul, 0x0000000000800000ul,
-            0x0000000001000000ul, 0x0000000002000000ul, 0x0000000004000000ul, 0x0000000008000000ul,
-            0x0000000010000000ul, 0x0000000020000000ul, 0x0000000040000000ul, 0x0000000080000000ul,
-            0x0000000100000000ul, 0x0000000200000000ul, 0x0000000400000000ul, 0x0000000800000000ul,
-            0x0000001000000000ul, 0x0000002000000000ul, 0x0000004000000000ul, 0x0000008000000000ul,
-            0x0000010000000000ul, 0x0000020000000000ul, 0x0000040000000000ul, 0x0000080000000000ul,
-            0x0000100000000000ul, 0x0000200000000000ul, 0x0000400000000000ul, 0x0000800000000000ul,
-            0x0001000000000000ul, 0x0002000000000000ul, 0x0004000000000000ul, 0x0008000000000000ul,
-            0x0010000000000000ul, 0x0020000000000000ul, 0x0040000000000000ul, 0x0080000000000000ul,
-            0x0100000000000000ul, 0x0200000000000000ul, 0x0400000000000000ul, 0x0800000000000000ul,
-            0x1000000000000000ul, 0x2000000000000000ul, 0x4000000000000000ul, 0x8000000000000000ul
-        };
+#if X64
+            if (Bmi2.X64.IsSupported)
+            {
+                return Bmi2.X64.ParallelBitDeposit(value, mask);
+            }
+#endif
+            ulong res = 0;
+            for (ulong bb = 1; mask != 0; bb += bb)
+            {
+                if ((value & bb) != 0)
+                    res |= mask & (ulong)(-(long)mask);
+                mask &= mask - 1;
+            }
+            return res;
+        }
     }
 }

@@ -1,9 +1,19 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿// ***********************************************************************
+// Assembly         : Pedantic.Chess
+// Author           : JoAnn D. Peeler
+// Created          : 01-17-2023
+//
+// Last Modified By : JoAnn D. Peeler
+// Last Modified On : 03-27-2023
+// ***********************************************************************
+// <copyright file="MoveList.cs" company="Pedantic.Chess">
+//     Copyright (c) . All rights reserved.
+// </copyright>
+// <summary>
+//     MoveList class implements a pooled list class that preallocates
+//     memory required by the list so this doesn't occur during search.
+// </summary>
+// ***********************************************************************
 using Pedantic.Collections;
 using Pedantic.Utilities;
 
@@ -40,7 +50,7 @@ namespace Pedantic.Chess
             Add(Move.PackMove(from, to, type, capture, promote, score));
         }
 
-        public ReadOnlySpan<ulong> ToSpan() => new ReadOnlySpan<ulong>(array, 0, Count);
+        public ReadOnlySpan<ulong> ToSpan() => new(array, 0, Count);
 
         public void UpdateScores(ulong pv, KillerMoves killerMoves, int ply)
         {

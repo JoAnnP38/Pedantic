@@ -1,6 +1,22 @@
-﻿using System.Text;
+﻿// ***********************************************************************
+// Assembly         : Pedantic.Chess
+// Author           : JoAnn D. Peeler
+// Created          : 01-17-2023
+//
+// Last Modified By : JoAnn D. Peeler
+// Last Modified On : 03-27-2023
+// ***********************************************************************
+// <copyright file="Fen.cs" company="Pedantic.Chess">
+//     Copyright (c) . All rights reserved.
+// </copyright>
+// <summary>
+//     Class Fen implements the functionality the Board class requires 
+//     when converting from/to FEN strings. Marked public for unit
+//     testing, but in theory should be marked internal.
+// </summary>
+// ***********************************************************************
+using System.Text;
 using System.Text.RegularExpressions;
-
 
 namespace Pedantic.Chess
 {
@@ -11,9 +27,9 @@ namespace Pedantic.Chess
         private readonly List<(Color Color, Piece Piece, int Square)> squares = new();
         private Color sideToMove = Color.None;
         private CastlingRights castling = CastlingRights.None;
-        private int enPassant = Index.None;
-        private int halfMoveClock = 0;
-        private int fullMoveCounter = 0;
+        private int enPassant = Index.NONE;
+        private int halfMoveClock;
+        private int fullMoveCounter;
 
         public Fen(string fenString)
         {
@@ -28,11 +44,7 @@ namespace Pedantic.Chess
 
         public Fen(Board board)
         {
-            ReadOnlySpan<Square> fenSquares = board.GetSquares();
-            /*for (int sq = 0; sq < Constants.MAX_SQUARES; ++sq)
-            {
-                squares.Add((fenSquares[sq].Color, fenSquares[sq].Piece, sq));
-            }*/
+            var fenSquares = board.GetSquares();
 
             sideToMove = board.SideToMove;
             castling = board.Castling;
@@ -44,7 +56,7 @@ namespace Pedantic.Chess
             FormatPieces(sb, fenSquares);
             sb.Append(sideToMove == Color.White ? " w" : " b");
             FormatCastling(sb, castling);
-            sb.Append(enPassant == Index.None ? " -" : $" {Index.ToString(enPassant)}");
+            sb.Append(enPassant == Index.NONE ? " -" : $" {Index.ToString(enPassant)}");
             sb.Append($" {halfMoveClock} {fullMoveCounter}");
             fenString = sb.ToString();
         }
@@ -74,7 +86,7 @@ namespace Pedantic.Chess
 
         private void ParseSquares(string fenSquares)
         {
-            int rank = Coord.MaxValue, file = 0;
+            int rank = Coord.MAX_VALUE, file = 0;
 
             foreach (char ch in fenSquares)
             {
@@ -90,7 +102,7 @@ namespace Pedantic.Chess
                 else
                 {
                     int index = Index.ToIndex(file++, rank);
-                    var pc = fenPieceMap[ch];
+                    (Color Color, Piece Piece) pc = fenPieceMap[ch];
                     squares.Add((pc.Color, pc.Piece, index));
                 }
             }
@@ -129,16 +141,16 @@ namespace Pedantic.Chess
 
         private void ParseEnPassant(string fenEnPassant)
         {
-            enPassant = fenEnPassant[0] == '-' ? Index.None : Index.ToIndex(fenEnPassant[0] - 'a', fenEnPassant[1] - '1');
+            enPassant = fenEnPassant[0] == '-' ? Index.NONE : Index.ToIndex(fenEnPassant[0] - 'a', fenEnPassant[1] - '1');
         }
 
         private static void FormatPieces(StringBuilder sb, ReadOnlySpan<Square> fenSquares)
         {
-            for (int rank = Coord.MaxValue; rank >= 0; --rank)
+            for (int rank = Coord.MAX_VALUE; rank >= 0; --rank)
             {
                 int emptyCount = 0;
 
-                for (sbyte file = 0; file <= Coord.MaxValue; ++file)
+                for (sbyte file = 0; file <= Coord.MAX_VALUE; ++file)
                 {
                     int sq = Index.ToIndex(file, rank);
                     if (fenSquares[sq].Piece == Piece.None)
@@ -199,6 +211,7 @@ namespace Pedantic.Chess
             }
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("GeneratedRegex", "SYSLIB1045:Convert to 'GeneratedRegexAttribute'.", Justification = "<Pending>")]
         public static bool IsValidFen(string fenString)
         {
             return Regex.IsMatch(fenString, Constants.REGEX_FEN);
@@ -234,7 +247,7 @@ namespace Pedantic.Chess
             { 'k', (Color.Black, Piece.King) }
         };
 
-        private static readonly char[,] pieceCharMap = new char[Constants.MAX_COLORS, Constants.MAX_PIECES]
+        private static readonly char[,] pieceCharMap = 
         {
             { 'P', 'N', 'B', 'R', 'Q', 'K' },
             { 'p', 'n', 'b', 'r', 'q', 'k' }

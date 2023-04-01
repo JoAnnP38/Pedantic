@@ -17,7 +17,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Pedantic.Genetics", "Pedant
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{2C4FFB48-1730-492F-81A4-1C895F7562FA}"
 	ProjectSection(SolutionItems) = preProject
+		LICENSE.txt = LICENSE.txt
 		Releases\Pedantic-v0.1-prerelease.zip = Releases\Pedantic-v0.1-prerelease.zip
+		README.md = README.md
 	EndProjectSection
 EndProject
 Global

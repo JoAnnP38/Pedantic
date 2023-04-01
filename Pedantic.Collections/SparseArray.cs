@@ -1,9 +1,19 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
-using System.Numerics;
-
+﻿// ***********************************************************************
+// Assembly         : Pedantic.Collections
+// Author           : JoAnn D. Peeler
+// Created          : 03-15-2023
+//
+// Last Modified By : JoAnn D. Peeler
+// Last Modified On : 03-27-2023
+// ***********************************************************************
+// <copyright file="SparseArray.cs" company="Pedantic.Collections">
+//     Copyright (c) . All rights reserved.
+// </copyright>
+// <summary>
+//     Implements a sparse array type useful for optimizing large 
+//     length dot-products.
+// </summary>
+// ***********************************************************************
 namespace Pedantic.Collections
 {
     public class SparseArray<T> : SortedList<int, T> where T : unmanaged

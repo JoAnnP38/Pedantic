@@ -1,4 +1,20 @@
-﻿using System.Collections;
+﻿// ***********************************************************************
+// Assembly         : Pedantic.Collections
+// Author           : JoAnn D. Peeler
+// Created          : 01-17-2023
+//
+// Last Modified By : JoAnn D. Peeler
+// Last Modified On : 01-17-2023
+// ***********************************************************************
+// <copyright file="ValueList.cs" company="Pedantic.Collections">
+//     Copyright (c) . All rights reserved.
+// </copyright>
+// <summary>
+//     Implements a simple, specialized list of unmanaged (i.e. simple,
+//     blittable) types. 
+// </summary>
+// ***********************************************************************
+using System.Collections;
 
 namespace Pedantic.Collections
 {

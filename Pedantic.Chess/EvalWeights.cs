@@ -1,16 +1,26 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net.NetworkInformation;
-using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading.Tasks;
+﻿// ***********************************************************************
+// Assembly         : Pedantic.Chess
+// Author           : JoAnn D. Peeler
+// Created          : 03-18-2023
+//
+// Last Modified By : JoAnn D. Peeler
+// Last Modified On : 03-27-2023
+// ***********************************************************************
+// <copyright file="EvalWeights.cs" company="Pedantic.Chess">
+//     Copyright (c) . All rights reserved.
+// </copyright>
+// <summary>
+//     Provides methods to get named weights without affecting the 
+//     database mapping in class <c>ChessWeights</c>.
+// </summary>
+// ***********************************************************************
 using Pedantic.Genetics;
 using Pedantic.Utilities;
+using System.Runtime.CompilerServices;
 
 namespace Pedantic.Chess
 {
-    public class EvalWeights
+    public sealed class EvalWeights
     {
         public EvalWeights(ChessWeights weights)
         {

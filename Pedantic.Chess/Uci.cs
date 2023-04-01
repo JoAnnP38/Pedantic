@@ -1,19 +1,27 @@
-﻿using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿// ***********************************************************************
+// Assembly         : Pedantic.Chess
+// Author           : JoAnn D. Peeler
+// Created          : 01-17-2023
+//
+// Last Modified By : JoAnn D. Peeler
+// Last Modified On : 03-27-2023
+// ***********************************************************************
+// <copyright file="Uci.cs" company="Pedantic.Chess">
+//     Copyright (c) . All rights reserved.
+// </copyright>
+// <summary>
+//     A class that encapsulates UCI responses from the engine.
+// </summary>
+// ***********************************************************************
 using Pedantic.Utilities;
-using static System.Formats.Asn1.AsnWriter;
+using System.Text;
 
 namespace Pedantic.Chess
 {
     public static class Uci
     {
-        private static bool disableOutput = false;
-        private static object lockObject = new();
+        private static bool disableOutput;
+        private static readonly object lockObject = new();
 
         public static bool DisableOutput
         {

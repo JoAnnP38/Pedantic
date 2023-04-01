@@ -1,34 +1,29 @@
-﻿using System.Collections.Specialized;
-using System.ComponentModel.Design;
-using System.Runtime.InteropServices;
-using System.Runtime.Serialization.Formatters.Binary;
+﻿// ***********************************************************************
+// Assembly         : Pedantic.Chess
+// Author           : JoAnn D. Peeler
+// Created          : 01-17-2023
+//
+// Last Modified By : JoAnn D. Peeler
+// Last Modified On : 03-27-2023
+// ***********************************************************************
+// <copyright file="Engine.cs" company="Pedantic.Chess">
+//     Copyright (c) . All rights reserved.
+// </copyright>
+// <summary>
+//     Implement the functionality of the chess engine.
+// </summary>
+// ***********************************************************************
 using Pedantic.Utilities;
 
 namespace Pedantic.Chess
 {
     public static class Engine
     {
-        public readonly struct Scout
-        {
-            private readonly TimeControl time;
-            private readonly Thread thread;
-
-            public Scout(TimeControl time, Thread thread)
-            {
-                this.time = time;
-                this.thread = thread;
-            }
-
-            public TimeControl Time => time;
-            public Thread Thread => thread;
-        }
-
         private static readonly Board board = new();
         private static readonly TimeControl time = new();
         private static int searchThreads = 1;
-        private static Thread? searchThread = null;
-        private static List<Scout> scouts = new();
-        private static PolyglotEntry[]? bookEntries = null;
+        private static Thread? searchThread;
+        private static PolyglotEntry[]? bookEntries;
         private static Color color = Color.White;
         private static string evaluationId = string.Empty;
 
@@ -81,7 +76,8 @@ namespace Pedantic.Chess
         public static int SearchThreads
         {
             get => searchThreads;
-            set => searchThreads = /*Math.Max(Math.Min(value, Environment.ProcessorCount), 1)*/ 1;
+            // Version 0.1 of Pedantic only uses a single thread for search.
+            set => searchThreads = Math.Max(value, 1);
         }
         public static Color SideToMove => board.SideToMove;
 
@@ -91,28 +87,17 @@ namespace Pedantic.Chess
             IsRunning = true;
         }
 
-        public static void StopScouts()
+        public static void Stop()
         {
-            foreach (Scout scout in scouts)
+            if (searchThread == null)
             {
-                scout.Time.Stop();
-                scout.Thread.Join();
+                return;
             }
 
-            scouts.Clear();
-        }
-
-        public static void Stop(bool force = false)
-        {
-            if (searchThread != null)
-            {
-                time.Stop();
-                searchThread.Join();
-                searchThread = null;
-                ClearHashTable();
-            }
-
-            StopScouts();
+            time.Stop();
+            searchThread.Join();
+            searchThread = null;
+            ClearHashTable();
         }
 
         public static void Quit()
@@ -152,8 +137,8 @@ namespace Pedantic.Chess
             }
 
             TtTran.Resize(sizeMb);
-            TtEval.Resize(sizeMb >> 1);
-            TtPawnEval.Resize(sizeMb >> 2);
+            TtEval.Resize(sizeMb >> 2);
+            TtPawnEval.Resize(sizeMb >> 4);
         }
 
         public static bool SetupPosition(string fen)
@@ -206,29 +191,31 @@ namespace Pedantic.Chess
 
         public static void Wait()
         {
-            if (searchThread != null)
+            if (searchThread == null)
             {
-                searchThread.Join();
-                searchThread = null;
+                return;
             }
 
-            StopScouts();
+            searchThread.Join();
+            searchThread = null;
         }
     
 
         public static void PonderHit()
         {
-            if (IsRunning)
+            if (!IsRunning)
             {
-                if (IsPondering)
-                {
-                    IsPondering = false;
-                    time.Infinite = false;
-                }
-                else
-                {
-                    Stop();
-                }
+                return;
+            }
+
+            if (IsPondering)
+            {
+                IsPondering = false;
+                time.Infinite = false;
+            }
+            else
+            {
+                Stop();
             }
         }
 
@@ -255,10 +242,9 @@ namespace Pedantic.Chess
 
         public static bool LookupBookMoves(ulong hash, out ReadOnlySpan<PolyglotEntry> bookMoves)
         {
-            int first = 0;
             try
             {
-                first = FindFirstBookMove(hash);
+                int first = FindFirstBookMove(hash);
                 if (first >= 0 && first < BookEntries.Length - 1 && BookEntries[first].Key == hash)
                 {
                     int last = first;
@@ -285,7 +271,7 @@ namespace Pedantic.Chess
             {
 
                 string? exeFullName = Environment.ProcessPath;
-                string? dirFullName = System.IO.Path.GetDirectoryName(exeFullName);
+                string? dirFullName = Path.GetDirectoryName(exeFullName);
                 string? bookPath = (exeFullName != null && dirFullName != null) ? Path.Combine(dirFullName, "Pedantic.bin") : null;
 
                 if (bookPath != null && File.Exists(bookPath))
@@ -323,51 +309,57 @@ namespace Pedantic.Chess
         public static string GetBookMove()
         {
             string move = "0000";
-            if (UseOwnBook)
+            if (!UseOwnBook)
             {
-                if (LookupBookMoves(board.Hash, out ReadOnlySpan<PolyglotEntry> bookMoves))
+                return move;
+            }
+
+            if (!LookupBookMoves(board.Hash, out var bookMoves))
+            {
+                return move;
+            }
+
+            int total = 0;
+            foreach (PolyglotEntry entry in bookMoves)
+            {
+                total += entry.Weight;
+            }
+
+            int pick = Random.Shared.Next(total + 1);
+            foreach (PolyglotEntry entry in bookMoves)
+            {
+                if (pick > entry.Weight)
                 {
-                    int total = 0;
-                    foreach (PolyglotEntry entry in bookMoves)
+                    pick -= entry.Weight;
+                }
+                else
+                {
+                    int toFile = BitOps.BitFieldExtract(entry.Move, 0, 3);
+                    int toRank = BitOps.BitFieldExtract(entry.Move, 3, 3);
+                    int fromFile = BitOps.BitFieldExtract(entry.Move, 6, 3);
+                    int fromRank = BitOps.BitFieldExtract(entry.Move, 9, 3);
+                    int pc = BitOps.BitFieldExtract(entry.Move, 12, 3);
+
+                    int from = Index.ToIndex(fromFile, fromRank);
+                    int to = Index.ToIndex(toFile, toRank);
+                    Piece promote = pc == 0 ? Piece.None : (Piece)(pc + 1);
+
+                    if (Index.GetFile(from) == 4 && board.PieceBoard[from].Piece == Piece.King && board.PieceBoard[to].Piece == Piece.Rook && promote == Piece.None)
                     {
-                        total += entry.Weight;
-                    }
-
-                    int pick = Random.Shared.Next(total + 1);
-                    for (int n = 0; n < bookMoves.Length; ++n)
-                    {
-                        PolyglotEntry entry = bookMoves[n];
-                        if (pick > entry.Weight)
+                        foreach (Board.CastlingRookMove rookMove in Board.CastlingRookMoves)
                         {
-                            pick -= entry.Weight;
-                        }
-                        else
-                        {
-                            int toFile = BitOps.BitFieldExtract(entry.Move, 0, 3);
-                            int toRank = BitOps.BitFieldExtract(entry.Move, 3, 3);
-                            int fromFile = BitOps.BitFieldExtract(entry.Move, 6, 3);
-                            int fromRank = BitOps.BitFieldExtract(entry.Move, 9, 3);
-                            int pc = BitOps.BitFieldExtract(entry.Move, 12, 3);
-
-                            int from = Index.ToIndex(fromFile, fromRank);
-                            int to = Index.ToIndex(toFile, toRank);
-                            Piece promote = pc == 0 ? Piece.None : (Piece)(pc + 1);
-
-                            if (Index.GetFile(from) == 4 && board.PieceBoard[from].Piece == Piece.King && board.PieceBoard[to].Piece == Piece.Rook && promote == Piece.None)
+                            if (rookMove.KingFrom != from || rookMove.RookFrom != to ||
+                                (board.Castling & rookMove.CastlingMask) == 0)
                             {
-                                foreach (Board.CastlingRookMove rookMove in Board.CastlingRookMoves)
-                                {
-                                    if (rookMove.KingFrom == from && rookMove.RookFrom == to && (board.Castling & rookMove.CastlingMask) != 0)
-                                    {
-                                        to = rookMove.KingTo;
-                                        break;
-                                    }
-                                }
+                                continue;
                             }
-                            move = $@"{Index.ToString(from)}{Index.ToString(to)}{Conversion.PieceToString(promote)}";
+
+                            to = rookMove.KingTo;
                             break;
                         }
                     }
+                    move = $@"{Index.ToString(from)}{Index.ToString(to)}{Conversion.PieceToString(promote)}";
+                    break;
                 }
             }
 
@@ -386,7 +378,10 @@ namespace Pedantic.Chess
                 }
             }
 
-            var search = new BasicSearch(board, time, maxDepth, maxNodes, RandomSearch);
+            BasicSearch search = new(board, time, maxDepth, maxNodes, RandomSearch)
+            {
+                CanPonder = CanPonder,
+            };
             searchThread = new Thread(search.Search)
             {
                 Priority = ThreadPriority.Highest

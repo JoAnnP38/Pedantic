@@ -1,10 +1,21 @@
-﻿using Pedantic.Utilities;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.CompilerServices;
+﻿// ***********************************************************************
+// Assembly         : Pedantic.Chess
+// Author           : JoAnn D. Peeler
+// Created          : 01-17-2023
+//
+// Last Modified By : JoAnn D. Peeler
+// Last Modified On : 03-27-2023
+// ***********************************************************************
+// <copyright file="Conversion.cs" company="Pedantic.Chess">
+//     Copyright (c) . All rights reserved.
+// </copyright>
+// <summary>
+//     Miscellaneous functions I didn't now where else to put, so they 
+//     reside here for now.
+// </summary>
+// ***********************************************************************
+using Pedantic.Utilities;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace Pedantic.Chess
 {

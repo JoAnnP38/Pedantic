@@ -1,14 +1,23 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
+﻿// ***********************************************************************
+// Assembly         : Pedantic.Chess
+// Author           : JoAnn D. Peeler
+// Created          : 01-17-2023
+//
+// Last Modified By : JoAnn D. Peeler
+// Last Modified On : 03-27-2023
+// ***********************************************************************
+// <copyright file="BoardFancy.cs" company="Pedantic.Chess">
+//     Copyright (c) . All rights reserved.
+// </copyright>
+// <summary>
+//     Partial class that initializes the lookup tables for Fancy Magic
+//     bitboard implementation.
+// </summary>
+// ***********************************************************************
+using Pedantic.Utilities;
 using System.Numerics;
 using System.Runtime.CompilerServices;
-using System.Runtime.Intrinsics.X86;
-using System.Text;
-using System.Threading.Tasks;
 using Pedantic.Collections;
-using Pedantic.Utilities;
 
 namespace Pedantic.Chess
 {
@@ -51,7 +60,7 @@ namespace Pedantic.Chess
             // return attack map
             return attacks;
         }
-        private struct FancyHash
+        private readonly struct FancyHash
         {
             public readonly int Offset;
             public readonly ulong Mask;
@@ -212,7 +221,7 @@ namespace Pedantic.Chess
             return fancyLookupTable[FancyBishopIndex(square, blockers)];
         }
 
-        static void InitFancyMagic()
+        private static void InitFancyMagic()
         {
             for (int x = 0; x < 8; x++)
             {
@@ -225,14 +234,14 @@ namespace Pedantic.Chess
                     int cnt = BitOperations.PopCount(rookMask);
                     for (ulong i = 0; i < (ulong)(1 << cnt); i++)
                     {
-                        ulong blockers = Bmi2.X64.ParallelBitDeposit(i, rookMask);
+                        ulong blockers = BitOps.ParallelBitDeposit(i, rookMask);
                         fancyLookupTable[FancyRookIndex(sq, blockers)] = GetRookAttacks(sq, blockers);
                     }
 
                     cnt = BitOperations.PopCount(bishopMask);
                     for (ulong i = 0; i < (ulong)(1 << cnt); i++)
                     {
-                        ulong blockers = Bmi2.X64.ParallelBitDeposit(i, bishopMask);
+                        ulong blockers = BitOps.ParallelBitDeposit(i, bishopMask);
                         fancyLookupTable[FancyBishopIndex(sq, blockers)] = GetBishopAttacks(sq, blockers);
                     }
                 }

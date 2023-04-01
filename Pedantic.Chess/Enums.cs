@@ -1,4 +1,19 @@
-﻿namespace Pedantic.Chess
+﻿// ***********************************************************************
+// Assembly         : Pedantic.Chess
+// Author           : JoAnn D. Peeler
+// Created          : 01-17-2023
+//
+// Last Modified By : JoAnn D. Peeler
+// Last Modified On : 03-26-2023
+// ***********************************************************************
+// <copyright file="Enums.cs" company="Pedantic.Chess">
+//     Copyright (c) . All rights reserved.
+// </copyright>
+// <summary>
+//     Global enumerations used by the Pedantic app.
+// </summary>
+// ***********************************************************************
+namespace Pedantic.Chess
 {
     public enum Color : sbyte
     {
@@ -40,13 +55,6 @@
         Promote, 
         PromoteCapture,
         Null
-    }
-
-    public enum SearchType
-    {
-        Pv = 0,
-        Minimal = 1,
-        Mtd = 2
     }
 
     public enum GamePhase : byte

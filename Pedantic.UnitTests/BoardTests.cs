@@ -16,7 +16,7 @@ namespace Pedantic.UnitTests
             Board board = new();
             Assert.AreEqual(Color.None, board.SideToMove);
             Assert.AreEqual(CastlingRights.None, board.Castling);
-            Assert.AreEqual(Index.None, board.EnPassant);
+            Assert.AreEqual(Index.NONE, board.EnPassant);
             Assert.AreEqual(0, board.HalfMoveClock);
             Assert.AreEqual(0, board.FullMoveCounter);
             Assert.AreEqual(0ul, board.Hash);
@@ -95,7 +95,7 @@ namespace Pedantic.UnitTests
             Assert.AreEqual(32, BitOps.PopCount(board.All));
             Assert.AreEqual(Color.White, board.SideToMove);
             Assert.AreEqual(CastlingRights.All, board.Castling);
-            Assert.AreEqual(Index.None, board.EnPassant);
+            Assert.AreEqual(Index.NONE, board.EnPassant);
             Assert.AreEqual(0, board.HalfMoveClock);
             Assert.AreEqual(1, board.FullMoveCounter);
             Assert.IsTrue(board.Hash != 0);

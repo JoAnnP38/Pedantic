@@ -1,8 +1,20 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿// ***********************************************************************
+// Assembly         : Pedantic.Utilities
+// Author           : JoAnn D. Peeler
+// Created          : 01-17-2023
+//
+// Last Modified By : JoAnn D. Peeler
+// Last Modified On : 03-27-2023
+// ***********************************************************************
+// <copyright file="BigEndianBinaryReader.cs" company="Pedantic.Utilities">
+//     Copyright (c) . All rights reserved.
+// </copyright>
+// <summary>
+//     Used to deserialize polyglot book file into array of Polyglot 
+//     structures. Handles opposite endianess of file.
+// </summary>
+// ***********************************************************************
 using System.Text;
-using System.Threading.Tasks;
 
 namespace Pedantic.Utilities
 {

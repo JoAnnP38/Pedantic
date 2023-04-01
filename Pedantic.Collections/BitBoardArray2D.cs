@@ -1,4 +1,18 @@
-﻿using System;
+﻿// ***********************************************************************
+// Assembly         : Pedantic.Collections
+// Author           : JoAnn D. Peeler
+// Created          : 01-17-2023
+//
+// Last Modified By : JoAnn D. Peeler
+// Last Modified On : 03-28-2023
+// ***********************************************************************
+// <copyright file="BitBoardArray2D.cs" company="Pedantic.Collections">
+//     Copyright (c) . All rights reserved.
+// </copyright>
+// <summary>
+//     A specialized, two-dimensional array of bitboards (i.e. ulong).
+// </summary>
+// ***********************************************************************
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -7,9 +21,9 @@ namespace Pedantic.Collections
 {
     public sealed unsafe class BitBoardArray2D : ICloneable, IDisposable
     {
-        private bool isDisposed = false;
-        private IntPtr memory = IntPtr.Zero;
-        private ulong* pArray = null;
+        private bool isDisposed;
+        private nint memory;
+        private ulong* pArray;
         private readonly int length1;
         private readonly int length2;
 
@@ -35,11 +49,11 @@ namespace Pedantic.Collections
                 return;
             }
 
-            if (memory != IntPtr.Zero)
+            if (memory != nint.Zero)
             {
                 Marshal.FreeHGlobal(memory);
                 //tell garbage collector memory is gone
-                memory = IntPtr.Zero;
+                memory = nint.Zero;
                 pArray = null;
                 GC.RemoveMemoryPressure(MemorySize);
             }
@@ -49,12 +63,12 @@ namespace Pedantic.Collections
         }
 
         public int MemorySize => length1 * length2 * sizeof(ulong);
-        public bool IsFixedSize => true;
-        public bool IsReadOnly => false;
+        public static bool IsFixedSize => true;
+        public static bool IsReadOnly => false;
         public int Length1 => length1;
         public int Length2 => length2;
         public int Length => length1 * length2;
-        public int Rank => 2;
+        public static int Rank => 2;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Clear()

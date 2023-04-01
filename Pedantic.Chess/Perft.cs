@@ -1,18 +1,27 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿// ***********************************************************************
+// Assembly         : Pedantic.Chess
+// Author           : JoAnn D. Peeler
+// Created          : 01-17-2023
+//
+// Last Modified By : JoAnn D. Peeler
+// Last Modified On : 03-27-2023
+// ***********************************************************************
+// <copyright file="Perft.cs" company="Pedantic.Chess">
+//     Copyright (c) . All rights reserved.
+// </copyright>
+// <summary>
+//     Class that implements the standard Perft test with a couple of 
+//     variants. 
+// </summary>
+// ***********************************************************************
 using Pedantic.Utilities;
-using static Pedantic.Chess.Perft;
 
 namespace Pedantic.Chess
 {
     public sealed class Perft
     {
-        private Board board = new Board(Constants.FEN_START_POS);
-        private ObjectPool<MoveList> moveListPool = new(Constants.MAX_PLY, 10);
+        private readonly Board board = new(Constants.FEN_START_POS);
+        private readonly ObjectPool<MoveList> moveListPool = new(Constants.MAX_PLY, 10);
 
         public struct Counts
         {
@@ -35,7 +44,7 @@ namespace Pedantic.Chess
                 Promotions = 0;
             }
 
-            public static Counts Default { get; } = new Counts();
+            public static Counts Default { get; } = new();
 
             public static Counts operator +(Counts c1, Counts c2)
             {
@@ -75,19 +84,21 @@ namespace Pedantic.Chess
             ReadOnlySpan<ulong> moves = moveList.ToSpan();
             for (int n = 0; n < moves.Length; ++n)
             {
-                if (board.MakeMove(moves[n]))
+                if (!board.MakeMove(moves[n]))
                 {
-                    if (depth > 1)
-                    {
-                        nodes += Execute(depth - 1);
-                    }
-                    else
-                    {
-                        nodes++;
-                    }
-
-                    board.UnmakeMove();
+                    continue;
                 }
+
+                if (depth > 1)
+                {
+                    nodes += Execute(depth - 1);
+                }
+                else
+                {
+                    nodes++;
+                }
+
+                board.UnmakeMove();
             }
 
             moveListPool.Return(moveList);
@@ -97,24 +108,25 @@ namespace Pedantic.Chess
         public Counts ExecuteWithDetails(int depth)
         {
             Counts counts = Counts.Default;
-            MoveList moveList;
 
             if (depth == 0)
             {
                 return GetCounts();
             }
 
-            moveList = moveListPool.Get();
+            MoveList moveList = moveListPool.Get();
             board.GenerateMoves(moveList);
-            ReadOnlySpan<ulong> moves = moveList.ToSpan();
+            var moves = moveList.ToSpan();
 
             for (int n = 0; n < moves.Length; ++n)
             {
-                if (board.MakeMove(moves[n]))
+                if (!board.MakeMove(moves[n]))
                 {
-                    counts += ExecuteWithDetails(depth - 1);
-                    board.UnmakeMove();
+                    continue;
                 }
+
+                counts += ExecuteWithDetails(depth - 1);
+                board.UnmakeMove();
             }
 
             moveListPool.Return(moveList);
@@ -133,16 +145,18 @@ namespace Pedantic.Chess
                 mate = true;
                 MoveList moveList = moveListPool.Get();
                 board.GenerateMoves(moveList);
-                ReadOnlySpan<ulong> moves = moveList.ToSpan();
+                var moves = moveList.ToSpan();
 
                 for (int n = 0; n < moves.Length; ++n)
                 {
-                    if (board.MakeMove(moves[n]))
+                    if (!board.MakeMove(moves[n]))
                     {
-                        board.UnmakeMove();
-                        mate = false;
-                        break;
+                        continue;
                     }
+
+                    board.UnmakeMove();
+                    mate = false;
+                    break;
                 }
 
                 moveListPool.Return(moveList);
@@ -177,7 +191,6 @@ namespace Pedantic.Chess
                     counts.Captures = 1;
                     counts.Promotions = 1;
                     break;
-
             }
 
             return counts;

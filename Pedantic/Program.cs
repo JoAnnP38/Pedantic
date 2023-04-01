@@ -1,32 +1,46 @@
-﻿using Pedantic.Chess;
-using System.Diagnostics;
-using System.Runtime;
-using System.CommandLine;
-using System.Text;
-using System.Formats.Tar;
-using System.Runtime.CompilerServices;
+﻿// ***********************************************************************
+// Assembly         : Pedantic
+// Author           : JoAnn D. Peeler
+// Created          : 03-12-2023
+//
+// Last Modified By : JoAnn D. Peeler
+// Last Modified On : 03-27-2023
+// ***********************************************************************
+// <copyright file="Program.cs" company="Pedantic">
+//     Copyright (c) . All rights reserved.
+// </copyright>
+// <summary>
+//     Console application entry point (i.e. definition of Main()).
+// </summary>
+// ***********************************************************************
 using LiteDB;
+using Pedantic.Chess;
 using Pedantic.Genetics;
 using Pedantic.Utilities;
+using System.CommandLine;
+using System.Diagnostics;
+using System.Runtime.CompilerServices;
+using System.Text;
 // ReSharper disable LocalizableElement
 
 
 namespace Pedantic
 {
-    public class Program
+    public static class Program
     {
-        public const string PROGRAM_NAME_VER = "Pedantic v0.0.1";
+        public const string PROGRAM_NAME_VER = "Pedantic v0.1";
         public const string AUTHOR = "JoAnn D. Peeler";
         public const string PROGRAM_URL = "https://github.com/JoAnnP38/Pedantic";
         public const double CONVERGENCE_TOLERANCE = 0.0000005;
 
-        enum PerftRunType
+        private enum PerftRunType
         {
             Normal,
             Average,
             Details
         }
-        static int Main(string[] args)
+
+        private static int Main(string[] args)
         {
             var typeOption = new Option<PerftRunType>(
                 name: "--type",
@@ -146,7 +160,7 @@ namespace Pedantic
             if (inFile != null && File.Exists(inFile))
             {
                 stdin = Console.In;
-                StreamReader inStream = new StreamReader(inFile, Encoding.UTF8);
+                StreamReader inStream = new(inFile, Encoding.UTF8);
                 Console.SetIn(inStream);
             }
 
@@ -265,7 +279,7 @@ namespace Pedantic
             }
         }
 
-        static void SetupPosition(string[] tokens)
+        private static void SetupPosition(string[] tokens)
         {
             if (tokens[1] == "startpos")
             {
@@ -291,7 +305,7 @@ namespace Pedantic
             Engine.MakeMoves(tokens[firstMove..]);
         }
 
-        static void SetOption(string[] tokens)
+        private static void SetOption(string[] tokens)
         {
             if (tokens[1] == "name")
             {
@@ -352,7 +366,7 @@ namespace Pedantic
             }
         }
 
-        static void Go(string[] tokens)
+        private static void Go(string[] tokens)
         {
             TryParse(tokens, "depth", out int maxDepth, Constants.MAX_PLY);
             TryParse(tokens, "movetime", out int maxTime, int.MaxValue);
@@ -376,12 +390,12 @@ namespace Pedantic
             }
         }
 
-        static void Debug(string[] tokens)
+        private static void Debug(string[] tokens)
         {
             Engine.Debug = tokens[1] == "on";
         }
 
-        static bool TryParse(string[] tokens, string name, out int value, int defaultValue = 0)
+        private static bool TryParse(string[] tokens, string name, out int value, int defaultValue = 0)
         {
             if (int.TryParse(Token(tokens, name), out value))
                 return true;
@@ -389,7 +403,7 @@ namespace Pedantic
             return false;
         }
 
-        static bool TryParse(string[] tokens, string name, out long value, long defaultValue = 0)
+        private static bool TryParse(string[] tokens, string name, out long value, long defaultValue = 0)
         {
             if (long.TryParse(Token(tokens, name), out value))
                 return true;
@@ -397,7 +411,7 @@ namespace Pedantic
             return false;
         }
 
-        static string? Token(string[] tokens, string name)
+        private static string? Token(string[] tokens, string name)
         {
             int iParam = Array.IndexOf(tokens, name);
             if (iParam < 0) return null;
@@ -406,7 +420,7 @@ namespace Pedantic
             return (iValue < tokens.Length) ? tokens[iValue] : null;
         }
 
-        static void RunPerft(PerftRunType runType, int depth, string? fen = null)
+        private static void RunPerft(PerftRunType runType, int depth, string? fen = null)
         {
             Console.WriteLine($@"{PROGRAM_NAME_VER}");
             Perft perft = new(fen);
@@ -426,7 +440,7 @@ namespace Pedantic
             }
         }
 
-        static void RunNormalPerft(Perft perft, int totalDepth)
+        private static void RunNormalPerft(Perft perft, int totalDepth)
         {
             Console.WriteLine(@"Single threaded results:");
             Stopwatch watch = new();
@@ -446,7 +460,7 @@ namespace Pedantic
             }
         }
 
-        static void RunAveragePerft(Perft perft, int totalDepth)
+        private static void RunAveragePerft(Perft perft, int totalDepth)
         {
             Console.WriteLine(@$"Calculating Perft({totalDepth}) Average Mnps...");
             Stopwatch watch = new();
@@ -473,7 +487,7 @@ namespace Pedantic
             Console.WriteLine(@"Average Perft({2}) Average elapsed: {0}, Mnps: {1,6:N2}", avg, totalNodes / (totalSeconds * 1000000.0D), totalDepth);
         }
 
-        static void RunDetailedPerft(Perft perft, int totalDepth)
+        private static void RunDetailedPerft(Perft perft, int totalDepth)
         {
             Stopwatch watch = new();
 
@@ -506,7 +520,7 @@ namespace Pedantic
             if (pgnFile != null && File.Exists(pgnFile))
             {
                 stdin = Console.In;
-                StreamReader inStream = new StreamReader(pgnFile, Encoding.UTF8);
+                StreamReader inStream = new(pgnFile, Encoding.UTF8);
                 Console.SetIn(inStream);
             }
 
@@ -590,7 +604,7 @@ namespace Pedantic
 
             DateTime start = DateTime.Now;
             TextReader savedIn = Console.In;
-            StreamReader streamReader = new StreamReader(dataFile, Encoding.UTF8);
+            StreamReader streamReader = new(dataFile, Encoding.UTF8);
             Console.SetIn(streamReader);
 
             try
@@ -607,7 +621,7 @@ namespace Pedantic
                     double k = SolveKParallel(weights, slices);
                     Console.WriteLine($@"K = {k:F2}");
                     startingWeight.Fitness = (float)EvalErrorParallel(weights, slices, k);
-                    ChessWeights guess = new ChessWeights(startingWeight)
+                    ChessWeights guess = new(startingWeight)
                     {
                         IsImmortal = false
                     };
@@ -763,7 +777,7 @@ namespace Pedantic
         public static PosRecord[] LoadSample(int sampleSize, StreamReader sr)
         {
             int[] selections = GetSampleSelections(sampleSize, sr);
-            List<PosRecord> posRecordList = new List<PosRecord>(sampleSize);
+            List<PosRecord> posRecordList = new(sampleSize);
 
             int currLine = 0;
             foreach (int selLine in selections)
@@ -825,16 +839,14 @@ namespace Pedantic
         {
             get
             {
-                int processorCount = 1;
-
-                processorCount = Math.Max(Environment.ProcessorCount - 6, 1);
+                int processorCount = Math.Max(Environment.ProcessorCount - 6, 1);
                 return processorCount;
             }
         }
 
         public static List<PosRecord[]> CreateSlices(PosRecord[] records)
         {
-            List<PosRecord[]> slices = new List<PosRecord[]>();
+            List<PosRecord[]> slices = new();
             int sliceCount = UsableProcessorCount;
             int sliceLength = records.Length / sliceCount;
 
@@ -867,8 +879,8 @@ namespace Pedantic
         private static double EvalErrorSlice(short[] weights, ReadOnlySpan<PosRecord> slice, double k, double divisor)
         {
             const int vecSize = EvalFeatures.FEATURE_SIZE;
-            ReadOnlySpan<short> opWeights = new ReadOnlySpan<short>(weights, 0, vecSize);
-            ReadOnlySpan<short> egWeights = new ReadOnlySpan<short>(weights, vecSize, vecSize);
+            var opWeights = new ReadOnlySpan<short>(weights, 0, vecSize);
+            var egWeights = new ReadOnlySpan<short>(weights, vecSize, vecSize);
 
             double result = 0.0;
             foreach (PosRecord rec in slice)
@@ -969,7 +981,7 @@ namespace Pedantic
         {
             string[] pieceNames = { "pawns", "knights", "bishops", "rooks", "queens", "kings" };
             int centerLength = (60 - sectionTitle.Length) / 2;
-            string line = new string('-', centerLength - 3);
+            string line = new('-', centerLength - 3);
             WriteLine($"/*{line} {sectionTitle} {line}*/");
             WriteLine();
             WriteLine($"/* {section} phase material boundary */");
@@ -1070,7 +1082,7 @@ namespace Pedantic
 
         private static void WriteIndent()
         {
-            string indent = new string(' ', indentLevel * 4);
+            string indent = new(' ', indentLevel * 4);
             Console.Write(indent);
         }
         private static void WriteLine(string text = "")

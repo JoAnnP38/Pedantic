@@ -1,9 +1,19 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
+﻿// ***********************************************************************
+// Assembly         : Pedantic.Collections
+// Author           : JoAnn D. Peeler
+// Created          : 01-17-2023
+//
+// Last Modified By : JoAnn D. Peeler
+// Last Modified On : 03-28-2023
+// ***********************************************************************
+// <copyright file="OrderedValueList.cs" company="Pedantic.Collections">
+//     Copyright (c) . All rights reserved.
+// </copyright>
+// <summary>
+//     Implements a specialized collection for ordered lists of simple
+//     or blittable value types.
+// </summary>
+// ***********************************************************************
 namespace Pedantic.Collections
 {
     public class OrderedValueList<T> : ValueList<T> where T : unmanaged, IComparable<T>

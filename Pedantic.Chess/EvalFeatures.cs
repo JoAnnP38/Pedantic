@@ -1,17 +1,31 @@
-﻿using System.Numerics;
-using LiteDB;
+﻿// ***********************************************************************
+// Assembly         : Pedantic.Chess
+// Author           : JoAnn D. Peeler
+// Created          : 03-15-2023
+//
+// Last Modified By : JoAnn D. Peeler
+// Last Modified On : 03-27-2023
+// ***********************************************************************
+// <copyright file="EvalFeatures.cs" company="Pedantic.Chess">
+//     Copyright (c) . All rights reserved.
+// </copyright>
+// <summary>
+//     Class EvalFeatures is used by the "Texel" tuning method to 
+//     represent how the Evaluation function computes its value, but 
+//     structured in a manner that make if efficient to recalculate
+//     with different weights.
+// </summary>
+// ***********************************************************************
 using Pedantic.Collections;
 using Pedantic.Utilities;
+using System.Numerics;
 using System.Runtime.CompilerServices;
-using Pedantic.Genetics;
-using System.Threading.Tasks;
 
 namespace Pedantic.Chess
 {
     public sealed class EvalFeatures
     {
         // values required to determine phase and for mopup eval
-        private readonly short fullMoveCounter;
         private readonly Color sideToMove;
         private readonly short[] material = new short[Constants.MAX_COLORS];
         private readonly sbyte[] kingIndex = new sbyte[Constants.MAX_COLORS];
@@ -82,7 +96,6 @@ namespace Pedantic.Chess
             short[] mobility = new short[Constants.MAX_PIECES];
             short[] kingAttacks = new short[3];
 
-            fullMoveCounter = (short)bd.FullMoveCounter;
             totalPawns = (sbyte)BitOps.PopCount(bd.Pieces(Color.White, Piece.Pawn) | bd.Pieces(Color.Black, Piece.Pawn));
             sideToMove = bd.SideToMove;
 
@@ -124,10 +137,9 @@ namespace Pedantic.Chess
                 kingIndex[c] = (sbyte)BitOps.TzCount(bd.Pieces(color, Piece.King));
                 int ki = kingIndex[c];
                 Color other = (Color)(c ^ 1);
-                int o = (int)other;
                 ulong pawns = bd.Pieces(color, Piece.Pawn);
                 ulong otherPawns = bd.Pieces(other, Piece.Pawn);
-                ulong myKing = bd.Pieces(color, Piece.King);
+                bd.Pieces(color, Piece.King);
 
                 for (ulong p = pawns; p != 0; p = BitOps.ResetLsb(p))
                 {
@@ -309,26 +321,19 @@ namespace Pedantic.Chess
         
         public static short GetOptimizationIncrement(int index)
         {
-            switch (index)
+            return index switch
             {
-                case GAME_PHASE_BOUNDARY:
-                case GAME_PHASE_BOUNDARY + FEATURE_SIZE:
-                    return 100;
-
-                case MATERIAL + (int)Piece.King:
-                case MATERIAL + (int)Piece.King + FEATURE_SIZE:
-                    return 0;
-
-                case >= MATERIAL and < (MATERIAL + (int)Piece.King):
-                case >= (MATERIAL + FEATURE_SIZE) and < (MATERIAL + (int)Piece.King + FEATURE_SIZE):
-                    return 5;
-
-                default:
-                    return 1;
-            }
+                GAME_PHASE_BOUNDARY => 100,
+                GAME_PHASE_BOUNDARY + FEATURE_SIZE => 100,
+                MATERIAL + (int)Piece.King => 0,
+                MATERIAL + (int)Piece.King + FEATURE_SIZE => 0,
+                >= MATERIAL and < (MATERIAL + (int)Piece.King) => 5,
+                >= (MATERIAL + FEATURE_SIZE) and < (MATERIAL + (int)Piece.King + FEATURE_SIZE) => 5,
+                _ => 1
+            };
         }
 
-        private short DotProduct(ReadOnlySpan<short> f, ReadOnlySpan<short> weights)
+        private static short DotProduct(ReadOnlySpan<short> f, ReadOnlySpan<short> weights)
         {
             int results = 0;
             if (f.Length >= Vector<short>.Count)
@@ -384,6 +389,7 @@ namespace Pedantic.Chess
             return phase;
         }
 
+#pragma warning disable CA1854
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void IncrementPieceCount(IDictionary<int, short> v, Piece piece)
         {
@@ -576,5 +582,6 @@ namespace Pedantic.Chess
                 v.Add(DOUBLED_ROOKS_ON_FILE, 1);
             }
         }
+#pragma warning restore CA1854
     }
 }

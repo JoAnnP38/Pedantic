@@ -1,4 +1,20 @@
-﻿using System.Net.NetworkInformation;
+﻿// ***********************************************************************
+// Assembly         : Pedantic.Chess
+// Author           : JoAnn D. Peeler
+// Created          : 01-17-2023
+//
+// Last Modified By : JoAnn D. Peeler
+// Last Modified On : 03-27-2023
+// ***********************************************************************
+// <copyright file="BoardMagic.cs" company="Pedantic.Chess">
+//     Copyright (c) . All rights reserved.
+// </copyright>
+// <summary>
+//     Deprecated routines used by standard Magic bitboards. These were
+//     replaced by "Fancy" Magic bitboards, but these are left in place
+//     for now in case we need to rollback.
+// </summary>
+// ***********************************************************************
 using Pedantic.Utilities;
 
 namespace Pedantic.Chess
@@ -7,6 +23,7 @@ namespace Pedantic.Chess
     {
         #region Magic Bitboards for Sliding BestMove Generation
 
+        [Obsolete("Function has been deprecated. Use GetBishopAttacksFancy() instead.")]
         public static ulong GetBishopAttacksMagic(int square, ulong blockers)
         {
             blockers &= bishopMasks[square];
@@ -15,6 +32,7 @@ namespace Pedantic.Chess
             return bishopTable[index];
         }
 
+        [Obsolete("Function has been deprecated. Use GetRookAttacksFancy() instead.")]
         public static ulong GetRookAttacksMagic(int square, ulong blockers)
         {
             blockers &= rookMasks[square];
@@ -139,10 +157,10 @@ namespace Pedantic.Chess
             6, 5, 5, 5, 5, 5, 5, 6
         };
         
-        private static readonly ulong[] rookMasks = GC.AllocateArray<ulong>(Constants.MAX_SQUARES, true);
-        private static readonly ulong[] bishopMasks = GC.AllocateArray<ulong>(Constants.MAX_SQUARES, true);
-        private static readonly ulong[] rookTable = GC.AllocateArray<ulong>(Constants.MAX_SQUARES * 4096, true);
-        private static readonly ulong[] bishopTable = GC.AllocateArray<ulong>(Constants.MAX_SQUARES * 1024, true);
+        private static readonly ulong[] rookMasks = new ulong[Constants.MAX_SQUARES];
+        private static readonly ulong[] bishopMasks = new ulong[Constants.MAX_SQUARES];
+        private static readonly ulong[] rookTable = new ulong[Constants.MAX_SQUARES * 4096];
+        private static readonly ulong[] bishopTable = new ulong[Constants.MAX_SQUARES * 1024];
 
         #endregion
     }

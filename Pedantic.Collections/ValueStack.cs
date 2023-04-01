@@ -1,15 +1,24 @@
-﻿using System;
+﻿// ***********************************************************************
+// Assembly         : Pedantic.Collections
+// Author           : JoAnn D. Peeler
+// Created          : 01-17-2023
+//
+// Last Modified By : JoAnn D. Peeler
+// Last Modified On : 03-28-2023
+// ***********************************************************************
+// <copyright file="ValueStack.cs" company="Pedantic.Collections">
+//     Copyright (c) . All rights reserved.
+// </copyright>
+// <summary>
+//     Implements a specialized stack for simple (i.e. unmanaged,
+//     blittable) types.
+// </summary>
+// ***********************************************************************
 using System.Collections;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Linq;
-using System.Reflection.Metadata.Ecma335;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Pedantic.Collections
 {
-    public class ValueStack<T> : IStack<T> where T : unmanaged
+    public sealed class ValueStack<T> : IStack<T> where T : unmanaged
 
     {
         private T[] stack;

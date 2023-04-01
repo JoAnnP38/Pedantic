@@ -1,23 +1,34 @@
-﻿#undef DEBUG
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading.Tasks;
+﻿// ***********************************************************************
+// Assembly         : Pedantic.Chess
+// Author           : JoAnn D. Peeler
+// Created          : 01-17-2023
+//
+// Last Modified By : JoAnn D. Peeler
+// Last Modified On : 03-27-2023
+// ***********************************************************************
+// <copyright file="Index.cs" company="Pedantic.Chess">
+//     Copyright (c) . All rights reserved.
+// </copyright>
+// <summary>
+//     Implement class Index which provides methods to operate on indexes
+//     into a 8 x 8 chess board.
+// </summary>
+// ***********************************************************************
+#undef DEBUG
 using Pedantic.Utilities;
+using System.Runtime.CompilerServices;
 
 namespace Pedantic.Chess
 {
     public static class Index
     {
-        public const int MaxValue = 63;
-        public const int MinValue = 0;
+        public const int MAX_VALUE = 63;
+        public const int MIN_VALUE = 0;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsValid(int value)
         {
-            return value >= MinValue && value <= MaxValue;
+            return value is >= MIN_VALUE and <= MAX_VALUE;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -122,7 +133,7 @@ namespace Pedantic.Chess
 
         #region Named Indices
 
-        public const int None = -1;
+        public const int NONE = -1;
         public const int A1 = 0;
         public const int B1 = 1;
         public const int C1 = 2;
@@ -192,7 +203,7 @@ namespace Pedantic.Chess
 
         #region mapping of indices so white oriented artifacts can be used for black
 
-        public static readonly int[][] NormalizedIndex = new int[][]
+        public static readonly int[][] NormalizedIndex = 
         {
             new[]
             {

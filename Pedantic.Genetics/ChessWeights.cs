@@ -1,9 +1,25 @@
-﻿using Pedantic.Utilities;
+﻿// ***********************************************************************
+// Assembly         : Pedantic.Genetics
+// Author           : JoAnn D. Peeler
+// Created          : 03-12-2023
+//
+// Last Modified By : JoAnn D. Peeler
+// Last Modified On : 03-28-2023
+// ***********************************************************************
+// <copyright file="ChessWeights.cs" company="Pedantic.Genetics">
+//     Copyright (c) . All rights reserved.
+// </copyright>
+// <summary>
+//     Mapped POCO class for maintaining the weights in the LiteDB 
+//     database.
+// </summary>
+// ***********************************************************************
+using Pedantic.Utilities;
 using LiteDB;
 
 namespace Pedantic.Genetics
 {
-    public class ChessWeights
+    public sealed class ChessWeights
     {
         public const int MAX_WEIGHTS = 826;
         public const int ENDGAME_WEIGHTS = 413;
@@ -30,7 +46,7 @@ namespace Pedantic.Genetics
 
         [BsonCtor]
         public ChessWeights(ObjectId _id, bool isActive, bool isImmortal, string description, short[] weights, 
-            float fitness, int sampleSize, float k, short totalPasses, DateTime updatedOn, DateTime createdOn)
+            float fitness, int sampleSize, float k, short totalPasses, DateTime updatedOn)
         {
             Id = _id;
             IsActive = isActive;
@@ -96,6 +112,8 @@ namespace Pedantic.Genetics
         public float K { get; set; }
         public short TotalPasses { get; set; }
         public DateTime UpdatedOn { get; set; }
+
+        [BsonIgnore]
         public DateTime CreatedOn => Id.CreationTime;
 
         public static ChessWeights Empty { get; } = new ChessWeights();
@@ -133,256 +151,259 @@ namespace Pedantic.Genetics
 
         private static readonly short[] paragonWeights =
         {
-            /*----------------------- OPENING WEIGHTS -----------------------*/
+            /*------------------- OPENING WEIGHTS -------------------*/
 
-            /* OpeningPhaseMaterial */
-            7200,
+            /* opening phase material boundary */
+            7400,
 
             /* opening piece values */
-            80, 335, 365, 475, 1025, 0,
+            85, 330, 355, 430, 1065, 0,
 
             /* opening piece square values */
 
-            #region opening piece square values
+            #region opening piece square values */
 
             /* pawns */
-              0,   0,   0,   0,   0,   0,  0,   0,
-            -35,  -1, -20, -23, -15,  24, 38, -22,
-            -26,  -4,  -4, -10,   3,   3, 33, -12,
-            -27,  -2,  -5,  12,  17,   6, 10, -25,
-            -14,  13,   6,  21,  23,  12, 17, -23,
-             -6,   7,  26,  31,  65,  56, 25, -20,
-             98, 134,  61,  95,  68, 126, 34, -11,
-              0,   0,   0,   0,   0,   0,  0,   0,
+               0,    0,    0,    0,    0,    0,    0,    0,
+             -28,  -27,  -23,  -19,  -25,   15,   12,  -25,
+             -28,  -16,  -20,  -21,  -12,    6,   21,  -14,
+             -23,   -2,    2,    5,    9,   24,   23,  -17,
+              -6,   20,   24,   33,   56,   52,   44,   -2,
+              32,   46,   73,   86,  102,  105,   71,    7,
+             137,  158,  120,  148,  105,  115,    2,  -22,
+               0,    0,    0,    0,    0,    0,    0,    0,
 
             /* knights */
-            -105, -21, -58, -33, -17, -28, -19,  -23,
-             -29, -53, -12,  -3,  -1,  18, -14,  -19,
-             -23,  -9,  12,  10,  19,  17,  25,  -16,
-             -13,   4,  16,  13,  28,  19,  21,   -8,
-              -9,  17,  19,  53,  37,  69,  18,   22,
-             -47,  60,  37,  65,  84, 129,  73,   44,
-             -73, -41,  72,  36,  23,  62,   7,  -17,
-            -167, -89, -34, -49,  61, -97, -15, -107,
+            -104,  -20,  -43,  -19,    1,   -6,  -17,  -53,
+             -44,  -38,   -9,   11,    6,    9,    1,   -2,
+             -30,  -10,   -7,   21,   34,    5,   13,  -12,
+              -4,    2,   16,   23,   32,   31,   47,    5,
+               7,    4,   40,   54,   21,   45,    2,   50,
+              -6,   45,   47,   71,  110,  134,   75,   29,
+             -30,    5,   46,   63,   54,   96,   27,    0,
+            -193,  -76,  -18,  -28,   71,  -86,    7,  -96,
 
             /* bishops */
-            -33, -3, -14, -21, -13, -12, -39, -21,
-              4, 15,  16,   0,   7,  21,  33,   1,
-              0, 15,  15,  15,  14,  27,  18,  10,
-             -6, 13,  13,  26,  34,  12,  10,   4,
-             -4,  5,  19,  50,  37,  37,   7,  -2,
-            -16, 37,  43,  40,  35,  50,  37,  -2,
-            -26, 16, -18, -13,  30,  59,  18, -47,
-            -29,  4, -82, -37, -25, -42,   7,  -8,
+             -22,   27,   -8,  -18,  -10,    2,    0,  -19,
+              32,    5,   23,   -5,    9,   21,   35,   15,
+              -5,   17,   10,   10,   10,   12,    7,    6,
+              -7,    4,    4,   42,   38,  -15,   -3,   24,
+              -8,   -1,   19,   62,   27,   22,   -8,  -18,
+               6,   37,   18,   37,   26,   50,   34,   -2,
+             -12,    7,   -9,   -3,   10,   17,  -18,  -33,
+             -32,  -28,  -65,  -46,  -46,  -43,   14,   -2,
 
             /* rooks */
-            -19, -13,   1,  17, 16,  7, -37, -26,
-            -44, -16, -20,  -9, -1, 11,  -6, -71,
-            -45, -25, -16, -17,  3,  0,  -5, -33,
-            -36, -26, -12,  -1,  9, -7,   6, -23,
-            -24, -11,   7,  26, 24, 35,  -8, -20,
-             -5,  19,  26,  36, 17, 45,  61,  16,
-             27,  32,  58,  62, 80, 67,  26,  44,
-             32,  42,  32,  51, 63,  9,  31,  43,
+             -20,  -11,   -6,   -2,    5,   -2,   -2,  -26,
+             -41,  -28,  -19,  -13,  -22,  -14,    6,  -38,
+             -42,  -35,  -30,  -28,  -13,  -15,    6,  -17,
+             -42,  -24,  -28,   -5,  -12,  -38,   17,  -37,
+              -3,    8,    3,   32,   17,   22,   25,    4,
+              18,   35,   51,   52,   63,   81,   85,   50,
+              12,   17,   27,   72,   55,   88,   38,   64,
+              48,   56,   63,   66,   51,   44,   70,   80,
 
             /* queens */
-             -1, -18,  -9,  10, -15, -25, -31, -50,
-            -35,  -8,  11,   2,   8,  15,  -3,   1,
-            -14,   2, -11,  -2,  -5,   2,  14,   5,
-             -9, -26,  -9, -10,  -2,  -4,   3,  -3,
-            -27, -27, -16, -16,  -1,  17,  -2,   1,
-            -13, -17,   7,   8,  29,  56,  47,  57,
-            -24, -39,  -5,   1, -16,  57,  28,  54,
-            -28,   0,  29,  12,  59,  44,  43,  45,
+             -12,   -2,    5,    6,   17,  -19,  -49,  -23,
+             -19,    6,   11,   13,   10,   20,   20,   -1,
+             -18,   -4,    9,   -7,    6,    2,    1,   -2,
+             -11,  -23,  -13,   -8,   -3,  -11,   -9,  -17,
+             -18,   -9,  -12,   -8,  -10,   -9,  -20,  -25,
+              -6,  -11,  -12,  -20,    6,   56,   29,    9,
+             -11,  -41,  -17,  -25,  -34,   12,   -2,   56,
+             -20,   15,   10,    0,   23,   52,   61,   71,
 
             /* kings */
-            -15,  36,  12, -54,   8, -28,  24,  14,
-              1,   7,  -8, -64, -43, -16,   9,   8,
-            -14, -14, -22, -46, -44, -30, -15, -27,
-            -49,  -1, -27, -39, -46, -44, -33, -51,
-            -17, -20, -12, -27, -30, -25, -14, -36,
-             -9,  24,   2, -16, -20,   6,  22, -22,
-             29,  -1, -20,  -7,  -8,  -4, -38, -29,
-            -65,  23,  16, -15, -56, -34,   2,  13,
+               7,   59,    9,  -71,  -10,  -48,   17,   -7,
+              27,   22,   12,  -43,  -24,   -8,   23,   -2,
+               1,   14,    0,  -38,  -26,  -33,  -19,  -30,
+             -36,   27,  -17,  -29,  -27,  -20,  -27,  -75,
+              11,    2,   14,    1,  -12,    5,    7,  -34,
+               3,   51,   24,  -10,  -10,   14,   40,  -10,
+              50,   26,    0,   12,    5,    5,  -21,  -22,
+             -53,   47,   14,  -26,  -60,  -31,   20,   29,
 
             #endregion
 
-            /* OpeningMobilityWeight */
-            4, // Knight
-            3, // Bishop
-            2, // Rook
-            1, // Queen
+            /* opening mobility weights */
 
-            /* OpeningKingAttackWeight */
-            9, // attacks to squares adjacent to king
-            4, // attacks to squares 2 squares from king
-            1, // attacks to squares 3 squares from king
+            8, // knights
+            5, // bishops
+            3, // rooks
+            0, // queens
 
-            /* Opening Pawn Shield/King Safety */
-            9, // Pawn adjacent to king
-            4, // Pawn 2 squares from king
-            1, // Pawn 3 squares from king
+            /* opening squares attacked near enemy king */
+            14, // attacks to squares 1 from king
+            14, // attacks to squares 2 from king
+            6, // attacks to squares 3 from king
+
+            /* opening pawn shield/king safety */
+            30, // # friendly pawns 1 from king
+            19, // # friendly pawns 2 from king
+            11, // # friendly pawns 3 from king
 
             /* opening isolated pawns */
-            -10,
+            -1,
 
-            /* opening backward pawn */
-            -5,
+            /* opening backward pawns */
+            -24,
 
-            /* opening doubled pawn */
-            -5,
+            /* opening doubled pawns */
+            -12,
 
             /* opening adjacent/connected pawns */
-            5,
+            10,
 
-            /* opening passed pawn */
-            20,
+            /* opening passed pawns */
+            4,
 
             /* opening knight on outpost */
-            5,
+            -6,
 
             /* opening bishop on outpost */
-            2,
+            5,
 
             /* opening bishop pair */
-            20,
+            22,
 
             /* opening rook on open file */
-            20,
+            24,
 
-            /* opening rook on half open file */
-            10,
+            /* opening rook on half-open file */
+            9,
 
             /* opening rook behind passed pawn */
-            30,
+            4,
 
-            /* doubled rooks on file */
-            10,
+            /* opening doubled rooks on file */
+            14,
 
-            /*------------------------- END GAME WEIGHTS --------------------*/
+            /*------------------- END GAME WEIGHTS -------------------*/
 
-            /* EndGamePhaseMaterial */
-            3900,
+            /* end game phase material boundary */
+            2200,
 
             /* end game piece values */
-            95, 280, 295, 510, 935, 0,
+            100, 335, 335, 590, 1075, 0,
 
             /* end game piece square values */
-            #region end game piece square values
+
+            #region end game piece square values */
 
             /* pawns */
-              0,   0,   0,   0,   0,   0,   0,   0,
-             13,   8,   8,  10,  13,   0,   2,  -7,
-              4,   7,  -6,   1,   0,  -5,  -1,  -8,
-             13,   9,  -3,  -7,  -7,  -8,   3,  -1,
-             32,  24,  13,   5,  -2,   4,  17,  17,
-             94, 100,  85,  67,  56,  53,  82,  84,
-            178, 173, 158, 134, 147, 132, 165, 187,
-              0,   0,   0,   0,   0,   0,   0,   0,
+               0,    0,    0,    0,    0,    0,    0,    0,
+              17,   15,    7,    5,   21,   17,    1,   -2,
+              12,    7,   -1,   -6,   -1,    3,   -7,   -2,
+              19,   16,   -5,  -16,   -8,    4,    3,    2,
+              45,   37,   25,    5,    7,   17,   22,   20,
+              94,   92,   80,   63,   50,   58,   77,   68,
+             156,  160,  161,  138,  125,  119,  128,  127,
+               0,    0,    0,    0,    0,    0,    0,    0,
 
             /* knights */
-            -29, -51, -23, -15, -22, -18, -50, -64,
-            -42, -20, -10,  -5,  -2, -20, -23, -44,
-            -23,  -3,  -1,  15,  10,  -3, -20, -22,
-            -18,  -6,  16,  25,  16,  17,   4, -18,
-            -17,   3,  22,  22,  22,  11,   8, -18,
-            -24, -20,  10,   9,  -1,  -9, -19, -41,
-            -25,  -8, -25,  -2,  -9, -25, -24, -52,
-            -58, -38, -13, -28, -31, -27, -63, -99,
+             -55,  -63,  -43,  -30,  -37,  -36,  -49,  -71,
+             -51,  -20,  -28,  -23,  -19,  -22,  -28,  -35,
+             -38,  -20,  -12,    8,    5,  -19,  -14,  -18,
+             -14,   13,   19,   26,   25,   19,   11,   -3,
+               5,    6,   15,   30,   24,   21,   13,   12,
+               5,    0,   13,   15,   12,    8,   14,    5,
+               2,    8,    5,   31,   21,   11,    4,  -11,
+             -63,   10,   12,   13,   -6,    8,   -9,  -84,
 
             /* bishops */
-            -23,  -9, -23,  -5, -9, -16,  -5, -17,
-            -14, -18,  -7,  -1,  4,  -9, -15, -27,
-            -12,  -3,   8,  10, 13,   3,  -7, -15,
-             -6,   3,  13,  19,  7,  10,  -3,  -9,
-             -3,   9,  12,   9, 14,  10,   3,   2,
-              2,  -8,   0,  -1, -2,   6,   0,   4,
-             -8,  -4,   7, -12, -3, -13,  -4, -14,
-            -14, -21, -11,  -8, -7,  -9, -17, -24,
+             -11,  -11,  -24,   -8,  -16,   -6,  -10,  -15,
+             -10,  -15,   -2,   -7,   -3,  -14,   -9,  -37,
+             -10,    3,    5,    8,   12,    2,   -6,   -3,
+              -7,    5,   14,    4,    8,    8,   -1,  -22,
+               5,    9,   -4,    9,    8,   10,    6,   13,
+               3,   10,    9,    4,    6,    1,   14,    9,
+              -1,   10,    6,    9,    2,    5,    2,   -4,
+              11,    7,   15,    0,    3,   -1,    2,  -10,
 
             /* rooks */
-            -9,  2,  3, -1, -5, -13,   4, -20,
-            -6, -6,  0,  2, -9,  -9, -11,  -3,
-            -4,  0, -5, -1, -7, -12,  -8, -16,
-             3,  5,  8,  4, -5,  -6,  -8, -11,
-             4,  3, 13,  1,  2,   1,  -1,   2,
-             7,  7,  7,  5,  4,  -3,  -5,  -3,
-            11, 13, 13, 11, -3,   3,   8,   3,
-            13, 10, 18, 15, 12,  12,   8,   5,
+             -13,  -18,  -10,  -17,  -24,  -17,  -17,  -17,
+             -16,  -17,  -11,  -20,  -22,  -22,  -25,  -18,
+              -6,   -3,   -7,   -9,  -17,  -15,  -10,  -19,
+               8,   10,   14,    3,   -2,   14,    6,    4,
+              26,   28,   31,   21,   20,   23,   24,   17,
+              30,   35,   35,   27,   27,   31,   30,   29,
+              25,   30,   35,   23,   25,   17,   19,   21,
+              18,   24,   22,   17,   21,   23,   20,   17,
 
             /* queens */
-            -33, -28, -22, -43,  -5, -32, -20, -41,
-            -22, -23, -30, -16, -16, -23, -36, -32,
-            -16, -27,  15,   6,   9,  17,  10,   5,
-            -18,  28,  19,  47,  31,  34,  39,  23,
-              3,  22,  24,  45,  57,  40,  57,  36,
-            -20,   6,   9,  49,  47,  35,  19,   9,
-            -17,  20,  32,  41,  58,  25,  30,   0,
-             -9,  22,  22,  27,  27,  19,  10,  20,
+             -19,  -26,  -33,  -31,  -49,  -55,  -45,  -20,
+               0,  -21,  -14,  -17,  -27,  -35,  -50,  -38,
+              -2,   -3,    4,    1,   -6,    5,    8,  -13,
+               2,   23,   20,   29,   19,   23,   19,   22,
+              10,   27,   34,   40,   40,   42,   48,   39,
+              15,   41,   38,   49,   47,   57,   44,   41,
+              16,   36,   42,   41,   45,   37,   41,   29,
+              19,   25,   33,   34,   30,   45,   40,   32,
 
             /* kings */
-            -53, -34, -21, -11, -28, -14, -24, -43,
-            -27, -11,   4,  13,  14,   4,  -5, -17,
-            -19,  -3,  11,  21,  23,  16,   7,  -9,
-            -18,  -4,  21,  24,  27,  23,   9, -11,
-             -8,  22,  24,  27,  26,  33,  26,   3,
-             10,  17,  23,  15,  20,  45,  44,  13,
-            -12,  17,  14,  17,  17,  38,  23,  11,
-            -74, -35, -18, -18, -11,  15,   4, -17,
+              -3,  -15,  -21,  -21,  -42,  -32,  -30,  -52,
+              -2,   -3,   -7,  -12,  -15,  -16,  -15,  -22,
+              -7,    9,    2,    5,    3,   -1,   -9,  -23,
+              -3,   18,   22,   18,   15,   16,    9,  -10,
+              20,   39,   36,   20,   22,   31,   28,   15,
+              29,   57,   42,   40,   28,   46,   62,   28,
+              26,   68,   49,   52,   41,   63,   83,   36,
+             -30,   26,   42,   37,   40,   56,   60,  -38,
 
             #endregion
 
-            /* EndGameMobilityWeight */
-            4, // Knight
-            3, // Bishop
-            2, // Rook
-            1, // Queen
+            /* end game mobility weights */
 
-            /* EndGameKingAttackWeight */
-            9, // attacks to squares adjacent to king
-            4, // attacks to squares 2 squares from king
-            1, // attacks to squares 3 squares from king
+            5, // knights
+            6, // bishops
+            3, // rooks
+            4, // queens
 
-            /* End game Pawn Shield/King Safety */
-            9, // Pawn adjacent to king
-            4, // Pawn 2 squares from king
-            1, // Pawn 3 squares from king
+            /* end game squares attacked near enemy king */
+            1, // attacks to squares 1 from king
+            1, // attacks to squares 2 from king
+            0, // attacks to squares 3 from king
+
+            /* end game pawn shield/king safety */
+            12, // # friendly pawns 1 from king
+            15, // # friendly pawns 2 from king
+            7, // # friendly pawns 3 from king
 
             /* end game isolated pawns */
-            -10,
+            -6,
 
-            /* end game backward pawn */
-            -5,
+            /* end game backward pawns */
+            -12,
 
-            /* end game doubled pawn */
-            -5,
+            /* end game doubled pawns */
+            -22,
 
             /* end game adjacent/connected pawns */
-            5,
+            8,
 
-            /* end game passed pawn */
-            40,
+            /* end game passed pawns */
+            29,
 
-            /* endgame knight on outpost */
-            5,
+            /* end game knight on outpost */
+            24,
 
             /* end game bishop on outpost */
-            2,
+            11,
 
             /* end game bishop pair */
-            20,
+            69,
 
             /* end game rook on open file */
-            20,
+            8,
 
-            /* end game rook on half open file */
-            10,
+            /* end game rook on half-open file */
+            14,
 
             /* end game rook behind passed pawn */
-            30,
+            21,
 
             /* end game doubled rooks on file */
-            10
+            9
         };
     }
 }

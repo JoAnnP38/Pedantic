@@ -1,14 +1,22 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net.NetworkInformation;
-using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading.Tasks;
+﻿// ***********************************************************************
+// Assembly         : Pedantic.Chess
+// Author           : JoAnn D. Peeler
+// Created          : 03-18-2023
+//
+// Last Modified By : JoAnn D. Peeler
+// Last Modified On : 03-27-2023
+// ***********************************************************************
+// <copyright file="Evaluation.cs" company="Pedantic.Chess">
+//     Copyright (c) . All rights reserved.
+// </copyright>
+// <summary>
+//     Class Evaluation is used to evaluate a static chess position.
+// </summary>
+// ***********************************************************************
 using LiteDB;
-using Pedantic.Collections;
 using Pedantic.Genetics;
 using Pedantic.Utilities;
+using System.Runtime.CompilerServices;
 
 namespace Pedantic.Chess
 {
@@ -16,7 +24,7 @@ namespace Pedantic.Chess
     {
         static Evaluation()
         {
-            wt = new (LoadWeights());
+            wt = new EvalWeights(LoadWeights());
         }
 
         public Evaluation(bool adjustMaterial = true, bool random = false)
@@ -35,10 +43,9 @@ namespace Pedantic.Chess
             ClearScores();
 
             totalPawns = BitOps.PopCount(board.Pieces(Color.White, Piece.Pawn) | board.Pieces(Color.Black, Piece.Pawn));
-            totalMaterial = board.Material(Color.White) + board.Material(Color.Black);
             kingIndex[0] = BitOps.TzCount(board.Pieces(Color.White, Piece.King));
             kingIndex[1] = BitOps.TzCount(board.Pieces(Color.Black, Piece.King));
-            GamePhase phase = GetGamePhase(board, out int opWt, out int egWt);
+            GetGamePhase(board, out int opWt, out int egWt);
 
             bool pawnsCalculated = TtPawnEval.TryLookup(board.PawnHash, out TtPawnEval.TtPawnItem item);
 
@@ -59,10 +66,10 @@ namespace Pedantic.Chess
                     egScore[c] += egPawnScore[c];
                 }
 
-            opScore[c] += (short)(AdjustMaterial(board.OpeningMaterial[c], adjust[c]) +
-                                    board.OpeningPieceSquare[c]);
-            egScore[c] += (short)(AdjustMaterial(board.EndGameMaterial[c], adjust[c]) +
-                                    board.EndGamePieceSquare[c]);
+                opScore[c] += (short)(AdjustMaterial(board.OpeningMaterial[c], adjust[c]) +
+                                      board.OpeningPieceSquare[c]);
+                egScore[c] += (short)(AdjustMaterial(board.EndGameMaterial[c], adjust[c]) +
+                                      board.EndGamePieceSquare[c]);
             }
 
             if (!pawnsCalculated)
@@ -90,8 +97,9 @@ namespace Pedantic.Chess
 
         public void ComputeKingAttacks(Color color, Board board)
         {
-            short[] mobility = new short[Constants.MAX_PIECES];
-            short[] kingAttacks = new short[3];
+            Span<short> mobility = stackalloc short[Constants.MAX_PIECES];
+            Span<short> kingAttacks = stackalloc short[3];
+
             int c = (int)color;
             board.GetPieceMobility(color, mobility, kingAttacks);
             for (Piece piece = Piece.Knight; piece <= Piece.Queen; piece++)
@@ -112,14 +120,13 @@ namespace Pedantic.Chess
             int c = (int)color;
             int o = c ^ 1;
             Color other = (Color)o;
-            
+
             ulong pawns = board.Pieces(color, Piece.Pawn);
             ulong otherPawns = board.Pieces(other, Piece.Pawn);
 
             for (ulong p = pawns; p != 0; p = BitOps.ResetLsb(p))
             {
                 int sq = BitOps.TzCount(p);
-                int normalSq = Index.NormalizedIndex[c][sq];
 
                 if ((otherPawns & PassedPawnMasks[c][sq]) == 0)
                 {
@@ -127,15 +134,10 @@ namespace Pedantic.Chess
                     egPawnScore[c] += wt.EndGamePassedPawn;
 
                     Ray ray = Board.Vectors[sq];
-                    ulong bb;
-                    if (color == Color.White)
-                    {
-                        bb = BitOps.AndNot(ray.South, Board.RevVectors[BitOps.LzCount(ray.South & board.All)].South);
-                    }
-                    else
-                    {
-                        bb = BitOps.AndNot(ray.North, Board.Vectors[BitOps.TzCount(ray.North & board.All)].North);
-                    }
+                    ulong bb = color == Color.White
+                        ? BitOps.AndNot(ray.South, Board.RevVectors[BitOps.LzCount(ray.South & board.All)].South)
+                        : BitOps.AndNot(ray.North, Board.Vectors[BitOps.TzCount(ray.North & board.All)].North);
+
                     if ((bb & board.Pieces(color, Piece.Rook)) != 0)
                     {
                         opScore[c] += wt.OpeningRookBehindPassedPawn;
@@ -230,7 +232,7 @@ namespace Pedantic.Chess
                     opScore[c] += wt.OpeningRookOnOpenFile;
                     egScore[c] += wt.EndGameRookOnOpenFile;
 
-                    
+
                     if (BitOps.PopCount(potentials) > 1 && IsDoubled(board, potentials))
                     {
                         opScore[c] += wt.OpeningDoubledRooks;
@@ -311,12 +313,10 @@ namespace Pedantic.Chess
 
         public static ChessWeights LoadWeights(string? id = null)
         {
-            ChessWeights? w;
-
             using var rep = new GeneticsRepository();
-            w = (string.IsNullOrEmpty(id)
-                ? rep.Weights.FindOne(w => w.IsActive && w.IsImmortal)
-                : rep.Weights.FindOne(w => w.Id == new ObjectId(id))) ?? ChessWeights.CreateParagon();
+            ChessWeights? w = (string.IsNullOrEmpty(id)
+                ? rep.Weights.FindOne(cw => cw.IsActive && cw.IsImmortal)
+                : rep.Weights.FindOne(cw => cw.Id == new ObjectId(id))) ?? ChessWeights.CreateParagon();
 
             wt = new EvalWeights(w);
             return w;
@@ -365,12 +365,10 @@ namespace Pedantic.Chess
         public static short EndGamePhaseMaterial => wt.EndGamePhaseMaterial;
 
         public static short[] Weights => wt.Weights;
-        public static EvalWeights EvalWts => wt;
 
-        private readonly bool adjustMaterial = default;
-        private readonly bool random = false;
-        private int totalPawns = default;
-        private int totalMaterial = default;
+        private readonly bool adjustMaterial;
+        private readonly bool random;
+        private int totalPawns;
         private readonly int[] adjust = { 10, 10 };
         private readonly int[] kingIndex = new int[2];
         private readonly short[] opScore = { 0, 0 };
@@ -576,52 +574,6 @@ namespace Pedantic.Chess
             0x0000000000000000ul, 0x0000000000000000ul, 0x0000000000000000ul, 0x0000000000000000ul,
             0x0000000000000000ul, 0x0000000000000000ul, 0x0000000000000000ul, 0x0000000000000000ul
             #endregion AdjacentPawnMasks data
-        };
-
-        public static readonly int[] PawnOffset = { 8, -8 };
-
-        public static readonly ulong[][] PromoteSquares =
-        {
-            #region PromoteSquares data
-            new[]
-            {
-                0x0000000000000000ul, 0x0000000000000000ul, 0x0000000000000000ul, 0x0000000000000000ul,
-                0x0000000000000000ul, 0x0000000000000000ul, 0x0000000000000000ul, 0x0000000000000000ul,
-                0x7F7F7F7F7F7F7F00ul, 0xFFFFFFFFFFFFFF00ul, 0xFFFFFFFFFFFFFF00ul, 0xFFFFFFFFFFFFFF00ul,
-                0xFFFFFFFFFFFFFF00ul, 0xFFFFFFFFFFFFFF00ul, 0xFFFFFFFFFFFFFF00ul, 0xFEFEFEFEFEFEFE00ul,
-                0x3F3F3F3F3F3F0000ul, 0x7F7F7F7F7F7F0000ul, 0xFFFFFFFFFFFF0000ul, 0xFFFFFFFFFFFF0000ul,
-                0xFFFFFFFFFFFF0000ul, 0xFFFFFFFFFFFF0000ul, 0xFEFEFEFEFEFE0000ul, 0xFCFCFCFCFCFC0000ul,
-                0x1F1F1F1F1F000000ul, 0x3F3F3F3F3F000000ul, 0x7F7F7F7F7F000000ul, 0xFFFFFFFFFF000000ul,
-                0xFFFFFFFFFF000000ul, 0xFEFEFEFEFE000000ul, 0xFCFCFCFCFC000000ul, 0xF8F8F8F8F8000000ul,
-                0x0F0F0F0F00000000ul, 0x1F1F1F1F00000000ul, 0x3F3F3F3F00000000ul, 0x7F7F7F7F00000000ul,
-                0xFEFEFEFE00000000ul, 0xFCFCFCFC00000000ul, 0xF8F8F8F800000000ul, 0xF0F0F0F000000000ul,
-                0x0707070000000000ul, 0x0F0F0F0000000000ul, 0x1F1F1F0000000000ul, 0x3E3E3E0000000000ul,
-                0x7C7C7C0000000000ul, 0xF8F8F80000000000ul, 0xF0F0F00000000000ul, 0xE0E0E00000000000ul,
-                0x0303000000000000ul, 0x0707000000000000ul, 0x0E0E000000000000ul, 0x1C1C000000000000ul,
-                0x3838000000000000ul, 0x7070000000000000ul, 0xE0E0000000000000ul, 0xC0C0000000000000ul,
-                0x0000000000000000ul, 0x0000000000000000ul, 0x0000000000000000ul, 0x0000000000000000ul,
-                0x0000000000000000ul, 0x0000000000000000ul, 0x0000000000000000ul, 0x0000000000000000ul
-            },
-            new[]
-            {
-                0x0000000000000000ul, 0x0000000000000000ul, 0x0000000000000000ul, 0x0000000000000000ul,
-                0x0000000000000000ul, 0x0000000000000000ul, 0x0000000000000000ul, 0x0000000000000000ul,
-                0x0000000000000303ul, 0x0000000000000707ul, 0x0000000000000E0Eul, 0x0000000000001C1Cul,
-                0x0000000000003838ul, 0x0000000000007070ul, 0x000000000000E0E0ul, 0x000000000000C0C0ul,
-                0x0000000000070707ul, 0x00000000000F0F0Ful, 0x00000000001F1F1Ful, 0x00000000003E3E3Eul,
-                0x00000000007C7C7Cul, 0x0000000000F8F8F8ul, 0x0000000000F0F0F0ul, 0x0000000000E0E0E0ul,
-                0x000000000F0F0F0Ful, 0x000000001F1F1F1Ful, 0x000000003F3F3F3Ful, 0x000000007F7F7F7Ful,
-                0x00000000FEFEFEFEul, 0x00000000FCFCFCFCul, 0x00000000F8F8F8F8ul, 0x00000000F0F0F0F0ul,
-                0x0000001F1F1F1F1Ful, 0x0000003F3F3F3F3Ful, 0x0000007F7F7F7F7Ful, 0x000000FFFFFFFFFFul,
-                0x000000FFFFFFFFFFul, 0x000000FEFEFEFEFEul, 0x000000FCFCFCFCFCul, 0x000000F8F8F8F8F8ul,
-                0x00003F3F3F3F3F3Ful, 0x00007F7F7F7F7F7Ful, 0x0000FFFFFFFFFFFFul, 0x0000FFFFFFFFFFFFul,
-                0x0000FFFFFFFFFFFFul, 0x0000FFFFFFFFFFFFul, 0x0000FEFEFEFEFEFEul, 0x0000FCFCFCFCFCFCul,
-                0x007F7F7F7F7F7F7Ful, 0x00FFFFFFFFFFFFFFul, 0x00FFFFFFFFFFFFFFul, 0x00FFFFFFFFFFFFFFul,
-                0x00FFFFFFFFFFFFFFul, 0x00FFFFFFFFFFFFFFul, 0x00FFFFFFFFFFFFFFul, 0x00FEFEFEFEFEFEFEul,
-                0x0000000000000000ul, 0x0000000000000000ul, 0x0000000000000000ul, 0x0000000000000000ul,
-                0x0000000000000000ul, 0x0000000000000000ul, 0x0000000000000000ul, 0x0000000000000000ul
-            }
-            #endregion PromoteSquares data
         };
     }
 }

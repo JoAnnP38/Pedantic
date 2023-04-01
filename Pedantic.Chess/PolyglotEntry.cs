@@ -1,9 +1,20 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
+﻿// ***********************************************************************
+// Assembly         : Pedantic.Chess
+// Author           : JoAnn D. Peeler
+// Created          : 01-17-2023
+//
+// Last Modified By : JoAnn D. Peeler
+// Last Modified On : 03-27-2023
+// ***********************************************************************
+// <copyright file="PolyglotEntry.cs" company="Pedantic.Chess">
+//     Copyright (c) . All rights reserved.
+// </copyright>
+// <summary>
+//     Structure to hold a book opening position/move from a polyglot
+//     format opening book file.
+//     <see href="http://hgm.nubati.net/book_format.html"></see>
+// </summary>
+// ***********************************************************************
 namespace Pedantic.Chess
 {
     [Serializable]

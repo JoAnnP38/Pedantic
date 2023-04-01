@@ -1,4 +1,19 @@
-﻿namespace Pedantic.Utilities
+﻿// ***********************************************************************
+// Assembly         : Pedantic.Utilities
+// Author           : JoAnn D. Peeler
+// Created          : 01-17-2023
+//
+// Last Modified By : JoAnn D. Peeler
+// Last Modified On : 01-17-2023
+// ***********************************************************************
+// <copyright file="Mem.cs" company="Pedantic.Utilities">
+//     Copyright (c) . All rights reserved.
+// </copyright>
+// <summary>
+//     Utility class used to allocate jagged arrays. 
+// </summary>
+// ***********************************************************************
+namespace Pedantic.Utilities
 {
     public static class Mem
     {

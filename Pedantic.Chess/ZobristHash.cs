@@ -1,6 +1,23 @@
-﻿
+﻿// ***********************************************************************
+// Assembly         : Pedantic.Chess
+// Author           : JoAnn D. Peeler
+// Created          : 01-17-2023
+//
+// Last Modified By : JoAnn D. Peeler
+// Last Modified On : 03-27-2023
+// ***********************************************************************
+// <copyright file="ZobristHash.cs" company="Pedantic.Chess">
+//     Copyright (c) . All rights reserved.
+// </copyright>
+// <summary>
+//     Implement Zobrist position hashing as specified in the 
+//      <see href="http://hgm.nubati.net/book_format.html">
+//          Polyglot book format
+//      </see> specification.
+// </summary>
+// ***********************************************************************
+
 using System.Runtime.CompilerServices;
-using Pedantic.Utilities;
 
 namespace Pedantic.Chess
 {
