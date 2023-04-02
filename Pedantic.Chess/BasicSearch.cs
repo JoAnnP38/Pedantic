@@ -115,7 +115,7 @@ namespace Pedantic.Chess
         {
             int originalAlpha = alpha;
 
-            if (IsDraw())
+            if (board.IsDraw())
             {
                 return Contempt;
             }
@@ -332,7 +332,7 @@ namespace Pedantic.Chess
                 return evaluation.Compute(board);
             }
 
-            if (IsDraw())
+            if (board.IsDraw())
             {
                 return Contempt;
             }
@@ -525,11 +525,6 @@ namespace Pedantic.Chess
 
         public bool MustAbort => NodesVisited >= maxNodes ||
                          ((NodesVisited & CHECK_TC_NODES_MASK) == 0 && time.CheckTimeBudget());
-
-        public bool IsDraw()
-        {
-            return board.HalfMoveClock >= 100 || board.GameDrawnByRepetition() || board.InsufficientMaterialForMate();
-        }
 
         public int CalcExtension(bool inCheck)
         {

@@ -294,13 +294,13 @@ namespace Pedantic.UnitTests
             Program.ParseCommand("go wtime 89698 btime 86829 winc 6000 binc 6000");
             Engine.Wait();
 
-            ulong move = Move.PackMove(Index.B6, Index.G6, MoveType.Capture, Piece.Pawn);
+            ulong move = Move.PackMove(Index.B6, Index.B1);
             //Engine.Infinite = true;
             Engine.Board.MakeMove(move);
             Program.ParseCommand("go wtime 89698 btime 86829 winc 6000 binc 6000");
             Engine.Wait();
-
-            move = Move.PackMove(Index.H7, Index.G6, MoveType.Capture, Piece.Rook);
+            
+            move = Move.PackMove(Index.A2, Index.A1, MoveType.Promote, promote: Piece.Queen);
             Engine.Board.MakeMove(move);
             Program.ParseCommand("go wtime 89698 btime 86829 winc 6000 binc 6000");
 
