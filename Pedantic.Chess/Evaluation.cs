@@ -45,8 +45,51 @@ namespace Pedantic.Chess
             totalPawns = BitOps.PopCount(board.Pieces(Color.White, Piece.Pawn) | board.Pieces(Color.Black, Piece.Pawn));
             kingIndex[0] = BitOps.TzCount(board.Pieces(Color.White, Piece.King));
             kingIndex[1] = BitOps.TzCount(board.Pieces(Color.Black, Piece.King));
-            GetGamePhase(board, out int opWt, out int egWt);
+            currentPhase = GetGamePhase(board, out opWt, out egWt);
+            score = currentPhase == GamePhase.EndGameMopup ? ComputeMopUp(board) : ComputeNormal(board);
+            score = board.SideToMove == Color.White ? score : (short)-score;
 
+            TtEval.Add(board.Hash, score);
+            return score;
+        }
+
+        // A variation of the Chess 4.5 MopUp evaluation
+        public short ComputeMopUp(Board board)
+        {
+            for (Color color = Color.White; color <= Color.Black; color++)
+            {
+                int c = (int)color;
+                int o = c ^ 1;
+                egScore[c] += AdjustMaterial(board.EndGameMaterial[c], adjust[c]);
+                if (color == winning)
+                {
+                    egScore[c] += (short)(centerDistance[kingIndex[o]] << 3);
+                    ulong knights = board.Pieces(color, Piece.Knight);
+                    for (; knights != 0; knights = BitOps.ResetLsb(knights))
+                    {
+                        int sq = BitOps.TzCount(knights);
+                        egScore[c] += (short)((Coord.MAX_VALUE - Index.Distance(sq, kingIndex[o])) << 1);
+                    }
+
+                    egScore[c] += (short)((Coord.MAX_VALUE - Index.Distance(kingIndex[c], kingIndex[o])) << 1);
+                    Index.ToCoords(kingIndex[c], out int file, out int rank);
+                    if (rank is 2 or 5)
+                    {
+                        egScore[c] += 2;
+                    }
+
+                    if (file is 2 or 5)
+                    {
+                        egScore[c] += 2;
+                    }
+                }
+            }
+
+            return (short)(egScore[0] - egScore[1]);
+        }
+
+        public short ComputeNormal(Board board)
+        {
             bool pawnsCalculated = TtPawnEval.TryLookup(board.PawnHash, out TtPawnEval.TtPawnItem item);
 
             for (Color color = Color.White; color <= Color.Black; color++)
@@ -77,16 +120,13 @@ namespace Pedantic.Chess
                 TtPawnEval.Add(board.PawnHash, opPawnScore, egPawnScore);
             }
 
-            score = (short)((((opScore[0] - opScore[1]) * opWt) >> 7) +
+            short score = (short)((((opScore[0] - opScore[1]) * opWt) >> 7) +
                             (((egScore[0] - egScore[1]) * egWt) >> 7));
-
-            score = board.SideToMove == Color.White ? score : (short)-score;
 
             if (random)
             {
                 score += (short)Random.Shared.Next(-8, 9);
             }
-            TtEval.Add(board.Hash, score);
             return score;
         }
 
@@ -280,9 +320,24 @@ namespace Pedantic.Chess
 
             if (totalMaterial < wt.EndGamePhaseMaterial)
             {
-                phase = totalPawns == 0 ? GamePhase.EndGameMopup : GamePhase.EndGame;
                 opWt = 0;
                 egWt = 128;
+                phase = GamePhase.EndGame;
+
+                if (Math.Abs(board.Material(Color.White) - board.Material(Color.Black)) >= 400 &&
+                    Math.Min(board.Material(Color.White), board.Material(Color.Black)) <= 700)
+                {
+                    winning = board.Material(Color.White) > board.Material(Color.Black)
+                        ? Color.White
+                        : Color.Black;
+
+                    if (BitOps.PopCount(board.Pieces(winning, Piece.Queen) | board.Pieces(winning, Piece.Rook)) >= 1 ||
+                        BitOps.PopCount(board.Pieces(winning, Piece.Pawn)) == 0)
+                    {
+                        phase = GamePhase.EndGameMopup;
+                    }
+
+                }
             }
             else if (totalMaterial < wt.OpeningPhaseMaterial && totalMaterial >= wt.EndGamePhaseMaterial)
             {
@@ -363,6 +418,10 @@ namespace Pedantic.Chess
 
         public static short OpeningPhaseMaterial => wt.OpeningPhaseMaterial;
         public static short EndGamePhaseMaterial => wt.EndGamePhaseMaterial;
+
+        private GamePhase currentPhase;
+        private int opWt, egWt;
+        private Color winning;
 
         public static short[] Weights => wt.Weights;
 
@@ -574,6 +633,18 @@ namespace Pedantic.Chess
             0x0000000000000000ul, 0x0000000000000000ul, 0x0000000000000000ul, 0x0000000000000000ul,
             0x0000000000000000ul, 0x0000000000000000ul, 0x0000000000000000ul, 0x0000000000000000ul
             #endregion AdjacentPawnMasks data
+        };
+
+        private static readonly short[] centerDistance =
+        {
+            6, 5, 4, 3, 3, 4, 5, 6,
+            5, 4, 3, 2, 2, 3, 4, 5,
+            4, 3, 2, 1, 1, 2, 3, 4,
+            3, 2, 1, 0, 0, 1, 2, 3,
+            3, 2, 1, 0, 0, 1, 2, 3,
+            4, 3, 2, 1, 1, 2, 3, 4,
+            5, 4, 3, 2, 2, 3, 4, 5,
+            6, 5, 4, 3, 3, 4, 5, 6
         };
     }
 }

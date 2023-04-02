@@ -26,7 +26,7 @@ namespace Pedantic.Chess
     public sealed partial class Board : ICloneable
     {
         private readonly Square[] board = new Square[Constants.MAX_SQUARES];
-        private readonly BitBoardArray2D pieces = new(Constants.MAX_COLORS, Constants.MAX_PIECES);
+        private readonly ulong[][] pieces = Mem.Allocate2D<ulong>(Constants.MAX_COLORS, Constants.MAX_PIECES);
         private readonly ulong[] units = new ulong[Constants.MAX_COLORS];
         private ulong all = 0ul;
         private readonly short[] material = new short[Constants.MAX_COLORS];
@@ -104,7 +104,7 @@ namespace Pedantic.Chess
         private Board(Board other)
         {
             Array.Copy(other.board, board, board.Length);
-            pieces.Copy(other.pieces);
+            Mem.Copy(other.pieces, pieces);
             Array.Copy(other.units, units, units.Length);
             all = other.all;
             sideToMove = other.sideToMove;
@@ -128,7 +128,7 @@ namespace Pedantic.Chess
         public ReadOnlySpan<Square> PieceBoard => board;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ulong Pieces(Color color, Piece piece) => pieces[(int)color, (int)piece];
+        public ulong Pieces(Color color, Piece piece) => pieces[(int)color][(int)piece];
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ulong Units(Color color) => units[(int)color];
@@ -166,7 +166,7 @@ namespace Pedantic.Chess
         public void Clear()
         {
             Array.Fill(board, Square.Empty);
-            pieces.Clear();
+            Mem.Clear(pieces);
             Array.Clear(units);
             all = 0;
             sideToMove = Color.None;
@@ -540,6 +540,12 @@ namespace Pedantic.Chess
             }
 
             return false;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool IsDraw()
+        {
+            return HalfMoveClock >= 100 || GameDrawnByRepetition() || InsufficientMaterialForMate();
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -1187,7 +1193,7 @@ namespace Pedantic.Chess
             }
             hash = ZobristHash.HashPiece(hash, color, piece, square);
             board[square] = Square.Create(color, piece);
-            pieces[(int)color, (int)piece] = BitOps.SetBit(Pieces(color, piece), square);
+            pieces[(int)color][(int)piece] = BitOps.SetBit(Pieces(color, piece), square);
             units[(int)color] = BitOps.SetBit(units[(int)color], square);
             all = BitOps.SetBit(all, square);
             material[(int)color] += Evaluation.CanonicalPieceValues(piece);
@@ -1213,7 +1219,7 @@ namespace Pedantic.Chess
             }
             hash = ZobristHash.HashPiece(hash, color, piece, square);
             board[square] = Square.Empty;
-            pieces[(int)color, (int)piece] = BitOps.ResetBit(Pieces(color, piece), square);
+            pieces[(int)color][(int)piece] = BitOps.ResetBit(Pieces(color, piece), square);
             units[(int)color] = BitOps.ResetBit(Units(color), square);
             all = BitOps.ResetBit(all, square);
             material[(int)color] -= Evaluation.CanonicalPieceValues(piece);
