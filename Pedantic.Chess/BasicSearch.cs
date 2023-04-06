@@ -195,22 +195,21 @@ namespace Pedantic.Chess
 
             // bool imminentPromotion = board.ImminentPromotionThreat(board.OpponentColor);
             // razoring 300 - (depth - 1) * 60 : 300 * depth 
+            bool canPrune = false;
             if (canNull && !inCheck && !isPv && ttMove == 0 && depth <= 3)
             {
-                int threshold = alpha - 300 - (depth - 1) * 60;
-                if (eval < threshold)
+                int threshold = alpha - FutilityMargin[Math.Min(depth, 3)];
+                if (eval <= threshold)
                 {
                     score = Quiesce(alpha, beta, ply);
-                    if (score < threshold)
+                    if (score <= alpha)
                     {
-                        return alpha;
+                        return score;
                     }
                 }
-            }
 
-            /* depth <= 8 : depth < 8 .... && !imminentPromotion */
-            bool canPrune = !inCheck && !isPv && Math.Abs(alpha) < Constants.CHECKMATE_BASE && depth <= 8 &&
-                            eval + FutilityMargin[Math.Min(depth, 8)] <= alpha;
+                canPrune = true;
+            }
 
             int expandedNodes = 0;
             history.SideToMove = board.SideToMove;
@@ -594,7 +593,7 @@ namespace Pedantic.Chess
 
         internal static readonly ulong[] EmptyPv = Array.Empty<ulong>();
         internal static readonly int[] Window = { 25, 100, Constants.INFINITE_WINDOW };
-        internal static readonly int[] FutilityMargin = { 0, 100, 150, 200, 250, 300, 400, 500, 600 };
+        internal static readonly int[] FutilityMargin = { 0, 200, 300, 500, 900 };
 
         internal static readonly int[][] LMR =
         {
@@ -826,7 +825,7 @@ namespace Pedantic.Chess
             #endregion lmr data
         };
 
-        internal static readonly int[] LMP = { 3, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60 };
+        internal static readonly int[] LMP = { 0, 5, 10, 15, 20 };
                                                
 
         internal static readonly int[] NMP =
