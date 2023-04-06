@@ -98,12 +98,17 @@ namespace Pedantic
                 name: "--display",
                 description: "Display the specific set of weights as C# code.",
                 getDefaultValue: () => null);
+            var statsOption = new Option<bool>(
+                name: "--stats",
+                description: "Collect search statistics",
+                getDefaultValue: () => false);
 
             var uciCommand = new Command("uci", "Start the pedantic application in UCI mode.")
             {
                 commandFileOption,
                 errorFileOption,
-                randomSearchOption
+                randomSearchOption,
+                statsOption
             };
 
             var perftCommand = new Command("perft", "Run a standard Perft test.")
@@ -143,7 +148,7 @@ namespace Pedantic
                 weightsCommand
             };
 
-            uciCommand.SetHandler(async (inFile, errFile, random) => await RunUci(inFile, errFile, random), commandFileOption, errorFileOption, randomSearchOption);
+            uciCommand.SetHandler(async (inFile, errFile, random, stats) => await RunUci(inFile, errFile, random, stats), commandFileOption, errorFileOption, randomSearchOption, statsOption);
             perftCommand.SetHandler(RunPerft, typeOption, depthOption, fenOption);
             labelCommand.SetHandler(RunLabel, pgnFileOption, dataFileOption, maxPositionsOption);
             learnCommand.SetHandler(RunLearn, dataFileOption, sampleOption, iterOption, preserveOption);
@@ -152,7 +157,7 @@ namespace Pedantic
             return rootCommand.InvokeAsync(args).Result;
         }
 
-        private static async Task RunUci(string? inFile, string? errFile, bool random)
+        private static async Task RunUci(string? inFile, string? errFile, bool random, bool stats)
         {
             TextReader? stdin = null;
             TextWriter? stderr = null;
@@ -175,6 +180,7 @@ namespace Pedantic
             {
                 Console.WriteLine(PROGRAM_NAME_VER);
                 Engine.RandomSearch = random;
+                Engine.CollectStats = stats;
                 Engine.Start();
                 while (Engine.IsRunning)
                 {
@@ -229,6 +235,7 @@ namespace Pedantic
                     Console.WriteLine($@"option name UCI_EngineAbout type string default {PROGRAM_NAME_VER} by {AUTHOR}, see {PROGRAM_URL}");
                     Console.WriteLine(@"option name Evaluation_ID type string default <empty>");
                     Console.WriteLine(@"option name Random_Search type check default false");
+                    Console.WriteLine(@"option name Collect_Stats type check default false");
                     Console.WriteLine(@"uciok");
                     break;
 
@@ -246,7 +253,7 @@ namespace Pedantic
                     break;
 
                 case "ucinewgame":
-                    Engine.ClearHashTable();
+                    Engine.SetupNewGame();                    
                     break;
 
                 case "go":
@@ -359,6 +366,14 @@ namespace Pedantic
                         if (tokens[3] == "value" && bool.TryParse(tokens[4], out bool randomSearch))
                         {
                             Engine.RandomSearch = randomSearch;
+                        }
+
+                        break;
+
+                    case "Collect_Stats":
+                        if (tokens[3] == "value" && bool.TryParse(tokens[4], out bool collectStats))
+                        {
+                            Engine.CollectStats = collectStats;
                         }
 
                         break;

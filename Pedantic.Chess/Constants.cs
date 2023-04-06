@@ -21,6 +21,7 @@ namespace Pedantic.Chess
         public const int MAX_COLORS = 2;
         public const int MAX_PIECES = 6;
         public const int MAX_COORDS = 8;
+        public const int MAX_PHASES = 3;
         public const int MAX_GAME_LENGTH = 1024;
         public const int MAX_PLY = 64;
         public const int AVG_MOVES_PER_PLY = 36;

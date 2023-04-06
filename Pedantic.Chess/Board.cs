@@ -257,6 +257,31 @@ namespace Pedantic.Chess
                    Pieces(Color.Black, Piece.Pawn) == 0ul;
         }
 
+        /*
+                public bool InsufficientMaterialForMate()
+        {
+            ulong pawn = Pieces(Color.White, Piece.Pawn) | Pieces(Color.Black, Piece.Pawn);
+            ulong major = Pieces(Color.White, Piece.Rook) | Pieces(Color.White, Piece.Queen) |
+                          Pieces(Color.Black, Piece.Rook) | Pieces(Color.Black, Piece.Queen);
+            if (pawn == 0 && major == 0)
+            {
+                ulong wknight = Pieces(Color.White, Piece.Knight);
+                ulong wbishop = Pieces(Color.White, Piece.Bishop);
+                ulong bknight = Pieces(Color.Black, Piece.Bishop);
+                ulong bbishop = Pieces(Color.Black, Piece.Bishop);
+
+                if (BitOps.PopCount(wknight) == 2 && BitOps.PopCount(bknight|bbishop) <= 1 ||
+                    BitOps.PopCount(bknight) == 2 && BitOps.PopCount(wknight|wbishop) <= 1 ||
+                    BitOps.PopCount(wknight|wbishop) <= 1 && BitOps.PopCount(bknight|bbishop) <= 1)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+         */
+
         public bool IsEnPassantValid(Color color)
         {
             if (enPassant == Index.NONE)
@@ -280,6 +305,24 @@ namespace Pedantic.Chess
             }
 
             return false;
+        }
+
+        public GamePhase Phase
+        {
+            get
+            {
+                if (TotalMaterial >= Evaluation.OpeningPhaseMaterial)
+                {
+                    return GamePhase.Opening;
+                }
+
+                if (TotalMaterial <= Evaluation.EndGamePhaseMaterial)
+                {
+                    return GamePhase.EndGame;
+                }
+
+                return GamePhase.MidGame;
+            }
         }
 
         public ReadOnlySpan<Square> GetSquares()

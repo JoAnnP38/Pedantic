@@ -27,10 +27,11 @@ namespace Pedantic.Chess
             wt = new EvalWeights(LoadWeights());
         }
 
-        public Evaluation(bool adjustMaterial = true, bool random = false)
+        public Evaluation(bool adjustMaterial = true, bool random = false, bool useMopUp = false)
         {
             this.adjustMaterial = adjustMaterial;
             this.random = random;
+            this.useMopUp = useMopUp;
         }
 
         public short Compute(Board board)
@@ -53,7 +54,7 @@ namespace Pedantic.Chess
             return score;
         }
 
-        // A variation of the Chess 4.5 MopUp evaluation
+        // A variation of the Chess 4.5 MopUp evaluation (+14 Elo)
         public short ComputeMopUp(Board board)
         {
             for (Color color = Color.White; color <= Color.Black; color++)
@@ -324,7 +325,8 @@ namespace Pedantic.Chess
                 egWt = 128;
                 phase = GamePhase.EndGame;
 
-                if (Math.Abs(board.Material(Color.White) - board.Material(Color.Black)) >= 400 &&
+                if (useMopUp &&
+                    Math.Abs(board.Material(Color.White) - board.Material(Color.Black)) >= 400 &&
                     Math.Min(board.Material(Color.White), board.Material(Color.Black)) <= 700)
                 {
                     winning = board.Material(Color.White) > board.Material(Color.Black)
@@ -422,6 +424,7 @@ namespace Pedantic.Chess
         private GamePhase currentPhase;
         private int opWt, egWt;
         private Color winning;
+        private readonly bool useMopUp;
 
         public static short[] Weights => wt.Weights;
 

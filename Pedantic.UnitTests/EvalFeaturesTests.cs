@@ -42,7 +42,7 @@ namespace Pedantic.UnitTests
             ReadOnlySpan<short> opWeights = new ReadOnlySpan<short>(weights, 0, vecSize);
             ReadOnlySpan<short> egWeights = new ReadOnlySpan<short>(weights, vecSize, vecSize);
 
-            Evaluation eval = new(false);
+            Evaluation eval = new(false, false);
             short expected = eval.Compute(bd);
             short actual = features.Compute(opWeights, egWeights);
             Assert.AreEqual(expected, actual);

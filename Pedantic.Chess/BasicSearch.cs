@@ -14,6 +14,8 @@
 //     Variation search.
 // </summary>
 // ***********************************************************************
+
+using Pedantic.Genetics;
 using Pedantic.Utilities;
 
 namespace Pedantic.Chess
@@ -34,13 +36,14 @@ namespace Pedantic.Chess
             PV = Array.Empty<ulong>();
             Score = 0;
             NodesVisited = 0L;
-            evaluation = new Evaluation(true, randomSearch);
+            evaluation = new Evaluation(true, randomSearch, true);
         }
 
         public void Search()
         {
             Engine.Color = board.SideToMove;
             Depth = 0;
+            long startNodes = 0;
             ulong? ponderMove = null;
             bool oneLegalMove = board.OneLegalMove(out ulong bestMove);
             evaluation.CalcMaterialAdjustment(board);
@@ -81,6 +84,17 @@ namespace Pedantic.Chess
                     break;
                 }
 
+                if (CollectStats)
+                {
+                    stats.Add(new ChessStats()
+                    {
+                        Phase = board.Phase.ToString(),
+                        Depth = Depth,
+                        NodesVisited = NodesVisited - startNodes
+                    });
+                }
+
+                startNodes = NodesVisited;
                 Score = result;
                 ReportSearchResults(ref bestMove, ref ponderMove);
 
@@ -97,7 +111,7 @@ namespace Pedantic.Chess
             if (Pondering)
             {
                 bool waiting = false;
-                while (time.CanSearchDeeper() && !wasAborted)
+                while (time.Infinite && !wasAborted)
                 {
                     waiting = true;
                     Thread.Sleep(WAIT_TIME);
@@ -517,12 +531,6 @@ namespace Pedantic.Chess
             return checkMate;
         }
 
-        public Evaluation Evaluation
-        {
-            get => evaluation;
-            set => evaluation = value;
-        }
-
         public bool MustAbort => NodesVisited >= maxNodes ||
                          ((NodesVisited & CHECK_TC_NODES_MASK) == 0 && time.CheckTimeBudget());
 
@@ -562,7 +570,15 @@ namespace Pedantic.Chess
         public long NodesVisited { get; private set; }
         public bool Pondering { get; set; }
         public bool CanPonder { get; set; }
-        public Evaluation Eval => evaluation;
+        public bool CollectStats { get; set; } = false;
+        public IEnumerable<ChessStats> Stats => stats;
+
+        public Evaluation Eval
+        {
+            get => evaluation;
+            set => evaluation = value;
+        }
+
 
 
         private readonly Board board;
@@ -574,6 +590,7 @@ namespace Pedantic.Chess
         private readonly KillerMoves killerMoves = new();
         private bool wasAborted = false;
         private readonly ObjectPool<MoveList> moveListPool = new(Constants.MAX_PLY);
+        private readonly List<ChessStats> stats = new();
 
         internal static readonly ulong[] EmptyPv = Array.Empty<ulong>();
         internal static readonly int[] Window = { 25, 100, Constants.INFINITE_WINDOW };

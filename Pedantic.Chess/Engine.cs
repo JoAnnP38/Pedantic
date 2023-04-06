@@ -13,19 +13,21 @@
 //     Implement the functionality of the chess engine.
 // </summary>
 // ***********************************************************************
+
+using Pedantic.Genetics;
 using Pedantic.Utilities;
 
 namespace Pedantic.Chess
 {
     public static class Engine
     {
-        private static readonly Board board = new();
         private static readonly TimeControl time = new();
         private static int searchThreads = 1;
         private static Thread? searchThread;
         private static PolyglotEntry[]? bookEntries;
         private static Color color = Color.White;
         private static string evaluationId = string.Empty;
+        private static BasicSearch? search = null;
 
         public static bool Debug { get; set; } = false;
         public static bool IsRunning { get; private set; } = true;
@@ -33,6 +35,8 @@ namespace Pedantic.Chess
         public static bool CanPonder { get; set; } = true;
         public static bool UseOwnBook { get; set; } = true;
         public static bool Infinite { get; set; } = false;
+        public static bool CollectStats { get; set; } = false;
+        public static int MovesOutOfBook { get; set; } = 0;
 
         public static string EvaluationId
         {
@@ -43,7 +47,7 @@ namespace Pedantic.Chess
                 evaluationId = value;
             }
         }
-        public static Board Board => board;
+        public static Board Board { get; } = new();
 
         public static Color Color
         {
@@ -79,7 +83,7 @@ namespace Pedantic.Chess
             // Version 0.1 of Pedantic only uses a single thread for search.
             set => searchThreads = Math.Max(value, 1);
         }
-        public static Color SideToMove => board.SideToMove;
+        public static Color SideToMove => Board.SideToMove;
 
         public static void Start()
         {
@@ -94,9 +98,11 @@ namespace Pedantic.Chess
                 return;
             }
 
+            WriteStats();
             time.Stop();
             searchThread.Join();
             searchThread = null;
+            search = null;
             ClearHashTable();
         }
 
@@ -129,6 +135,12 @@ namespace Pedantic.Chess
             TtPawnEval.Clear();
         }
 
+        public static void SetupNewGame()
+        {
+            ClearHashTable();
+            MovesOutOfBook = 0;
+        }
+
         public static void ResizeHashTable(int sizeMb)
         {
             if (!BitOps.IsPow2(sizeMb))
@@ -146,10 +158,10 @@ namespace Pedantic.Chess
             try
             {
                 Stop();
-                bool loaded = board.LoadFenPosition(fen);
+                bool loaded = Board.LoadFenPosition(fen);
                 if (loaded && Debug)
                 {
-                    Uci.Log(@$"New position: {board.ToFenString()}");
+                    Uci.Log(@$"New position: {Board.ToFenString()}");
                 }
 
                 if (!loaded)
@@ -170,9 +182,9 @@ namespace Pedantic.Chess
         {
             foreach (string s in moves)
             {
-                if (Move.TryParseMove(board, s, out ulong move))
+                if (Move.TryParseMove(Board, s, out ulong move))
                 {
-                    if (!board.MakeMove(move))
+                    if (!Board.MakeMove(move))
                     {
                         throw new InvalidOperationException($"Invalid move passed to engine: '{s}'.");
                     }
@@ -185,7 +197,7 @@ namespace Pedantic.Chess
 
             if (Debug)
             {
-                Uci.Log($@"New position: {board.ToFenString()}");
+                Uci.Log($@"New position: {Board.ToFenString()}");
             }
         }
 
@@ -196,10 +208,30 @@ namespace Pedantic.Chess
                 return;
             }
 
+            WriteStats();
             searchThread.Join();
             searchThread = null;
+            search = null;
         }
-    
+
+        private static void WriteStats()
+        {
+
+            if (CollectStats && search != null)
+            {
+                using var mutex = new Mutex(false, "Pedantic::chess_stats.csv");
+                mutex.WaitOne();
+                using StreamWriter output = File.AppendText("chess_stats.csv");
+                foreach (var st in search.Stats)
+                {
+                    output.WriteLine($"{st.Phase},{st.Depth},{st.NodesVisited}");
+                }
+
+                output.Flush();
+                output.Close();
+                mutex.ReleaseMutex();
+            }
+        }
 
         public static void PonderHit()
         {
@@ -314,7 +346,7 @@ namespace Pedantic.Chess
                 return move;
             }
 
-            if (!LookupBookMoves(board.Hash, out var bookMoves))
+            if (!LookupBookMoves(Board.Hash, out var bookMoves))
             {
                 return move;
             }
@@ -344,12 +376,12 @@ namespace Pedantic.Chess
                     int to = Index.ToIndex(toFile, toRank);
                     Piece promote = pc == 0 ? Piece.None : (Piece)(pc + 1);
 
-                    if (Index.GetFile(from) == 4 && board.PieceBoard[from].Piece == Piece.King && board.PieceBoard[to].Piece == Piece.Rook && promote == Piece.None)
+                    if (Index.GetFile(from) == 4 && Board.PieceBoard[from].Piece == Piece.King && Board.PieceBoard[to].Piece == Piece.Rook && promote == Piece.None)
                     {
                         foreach (Board.CastlingRookMove rookMove in Board.CastlingRookMoves)
                         {
                             if (rookMove.KingFrom != from || rookMove.RookFrom != to ||
-                                (board.Castling & rookMove.CastlingMask) == 0)
+                                (Board.Castling & rookMove.CastlingMask) == 0)
                             {
                                 continue;
                             }
@@ -371,16 +403,18 @@ namespace Pedantic.Chess
             string move = GetBookMove();
             if (move != "0000")
             {
-                if (Move.TryParseMove(board, move, out ulong parsedMove))
+                if (Move.TryParseMove(Board, move, out ulong parsedMove))
                 {
                     Uci.BestMove(move);
                     return;
                 }
             }
 
-            BasicSearch search = new(board, time, maxDepth, maxNodes, RandomSearch)
+            ++MovesOutOfBook;
+            search = new(Board, time, maxDepth, maxNodes, RandomSearch)
             {
                 CanPonder = CanPonder,
+                CollectStats = CollectStats
             };
             searchThread = new Thread(search.Search)
             {

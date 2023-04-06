@@ -78,7 +78,7 @@ namespace Pedantic
             Board bd = new();
             BasicSearch search = new(bd, tc, 0)
             {
-                Evaluation = new Evaluation(false)
+                Eval = new Evaluation(false)
             };
             PositionState state = PositionState.SeekHeader;
             List<string> moves = new();

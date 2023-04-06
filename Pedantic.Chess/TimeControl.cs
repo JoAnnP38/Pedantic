@@ -24,8 +24,9 @@ namespace Pedantic.Chess
     public sealed class TimeControl : ICloneable
     {
         private const int time_margin = 50;
-        private const int branching_factor_estimate = 5;
-        private const int branching_factor_denominator = 2;
+        // changed branching factor from 2.5 to 2.125 +27 Elo
+        private const int branching_factor_estimate = 17; 
+        private const int branching_factor_denominator = 3;
         private const int max_time_remaining = int.MaxValue / 3;
 
         private int movesToGo;
@@ -129,7 +130,7 @@ namespace Pedantic.Chess
                 }
                 else
                 {
-                    estimate = (ElapsedInterval * branching_factor_estimate) / branching_factor_denominator;
+                    estimate = (ElapsedInterval * branching_factor_estimate) >> branching_factor_denominator;
                 }
                 long total = elapsed + estimate;
 
@@ -139,7 +140,7 @@ namespace Pedantic.Chess
                 //we have already exceeded the average move
                 if (elapsed > TimePerMoveWithMargin)
                     return false;
-                //shouldn't spend more then the 2x the average on a move
+                //shouldn't spend more then the 2x the average on a move (get rid of this???)
                 if (total > 2 * TimePerMoveWithMargin)
                     return false;
                 //can't afford the estimate
