@@ -198,7 +198,7 @@ namespace Pedantic.Chess
             bool canPrune = false;
             if (canNull && !inCheck && !isPv && ttMove == 0 && depth <= 3)
             {
-                int threshold = alpha - FutilityMargin[Math.Min(depth, 3)];
+                int threshold = alpha - FutilityMargin[depth];
                 if (eval <= threshold)
                 {
                     score = Quiesce(alpha, beta, ply);
@@ -593,7 +593,7 @@ namespace Pedantic.Chess
 
         internal static readonly ulong[] EmptyPv = Array.Empty<ulong>();
         internal static readonly int[] Window = { 25, 100, Constants.INFINITE_WINDOW };
-        internal static readonly int[] FutilityMargin = { 0, 200, 300, 500, 900 };
+        internal static readonly int[] FutilityMargin = { 0, 200, 400, 600, 800 };
 
         internal static readonly int[][] LMR =
         {
