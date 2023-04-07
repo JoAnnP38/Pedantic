@@ -149,7 +149,7 @@ namespace Pedantic.Chess
                 return alpha;
             }
 
-            if (TtTran.TryGetScore(board.Hash, depth, ply, ref alpha, ref beta, out int score, out ulong ttMove))
+            if (TtTran.TryGetScore(board.Hash, depth, ply, ref alpha, ref beta, out int score, out ulong _))
             {
                 return score;
             }
@@ -169,46 +169,47 @@ namespace Pedantic.Chess
 
             int X = CalcExtension(inCheck);
             int eval = evaluation.Compute(board);
-
-            // null move pruning
-            if (depth >= 3 && canNull && !isPv && eval >= beta && !inCheck &&
-                board.HasMinorMajorPieces(board.OpponentColor, 600))
-            {
-                /* 2 + nmp[depth] : nmp[depth] */
-                int R = 2 + NMP[depth];
-                if (board.MakeMove(Move.NullMove))
-                {
-                    score = -Search(-beta, -beta + 1, Math.Max(depth - R - 1, 0), ply + 1, false, false, false);
-                    board.UnmakeMove();
-                    if (wasAborted)
-                    {
-                        return 0;
-                    }
-
-                    if (score >= beta)
-                    {
-                        TtTran.Add(board.Hash, depth, ply, originalAlpha, beta, score, 0ul);
-                        return beta;
-                    }
-                }
-            }
-
-            // bool imminentPromotion = board.ImminentPromotionThreat(board.OpponentColor);
-            // razoring 300 - (depth - 1) * 60 : 300 * depth 
             bool canPrune = false;
-            if (canNull && !inCheck && !isPv && ttMove == 0 && depth <= 3)
+
+            if (canNull && !inCheck && !isPv)
             {
-                int threshold = alpha - FutilityMargin[depth];
-                if (eval <= threshold)
+                // null move pruning
+                if (depth >= 3 && eval >= beta && board.HasMinorMajorPieces(board.OpponentColor, 600))
                 {
-                    score = Quiesce(alpha, beta, ply);
-                    if (score <= alpha)
+                    int R = 2 + NMP[depth];
+                    if (board.MakeMove(Move.NullMove))
                     {
-                        return score;
+                        score = -Search(-beta, -beta + 1, Math.Max(depth - R - 1, 0), ply + 1, false, false, false);
+                        board.UnmakeMove();
+                        if (wasAborted)
+                        {
+                            return 0;
+                        }
+
+                        if (score >= beta)
+                        {
+                            TtTran.Add(board.Hash, depth, ply, originalAlpha, beta, score, 0ul);
+                            return beta;
+                        }
                     }
                 }
 
-                canPrune = true;
+                // razoring
+                if (depth <= 3)
+                {
+                    int threshold = alpha - FutilityMargin[depth];
+                    if (eval <= threshold)
+                    {
+                        score = Quiesce(alpha, beta, ply);
+                        if (score <= alpha)
+                        {
+                            return score;
+                        }
+                    }
+
+                    // enable LMP pruning
+                    canPrune = true;
+                }
             }
 
             int expandedNodes = 0;
