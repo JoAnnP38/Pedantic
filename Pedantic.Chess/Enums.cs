@@ -13,6 +13,8 @@
 //     Global enumerations used by the Pedantic app.
 // </summary>
 // ***********************************************************************
+using System.Runtime.CompilerServices;
+
 namespace Pedantic.Chess
 {
     public enum Color : sbyte
@@ -63,5 +65,32 @@ namespace Pedantic.Chess
         MidGame,
         EndGame,
         EndGameMopup
+    }
+
+    public static class ChessExtensions
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static Color Other(this Color color)
+        {
+            return (Color)((int)color ^ 1);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool IsDiagonalSlider(this Piece piece)
+        {
+            return piece == Piece.Bishop || piece == Piece.Queen;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool IsOrthogonalSlider(this Piece piece)
+        {
+            return piece == Piece.Rook || piece == Piece.Queen;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int Value(this Piece piece)
+        {
+            return Evaluation.CanonicalPieceValues(piece);
+        }
     }
 }

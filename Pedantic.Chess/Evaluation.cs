@@ -439,7 +439,7 @@ namespace Pedantic.Chess
         private readonly short[] egPawnScore = { 0, 0 };
 
         private static EvalWeights wt;
-        private static readonly short[] canonicalPieceValues = { 100, 300, 325, 500, 900, 0 };
+        private static readonly short[] canonicalPieceValues = { 100, 300, 300, 500, 900, 0 };
 
         public static readonly ulong[][] PassedPawnMasks =
 {

@@ -66,10 +66,5 @@ namespace Pedantic.Chess
 
             return sb.ToString();
         }
-
-        public static Color Other(this Color color)
-        {
-            return (Color)((int)color ^ 1);
-        }
     }
 }

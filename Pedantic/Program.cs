@@ -28,7 +28,9 @@ namespace Pedantic
 {
     public static class Program
     {
-        public const string PROGRAM_NAME_VER = "Pedantic v0.1";
+        public const string APP_NAME = "Pedantic";
+        public const string APP_VERSION = "0.2.0";
+        public const string APP_NAME_VER = APP_NAME + " v" + APP_VERSION;
         public const string AUTHOR = "JoAnn D. Peeler";
         public const string PROGRAM_URL = "https://github.com/JoAnnP38/Pedantic";
         public const double CONVERGENCE_TOLERANCE = 0.0000005;
@@ -178,7 +180,7 @@ namespace Pedantic
 
             try
             {
-                Console.WriteLine(PROGRAM_NAME_VER);
+                Console.WriteLine(APP_NAME_VER);
                 Engine.RandomSearch = random;
                 Engine.CollectStats = stats;
                 Engine.Start();
@@ -225,14 +227,14 @@ namespace Pedantic
             switch (tokens[0])
             {
                 case "uci":
-                    Console.WriteLine($@"id name {PROGRAM_NAME_VER}");
+                    Console.WriteLine($@"id name {APP_NAME_VER}");
                     Console.WriteLine($@"id author {AUTHOR}");
                     Console.WriteLine(@"option name OwnBook type check default true");
                     Console.WriteLine(@"option name Ponder type check default true");
                     Console.WriteLine($@"option name Hash type spin default {TtTran.DEFAULT_SIZE_MB} min 1 max {TtTran.MAX_SIZE_MB}");
                     Console.WriteLine(@"option name Clear Hash type button");
                     Console.WriteLine($@"option name MaxThreads type spin default 1 min 1 max {Math.Max(Environment.ProcessorCount - 2, 1)}");
-                    Console.WriteLine($@"option name UCI_EngineAbout type string default {PROGRAM_NAME_VER} by {AUTHOR}, see {PROGRAM_URL}");
+                    Console.WriteLine($@"option name UCI_EngineAbout type string default {APP_NAME_VER} by {AUTHOR}, see {PROGRAM_URL}");
                     Console.WriteLine(@"option name Evaluation_ID type string default <empty>");
                     Console.WriteLine(@"option name Random_Search type check default false");
                     Console.WriteLine(@"option name Collect_Stats type check default false");
@@ -437,7 +439,7 @@ namespace Pedantic
 
         private static void RunPerft(PerftRunType runType, int depth, string? fen = null)
         {
-            Console.WriteLine($@"{PROGRAM_NAME_VER}");
+            Console.WriteLine($@"{APP_NAME_VER}");
             Perft perft = new(fen);
             switch (runType)
             {

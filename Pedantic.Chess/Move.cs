@@ -46,6 +46,12 @@ namespace Pedantic.Chess
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static ulong SetScore(ulong move, short score)
+        {
+            return BitOps.BitFieldSet(move, score, 24, 16);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int GetFrom(ulong move)
         {
             return BitOps.BitFieldExtract(move, 0, 6);

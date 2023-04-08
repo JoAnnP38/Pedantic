@@ -135,6 +135,15 @@ namespace Pedantic.Chess
 
         public ulong All => all;
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ulong DiagonalSliders(Color color) =>
+            pieces[(int)color][(int)Piece.Bishop] | pieces[(int)color][(int)Piece.Queen];
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ulong OrthogonalSliders(Color color) =>
+            pieces[(int)color][(int)Piece.Rook] | pieces[(int)color][(int)Piece.Queen];
+
+
         public Color SideToMove => sideToMove;
         public Color OpponentColor => (Color)((int)sideToMove ^ 1);
         public CastlingRights Castling => castling;
@@ -142,7 +151,21 @@ namespace Pedantic.Chess
         public int HalfMoveClock => halfMoveClock;
         public int FullMoveCounter => fullMoveCounter;
         public ulong Hash => hash;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public short Material(Color color) => material[(int)color];
+
+        public short PieceMaterial(Color color)
+        {
+            short pieceMaterial = 0;
+            for (Piece piece = Piece.Knight; piece < Piece.King; piece++)
+            {
+                pieceMaterial += (short)(BitOps.PopCount(Pieces(color, piece)) * piece.Value());
+            }
+
+            return pieceMaterial;
+        }
+
         public short TotalMaterial => (short)(material[0] + material[1]);
         public ulong PawnHash => pawnHash;
         public short[] OpeningMaterial => opMaterial;
@@ -256,31 +279,6 @@ namespace Pedantic.Chess
                    Pieces(Color.White, Piece.Pawn) == 0ul &&
                    Pieces(Color.Black, Piece.Pawn) == 0ul;
         }
-
-        /*
-                public bool InsufficientMaterialForMate()
-        {
-            ulong pawn = Pieces(Color.White, Piece.Pawn) | Pieces(Color.Black, Piece.Pawn);
-            ulong major = Pieces(Color.White, Piece.Rook) | Pieces(Color.White, Piece.Queen) |
-                          Pieces(Color.Black, Piece.Rook) | Pieces(Color.Black, Piece.Queen);
-            if (pawn == 0 && major == 0)
-            {
-                ulong wknight = Pieces(Color.White, Piece.Knight);
-                ulong wbishop = Pieces(Color.White, Piece.Bishop);
-                ulong bknight = Pieces(Color.Black, Piece.Bishop);
-                ulong bbishop = Pieces(Color.Black, Piece.Bishop);
-
-                if (BitOps.PopCount(wknight) == 2 && BitOps.PopCount(bknight|bbishop) <= 1 ||
-                    BitOps.PopCount(bknight) == 2 && BitOps.PopCount(wknight|wbishop) <= 1 ||
-                    BitOps.PopCount(wknight|wbishop) <= 1 && BitOps.PopCount(bknight|bbishop) <= 1)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-         */
 
         public bool IsEnPassantValid(Color color)
         {
@@ -568,6 +566,151 @@ namespace Pedantic.Chess
         #endregion
 
         #region Attacks & Checks
+
+        public int StaticExchangeEval(Color stm, ulong move)
+        {
+            ulong tempAll = all;
+            Span<int> captures = stackalloc int[32];
+            captures.Clear();
+
+            int from = Move.GetFrom(move);
+            int to = Move.GetTo(move);
+            Piece captured = Move.GetCapture(move);
+            Piece pc = board[from].Piece;
+
+            ulong attacks = AttacksTo(to);
+            int atkPieceValue = Evaluation.CanonicalPieceValues(captured);
+
+            stm = stm.Other();
+            captures[0] = atkPieceValue;
+            atkPieceValue = Evaluation.CanonicalPieceValues(pc);
+            tempAll = BitOps.ResetBit(tempAll, from);
+
+            return SeeImpl(captures, stm, to, pc, attacks, tempAll);
+        }
+
+        public int PostMoveStatExchEval(Color stm, ulong move)
+        {
+            Span<int> captures = stackalloc int[32];
+            captures.Clear();
+
+            int to = Move.GetTo(move);
+            ulong attacks = AttacksTo(to);
+            Piece pc = board[to].Piece;
+            stm = stm.Other();
+            captures[0] = Evaluation.CanonicalPieceValues(pc);
+
+            ulong attacksFrom = 0;
+            Piece piece = Piece.Pawn;
+            for (; piece <= Piece.King; piece++)
+            {
+                attacksFrom = Pieces(stm, piece) & attacks;
+                if (attacksFrom != 0)
+                {
+                    break;
+                }
+            }
+
+            if (piece > Piece.King)
+            {
+                return 0;
+            }
+
+            ulong tempAll = BitOps.ResetBit(all, BitOps.TzCount(attacksFrom));
+            stm = stm.Other();
+            return SeeImpl(captures, stm, to, piece, attacks, tempAll);
+        }
+
+        private int SeeImpl(Span<int> captures, Color stm, int to, Piece piece, ulong attacks, ulong blockers)
+        {
+            int cIndex = 1;
+            int atkPieceValue = Evaluation.CanonicalPieceValues(piece);
+            ulong dSliders = DiagonalSliders(Color.White) | DiagonalSliders(Color.Black);
+            ulong oSliders = OrthogonalSliders(Color.White) | OrthogonalSliders(Color.Black);
+
+            if (piece == Piece.Pawn || piece.IsDiagonalSlider())
+            {
+                attacks |= GetPieceMoves(Piece.Bishop, to, blockers) & dSliders;
+            }
+
+            if (piece == Piece.Pawn || piece.IsOrthogonalSlider())
+            {
+                attacks |= GetPieceMoves(Piece.Rook, to, blockers) & oSliders;
+            }
+
+            for (attacks &= blockers; attacks != 0; attacks &= blockers)
+            {
+                ulong attacksFrom = 0;
+                piece = Piece.Pawn;
+                for (; piece <= Piece.King; piece++)
+                {
+                    attacksFrom = Pieces(stm, piece) & attacks;
+                    if (attacksFrom != 0)
+                    {
+                        break;
+                    }
+                }
+
+                if (piece > Piece.King)
+                {
+                    break;
+                }
+
+                blockers = BitOps.ResetBit(blockers, BitOps.TzCount(attacksFrom));
+                if (piece == Piece.Pawn || piece.IsDiagonalSlider())
+                {
+                    attacks |= GetPieceMoves(Piece.Bishop, to, blockers) & dSliders;
+                }
+
+                if (piece == Piece.Pawn || piece.IsOrthogonalSlider())
+                {
+                    attacks |= GetPieceMoves(Piece.Rook, to, blockers) & oSliders;
+                }
+
+                captures[cIndex] = -captures[cIndex - 1] + atkPieceValue;
+                atkPieceValue = Evaluation.CanonicalPieceValues(piece);
+                if (captures[cIndex++] - atkPieceValue > 0)
+                {
+                    break;
+                }
+
+                stm = stm.Other();
+            }
+
+            for (int n = cIndex - 1; n > 0; n--)
+            {
+                captures[n - 1] = -Math.Max(-captures[n - 1], captures[n]);
+            }
+
+            return captures[0];
+        }
+
+        public ulong AttacksTo(int sq)
+        {
+            ulong attacks = (PawnDefends(Color.White, sq) & Pieces(Color.White, Piece.Pawn)) |
+                            (PawnDefends(Color.Black, sq) & Pieces(Color.Black, Piece.Pawn));
+
+            attacks |= GetPieceMoves(Piece.Knight, sq) &
+                       (Pieces(Color.White, Piece.Knight) | Pieces(Color.Black, Piece.Knight));
+
+            attacks |= GetPieceMoves(Piece.King, sq) &
+                       (Pieces(Color.White, Piece.King) | Pieces(Color.Black, Piece.King));
+
+            ulong dSliders = DiagonalSliders(Color.White) | DiagonalSliders(Color.Black);
+            ulong oSliders = OrthogonalSliders(Color.White) | OrthogonalSliders(Color.Black);
+
+            if ((PieceMoves(Piece.Bishop, sq) & dSliders) != 0)
+            {
+                attacks |= GetPieceMoves(Piece.Bishop, sq) & dSliders;
+            }
+
+            if ((PieceMoves(Piece.Rook, sq) & oSliders) != 0)
+            {
+                attacks |= GetPieceMoves(Piece.Rook, sq) & oSliders;
+            }
+
+            return attacks;
+        }
 
         public bool HasLegalMoves(MoveList moveList)
         {
@@ -1140,17 +1283,23 @@ namespace Pedantic.Chess
             }
         }
 
-        public ulong GetPieceMoves(Piece piece, int from)
+        public ulong GetPieceMoves(Piece piece, int from, ulong occupied)
         {
             return piece switch
             {
                 Piece.Knight => PieceMoves(Piece.Knight, from),
-                Piece.Bishop => GetBishopAttacksFancy(from, All),
-                Piece.Rook => GetRookAttacksFancy(from, All),
-                Piece.Queen => GetBishopAttacksFancy(from, All) | GetRookAttacksFancy(from, All),
+                Piece.Bishop => GetBishopAttacksFancy(from, occupied),
+                Piece.Rook => GetRookAttacksFancy(from, occupied),
+                Piece.Queen => GetBishopAttacksFancy(from, occupied) | GetRookAttacksFancy(from, occupied),
                 Piece.King => PieceMoves(Piece.King, from),
                 _ => 0ul
             };
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ulong GetPieceMoves(Piece piece, int from)
+        {
+            return GetPieceMoves(piece, from, All);
         }
 
         // traditional diagonal slider move resolution
