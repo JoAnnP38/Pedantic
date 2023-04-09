@@ -1,6 +1,5 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
-using LiteDB;
 using Pedantic.Genetics;
 
 namespace Pedantic.UnitTests
@@ -12,7 +11,7 @@ namespace Pedantic.UnitTests
         public void CreateParagonTest()
         {
             ChessWeights cw = ChessWeights.CreateParagon();
-            Assert.IsTrue(cw.Id != ObjectId.Empty);
+            Assert.IsTrue(cw.Id != Guid.Empty);
             Assert.IsTrue(cw.IsActive);
             Assert.IsTrue(cw.IsImmortal);
             Assert.AreEqual(ChessWeights.MAX_WEIGHTS, cw.Weights.Length);
@@ -23,7 +22,7 @@ namespace Pedantic.UnitTests
         {
             Assert.IsTrue(ChessWeights.LoadParagon(out ChessWeights paragon));
             Assert.AreNotEqual(ChessWeights.Empty, paragon);
-            Assert.IsTrue(paragon.Id != ObjectId.Empty);
+            Assert.IsTrue(paragon.Id != Guid.Empty);
             Assert.IsTrue(paragon.IsActive);
             Assert.IsTrue(paragon.IsImmortal);
             Assert.AreEqual(ChessWeights.MAX_WEIGHTS, paragon.Weights.Length);

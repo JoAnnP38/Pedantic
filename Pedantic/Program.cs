@@ -13,7 +13,6 @@
 //     Console application entry point (i.e. definition of Main()).
 // </summary>
 // ***********************************************************************
-using LiteDB;
 using Pedantic.Chess;
 using Pedantic.Genetics;
 using Pedantic.Utilities;
@@ -628,9 +627,9 @@ namespace Pedantic
             {
                 Console.WriteLine($@"Sample size: {sampleSize}, Start time: {DateTime.Now:G}");
                 var slices = CreateSlices(LoadSample(sampleSize, streamReader));
-                using GeneticsRepository rep = new();
+                ChessDb rep = new();
                 ChessWeights? startingWeight = rep.Weights
-                    .Find(w => w.IsActive && w.IsImmortal)
+                    .Where(w => w.IsActive && w.IsImmortal)
                     .MinBy(w => w.CreatedOn);
                 if (startingWeight != null)
                 {
@@ -647,6 +646,7 @@ namespace Pedantic
                     optimized.Description = "Optimized";
                     optimized.UpdatedOn = DateTime.UtcNow;
                     rep.Weights.Insert(optimized);
+                    rep.Save();
                     DateTime end = DateTime.Now;
                     Console.WriteLine($@"Optimization complete at: {DateTime.UtcNow:G}, Elapsed: {end - start:g}");
                     PrintSolution(optimized);
@@ -675,7 +675,7 @@ namespace Pedantic
             int passes = 0;
             int failureCount = 0;
             int sampleSize = slices.Sum(s => s.Length);
-            using var rep = new GeneticsRepository();
+            var rep = new ChessDb();
 
             Console.WriteLine($"Pass stats {passes,3} - \u03B5: {curError:F6}");
             int[] index = new int[wtLen];
@@ -762,6 +762,7 @@ namespace Pedantic
                         UpdatedOn = DateTime.UtcNow
                     };
                     rep.Weights.Insert(intermediate);
+                    rep.Save();
                     Console.WriteLine($"Pass stats {passes,3} - \u03B5: {curError:F6}, Δt: {passT:mm\\:ss}, eff: {effRate:F3}, OID: {intermediate.Id}");
                 }
                 else
@@ -1110,10 +1111,10 @@ namespace Pedantic
 
         private static void RunWeights(string? immortalWt, string? printWt)
         {
-            using var rep = new GeneticsRepository();
+            var rep = new ChessDb();
             if (immortalWt != null)
             {
-                ChessWeights? wt = rep.Weights.Find(w => w.Id == new ObjectId(immortalWt)).FirstOrDefault();
+                ChessWeights? wt = rep.Weights.FirstOrDefault(w => w.Id == new Guid(immortalWt));
                 if (wt != null)
                 {
                     wt.IsActive = true;
@@ -1122,18 +1123,20 @@ namespace Pedantic
                     rep.Weights.Update(wt);
                 }
 
-                var otherWts = rep.Weights.Find(w => w.IsActive && w.IsImmortal && w.Id != new ObjectId(immortalWt));
+                var otherWts = rep.Weights.Where(w => w.IsActive && w.IsImmortal && w.Id != new Guid(immortalWt));
                 foreach (var w in otherWts)
                 {
                     w.IsActive = false;
                     w.UpdatedOn = DateTime.UtcNow;
                     rep.Weights.Update(w);
                 }
+
+                rep.Save();
             }
 
             if (printWt != null)
             {
-                ChessWeights? wt = rep.Weights.Find(w => w.Id == new ObjectId(printWt)).FirstOrDefault();
+                ChessWeights? wt = rep.Weights.FirstOrDefault(w => w.Id == new Guid(printWt));
                 if (wt != null)
                 {
                     PrintSolution(wt);

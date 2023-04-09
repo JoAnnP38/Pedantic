@@ -133,7 +133,7 @@ namespace Pedantic.Chess
                     }
                 }
 
-                material[c] = bd.Material(color);
+                material[c] = bd.MaterialNoKing(color);
                 kingIndex[c] = (sbyte)BitOps.TzCount(bd.Pieces(color, Piece.King));
                 int ki = kingIndex[c];
                 Color other = (Color)(c ^ 1);

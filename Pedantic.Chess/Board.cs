@@ -155,6 +155,9 @@ namespace Pedantic.Chess
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public short Material(Color color) => material[(int)color];
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public short MaterialNoKing(Color color) => (short)(material[(int)color] - Piece.King.Value());
+
         public short PieceMaterial(Color color)
         {
             short pieceMaterial = 0;
@@ -275,7 +278,7 @@ namespace Pedantic.Chess
 
         public bool InsufficientMaterialForMate()
         {
-            return Material(Color.White) <= 300 && Material(Color.Black) <= 300 &&
+            return MaterialNoKing(Color.White) <= 300 && MaterialNoKing(Color.Black) <= 300 &&
                    Pieces(Color.White, Piece.Pawn) == 0ul &&
                    Pieces(Color.Black, Piece.Pawn) == 0ul;
         }
@@ -295,7 +298,7 @@ namespace Pedantic.Chess
             int mat = 0;
             for (Piece piece = Piece.Knight; piece <= Piece.Queen; piece++)
             {
-                mat += BitOps.PopCount(Pieces(color, piece)) * Evaluation.CanonicalPieceValues(piece);
+                mat += BitOps.PopCount(Pieces(color, piece)) * piece.Value();
                 if (mat >= minMaterial)
                 {
                     return true;
@@ -567,6 +570,7 @@ namespace Pedantic.Chess
 
         #region Attacks & Checks
 
+        // SEE where move hasn't been made yet
         public int StaticExchangeEval(Color stm, ulong move)
         {
             ulong tempAll = all;
@@ -576,14 +580,12 @@ namespace Pedantic.Chess
             int from = Move.GetFrom(move);
             int to = Move.GetTo(move);
             Piece captured = Move.GetCapture(move);
-            Piece pc = board[from].Piece;
+            Piece pc = Move.IsPromote(move) ? Move.GetPromote(move) : board[from].Piece;
 
             ulong attacks = AttacksTo(to);
-            int atkPieceValue = Evaluation.CanonicalPieceValues(captured);
+            captures[0] = captured.Value();
 
             stm = stm.Other();
-            captures[0] = atkPieceValue;
-            atkPieceValue = Evaluation.CanonicalPieceValues(pc);
             tempAll = BitOps.ResetBit(tempAll, from);
 
             return SeeImpl(captures, stm, to, pc, attacks, tempAll);
@@ -597,9 +599,9 @@ namespace Pedantic.Chess
             int to = Move.GetTo(move);
             ulong attacks = AttacksTo(to);
             Piece pc = board[to].Piece;
-            stm = stm.Other();
-            captures[0] = Evaluation.CanonicalPieceValues(pc);
+            captures[0] = pc.Value();
 
+            stm = stm.Other();
             ulong attacksFrom = 0;
             Piece piece = Piece.Pawn;
             for (; piece <= Piece.King; piece++)
@@ -616,15 +618,16 @@ namespace Pedantic.Chess
                 return 0;
             }
 
-            ulong tempAll = BitOps.ResetBit(all, BitOps.TzCount(attacksFrom));
             stm = stm.Other();
+            ulong tempAll = BitOps.ResetBit(all, BitOps.TzCount(attacksFrom));
+
             return SeeImpl(captures, stm, to, piece, attacks, tempAll);
         }
 
         private int SeeImpl(Span<int> captures, Color stm, int to, Piece piece, ulong attacks, ulong blockers)
         {
             int cIndex = 1;
-            int atkPieceValue = Evaluation.CanonicalPieceValues(piece);
+            int atkPieceValue = piece.Value();
             ulong dSliders = DiagonalSliders(Color.White) | DiagonalSliders(Color.Black);
             ulong oSliders = OrthogonalSliders(Color.White) | OrthogonalSliders(Color.Black);
 
@@ -668,7 +671,7 @@ namespace Pedantic.Chess
                 }
 
                 captures[cIndex] = -captures[cIndex - 1] + atkPieceValue;
-                atkPieceValue = Evaluation.CanonicalPieceValues(piece);
+                atkPieceValue = piece.Value();
                 if (captures[cIndex++] - atkPieceValue > 0)
                 {
                     break;

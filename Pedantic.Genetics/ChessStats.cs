@@ -12,16 +12,13 @@
 // <summary></summary>
 // ***********************************************************************
 
-using LiteDB;
-
 namespace Pedantic.Genetics
 {
     public sealed class ChessStats
     {
         public const string CURRENT_VERSION = "0.2";
 
-        [BsonCtor]
-        public ChessStats(ObjectId id, string phase, int depth, long nodesVisited, string version)
+        public ChessStats(Guid id, string phase, int depth, long nodesVisited, string version)
         {
             Id = id;
             Phase = phase;
@@ -32,19 +29,17 @@ namespace Pedantic.Genetics
 
         public ChessStats()
         {
-            Id = ObjectId.NewObjectId();
+            Id = Guid.NewGuid();
             Phase = string.Empty;
             Depth = 0;
             NodesVisited = 0;
             Version = CURRENT_VERSION;
         }
 
-        public ObjectId Id { get; set; }
+        public Guid Id { get; set; }
         public string Phase { get; set; }
         public int Depth { get; set; }
         public long NodesVisited { get; set; }
         public string Version { get; set; }
-
-        [BsonIgnore] public DateTime CreatedOn => Id.CreationTime;
     }
 }

@@ -15,7 +15,6 @@
 // </summary>
 // ***********************************************************************
 using Pedantic.Utilities;
-using LiteDB;
 
 namespace Pedantic.Genetics
 {
@@ -44,9 +43,8 @@ namespace Pedantic.Genetics
         public const int ROOK_BEHIND_PASSED_PAWN = 411;
         public const int DOUBLED_ROOKS_ON_FILE = 412;
 
-        [BsonCtor]
-        public ChessWeights(ObjectId _id, bool isActive, bool isImmortal, string description, short[] weights, 
-            float fitness, int sampleSize, float k, short totalPasses, DateTime updatedOn)
+        public ChessWeights(Guid _id, bool isActive, bool isImmortal, string description, short[] weights, 
+            float fitness, int sampleSize, float k, short totalPasses, DateTime updatedOn, DateTime createdOn)
         {
             Id = _id;
             IsActive = isActive;
@@ -58,11 +56,12 @@ namespace Pedantic.Genetics
             K = k;
             TotalPasses = totalPasses;
             UpdatedOn = updatedOn;
+            CreatedOn = createdOn;
         }
 
         public ChessWeights(ChessWeights other)
         {
-            Id = ObjectId.NewObjectId();
+            Id = Guid.NewGuid();
             IsActive = other.IsActive;
             IsImmortal = other.IsImmortal;
             Description = other.Description;
@@ -72,11 +71,12 @@ namespace Pedantic.Genetics
             K = other.K;
             TotalPasses = other.TotalPasses;
             UpdatedOn = DateTime.UtcNow;
+            CreatedOn = DateTime.UtcNow;
         }
 
         public ChessWeights(short[] weights)
         {
-            Id = ObjectId.NewObjectId();
+            Id = Guid.NewGuid();
             IsActive = true;
             IsImmortal = false;
             Description = "Anonymous";
@@ -85,12 +85,13 @@ namespace Pedantic.Genetics
             SampleSize = 0;
             K = 0;
             TotalPasses = 0;
-            UpdatedOn = CreatedOn;
+            UpdatedOn = DateTime.UtcNow;
+            CreatedOn = DateTime.UtcNow;
         }
 
-        private ChessWeights()
+        public ChessWeights()
         {
-            Id = ObjectId.Empty;
+            Id = Guid.NewGuid();
             IsActive = false;
             IsImmortal = false;
             Description = string.Empty;
@@ -99,10 +100,11 @@ namespace Pedantic.Genetics
             SampleSize = default;
             K = default;
             TotalPasses = default;
-            UpdatedOn = CreatedOn;
+            UpdatedOn = DateTime.UtcNow;
+            CreatedOn = DateTime.UtcNow;
         }
 
-        public ObjectId Id { get; set; }
+        public Guid Id { get; set; }
         public bool IsActive { get; set; }
         public bool IsImmortal { get; set; }
         public string Description { get; set; }
@@ -113,8 +115,7 @@ namespace Pedantic.Genetics
         public short TotalPasses { get; set; }
         public DateTime UpdatedOn { get; set; }
 
-        [BsonIgnore]
-        public DateTime CreatedOn => Id.CreationTime;
+        public DateTime CreatedOn { get; set; }
 
         public static ChessWeights Empty { get; } = new ChessWeights();
 
@@ -134,12 +135,13 @@ namespace Pedantic.Genetics
 
         public static bool LoadParagon(out ChessWeights paragon)
         {
-            using var rep = new GeneticsRepository();
-            ChessWeights? p = rep.Weights.FindOne(w => w.IsActive && w.IsImmortal);
+            var rep = new ChessDb();
+            ChessWeights? p = rep.Weights.GetAll().FirstOrDefault(w => w.IsActive && w.IsImmortal);
             if (p == null)
             {
                 p = CreateParagon();
                 rep.Weights.Insert(p);
+                rep.Save();
                 paragon = p;
             }
             else

@@ -13,7 +13,6 @@
 //     Class Evaluation is used to evaluate a static chess position.
 // </summary>
 // ***********************************************************************
-using LiteDB;
 using Pedantic.Genetics;
 using Pedantic.Utilities;
 using System.Runtime.CompilerServices;
@@ -297,8 +296,8 @@ namespace Pedantic.Chess
 
         public void CalcMaterialAdjustment(Board board)
         {
-            int materialWhite = board.Material(Color.White);
-            int materialBlack = board.Material(Color.Black);
+            int materialWhite = board.MaterialNoKing(Color.White);
+            int materialBlack = board.MaterialNoKing(Color.Black);
 
             if (materialWhite > 0 && materialBlack > 0 && Math.Abs(materialWhite - materialBlack) >= 200)
             {
@@ -314,7 +313,7 @@ namespace Pedantic.Chess
 
         public GamePhase GetGamePhase(Board board, out int opWt, out int egWt)
         {
-            int totalMaterial = board.Material(Color.White) + board.Material(Color.Black);
+            int totalMaterial = board.MaterialNoKing(Color.White) + board.MaterialNoKing(Color.Black);
             GamePhase phase = GamePhase.Opening;
             opWt = 128;
             egWt = 0;
@@ -326,10 +325,10 @@ namespace Pedantic.Chess
                 phase = GamePhase.EndGame;
 
                 if (useMopUp &&
-                    Math.Abs(board.Material(Color.White) - board.Material(Color.Black)) >= 400 &&
-                    Math.Min(board.Material(Color.White), board.Material(Color.Black)) <= 700)
+                    Math.Abs(board.MaterialNoKing(Color.White) - board.MaterialNoKing(Color.Black)) >= 400 &&
+                    Math.Min(board.MaterialNoKing(Color.White), board.MaterialNoKing(Color.Black)) <= 700)
                 {
-                    winning = board.Material(Color.White) > board.Material(Color.Black)
+                    winning = board.MaterialNoKing(Color.White) > board.MaterialNoKing(Color.Black)
                         ? Color.White
                         : Color.Black;
 
@@ -370,11 +369,17 @@ namespace Pedantic.Chess
 
         public static ChessWeights LoadWeights(string? id = null)
         {
-            using var rep = new GeneticsRepository();
+            var rep = new ChessDb();
             ChessWeights? w = (string.IsNullOrEmpty(id)
-                ? rep.Weights.FindOne(cw => cw.IsActive && cw.IsImmortal)
-                : rep.Weights.FindOne(cw => cw.Id == new ObjectId(id))) ?? ChessWeights.CreateParagon();
+                ? rep.Weights.FirstOrDefault(cw => cw.IsActive && cw.IsImmortal)
+                : rep.Weights.FirstOrDefault(cw => cw.Id == new Guid(id)));
 
+            if (w == null)
+            {
+                w = ChessWeights.CreateParagon();
+                rep.Weights.Insert(w);
+                rep.Save();
+            }
             wt = new EvalWeights(w);
             return w;
         }
@@ -439,7 +444,7 @@ namespace Pedantic.Chess
         private readonly short[] egPawnScore = { 0, 0 };
 
         private static EvalWeights wt;
-        private static readonly short[] canonicalPieceValues = { 100, 300, 300, 500, 900, 0 };
+        private static readonly short[] canonicalPieceValues = { 100, 300, 300, 500, 900, 9900 };
 
         public static readonly ulong[][] PassedPawnMasks =
 {
