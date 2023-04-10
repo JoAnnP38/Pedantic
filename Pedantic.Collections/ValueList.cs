@@ -201,6 +201,23 @@ namespace Pedantic.Collections
             return matchCount;
         }
 
+
+        public void Rotate()
+        {
+            // move list up in order and replace tail with head
+            if (insertIndex >= 2)
+            {
+                T head = array[0];
+                for (int i = 1; i < insertIndex; ++i)
+                {
+                    array[i - 1] = array[i];
+                }
+
+                array[insertIndex - 1] = head;
+            }
+
+        }
+
         public ValueList<T> Clone()
         {
             return new ValueList<T>(this);

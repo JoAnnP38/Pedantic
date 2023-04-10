@@ -570,8 +570,8 @@ namespace Pedantic.Chess
 
         #region Attacks & Checks
 
-        // SEE where move hasn't been made yet
-        public int StaticExchangeEval(Color stm, ulong move)
+        // SEE where move hasn't been made on the board yet
+        public int PreMoveStaticExchangeEval(Color stm, ulong move)
         {
             ulong tempAll = all;
             Span<int> captures = stackalloc int[32];
@@ -591,7 +591,8 @@ namespace Pedantic.Chess
             return SeeImpl(captures, stm, to, pc, attacks, tempAll);
         }
 
-        public int PostMoveStatExchEval(Color stm, ulong move)
+        // SEE where move has already been made on the board
+        public int PostMoveStaticExchangeEval(Color stm, ulong move)
         {
             Span<int> captures = stackalloc int[32];
             captures.Clear();

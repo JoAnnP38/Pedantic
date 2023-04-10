@@ -149,7 +149,7 @@ namespace Pedantic.Chess
                 return alpha;
             }
 
-            if (TtTran.TryGetScore(board.Hash, depth, ply, ref alpha, ref beta, out int score, out ulong _))
+            if (ply > 0 && TtTran.TryGetScore(board.Hash, depth, ply, ref alpha, ref beta, out int score, out ulong _))
             {
                 return score;
             }
@@ -547,7 +547,19 @@ namespace Pedantic.Chess
                 extension++;
             }
 
-            return extension > 0 ? 1 : 0;
+            if (extension > 0)
+            {
+                ulong move = board.LastMove;
+                Piece capture = Move.GetCapture(move);
+                int pieceValue = capture != Piece.None ? capture.Value() : 0;
+                if (Move.Compare(move, Move.NullMove) == 0 ||
+                    board.PostMoveStaticExchangeEval(board.SideToMove.Other(), move) - pieceValue <= 0)
+                {
+                    return 1;
+                }
+            }
+
+            return 0;
         }
 
         public int Contempt

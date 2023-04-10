@@ -212,17 +212,22 @@ namespace Pedantic.Chess
                     return true;
                 }
 
-                if (item.Flag == TtFlag.UpperBound /*&& score <= alpha*/)
+                if (item.Flag == TtFlag.UpperBound)
                 {
+                    if (score <= alpha)
+                    {
+                        return true;
+                    }
                     beta = Math.Min(score, beta);
                 }
-
-                if (item.Flag == TtFlag.LowerBound /*&& score >= beta*/)
+                else if (item.Flag == TtFlag.LowerBound)
                 {
+                    if (beta <= score)
+                    {
+                        return true;
+                    }
                     alpha = Math.Max(score, alpha);
                 }
-
-                return alpha >= beta;
             }
 
             return false;

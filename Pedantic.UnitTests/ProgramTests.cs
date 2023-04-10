@@ -283,8 +283,8 @@ namespace Pedantic.UnitTests
         [TestMethod]
         public void IgnoreQueenPromotionTest()
         {
-            Engine.CollectStats = true;
-            Engine.Infinite = true;
+            //Engine.CollectStats = true;
+            //Engine.Infinite = true;
             Engine.SearchThreads = 1;
             Program.ParseCommand("setoption name Hash value 128");
             //Program.ParseCommand("setoption name Evaluation_ID value 63da147260961e01d917f00f");
@@ -428,6 +428,16 @@ namespace Pedantic.UnitTests
             Engine.MovesOutOfBook = 11;
             Program.ParseCommand("position startpos moves g2g3 h7h5 d2d4 h5h4 g3h4 g8f6 c1g5 d7d5 e2e3 g7g6 g5f6 e7f6 g1f3 c7c6 b1d2 a7a5 f1g2 a5a4 c2c3 a4a3 b2b4 c8e6 a1b1");
             Program.ParseCommand("go wtime 117306 btime 81754 winc 6000 binc 6000");
+            Engine.Wait();
+        }
+
+        [TestMethod]
+        public void IncorrectAndLargeEvaluationTest()
+        {
+            //Engine.Infinite = true;
+            Program.ParseCommand("position startpos moves g1f3 g8f6 g2g3 g7g6 b2b4 d7d5 h2h3 f8g7 c1b2 e8g8 f1g2 c7c6 d2d3 a7a5 a2a3 a5b4 a3b4 a8a1");
+            Console.WriteLine(Engine.Board.ToFenString());
+            Program.ParseCommand("go wtime 110733 btime 155613 winc 6000 binc 6000");
             Engine.Wait();
         }
     }

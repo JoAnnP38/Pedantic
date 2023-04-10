@@ -299,10 +299,18 @@ namespace Pedantic.Chess
             int materialWhite = board.MaterialNoKing(Color.White);
             int materialBlack = board.MaterialNoKing(Color.Black);
 
-            if (materialWhite > 0 && materialBlack > 0 && Math.Abs(materialWhite - materialBlack) >= 200)
+            ulong move = board.LastMove;
+            int seeValue = 0;
+            if (Move.IsCapture(move))
             {
-                adjust[0] = Math.Max(Math.Min((materialBlack * 10) / materialWhite, 10), 8);
-                adjust[1] = Math.Max(Math.Min((materialWhite * 10) / materialBlack, 10), 8);
+                seeValue = board.PostMoveStaticExchangeEval(board.SideToMove.Other(), move);
+                seeValue = board.SideToMove == Color.White ? seeValue : -seeValue;
+            }
+
+            if (materialWhite > 0 && materialBlack > 0 && Math.Abs(materialWhite - materialBlack + seeValue) >= 200)
+            {
+                adjust[0] = Math.Max(Math.Min((materialBlack * 10) / materialWhite, 10), 9);
+                adjust[1] = Math.Max(Math.Min((materialWhite * 10) / materialBlack, 10), 9);
             }
             else
             {
