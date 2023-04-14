@@ -440,5 +440,15 @@ namespace Pedantic.UnitTests
             Program.ParseCommand("go wtime 110733 btime 155613 winc 6000 binc 6000");
             Engine.Wait();
         }
+
+        [TestMethod]
+        public void InvalidUnderPromotionTest()
+        {
+            Engine.ClearHashTable();
+            Program.ParseCommand("position startpos moves d2d4 d7d5 g1f3 g8f6 c2c4 e7e6 b1c3 c7c6 e2e3 b8d7 f1d3 d5c4 d3c4 b7b5 c4d3 c8b7 e1g1 f8d6 e3e4 e6e5 d4d5 b5b4 d5c6 b7c6 c3d5 e8g8 f1e1 h7h6 d5f6 d7f6 b2b3 d8b6 c1e3 b6b7 f3d2 f8d8 a1c1 a7a5 f2f3 f6h5 g2g3 h5f6 d2c4 d6c7 d1c2 a5a4 e1d1 c6d7 g1g2 a4a3 e3c5 d7e6 c2d2 e6c4 c1c4 c7a5 d2e1 a8b8 h2h4 d8d7 e1e2 b8c8 c4c2 b7b8 d1c1 c8d8 d3a6 d7c7 g3g4 f6h7 a6c4 h7f8 c4d5 d8c8 h4h5 f8e6 d5e6 f7e6 g2g3 c7c6 g3g2 g8h7 c2c4 b8b5 e2c2 a5d8 c5e3 d8b6 e3b6 c6c4 b3c4 b5b6 c4c5 b6d8 c5c6 c8c7 g2g3 d8d4 c2c4 d4d2 c1c2 d2e1 g3g2 e1d1 c2f2 d1d6 f2c2 d6d1 g2f2 d1h1 c4f1 h1h2 f1g2 h2h4 g2g3 h4d8 g3e5 d8d1 e5c7 d1c2 f2g3 b4b3 g4g5 h6g5 a2b3 c2c5 h5h6 h7h6 g3g4 c5g1 c7g3 g1g3 g4g3 a3a2 c6c7 a2a1q c7c8q a1g1 g3h3 g5g4 f3g4 g1e3 h3h2 e3e4 c8h8 h6g6 h8h5 g6f6 h5h4 f6f7 h4h5 g7g6 h5h7 f7e8 h7g8 e8e7 g8g7 e7e8 h2g3 e4e1 g3h3 e1h1 h3g3 h1e1 g3f4 e1d2 f4f3 d2d1 f3f4 d1d2 f4f3 g6g5 g7g6 e8e7 g6g7 e7d6 g7f8 d6d7 f8f7 d7d6 f7f8 d6d7 f8b8 d2d1 f3g3 d1g1 g3f3 g1f1 f3g3 f1d3 g3g2 d3e4 g2g3 e4e3 g3g2 e3e2 g2g3 e2e1 g3g2 e1e2 g2g3 e2e1 g3f3 e1c3 f3e2 c3c2 e2e3 c2c5 e3d3 c5d5 d3e3 d5c5 e3e2 c5d5 b8b4 d7e8 b4c4 d5g2 e2d3 g2g3 d3d2 e8f7 b3b4 g3f2 d2c3 f2g3 c3b2 g3g2 b2a3 g2f3 a3a4 f3f4 a4b5 f4b8 b5a6 b8a8 a6b6 a8b8 b6a5 b8d8 a5b5 d8b8 b5a4 b8f4 c4e2 f7f6 e2g2 f6f7 g2h3 f4d2 h3h7 f7f6 h7h8 f6g6 h8e8 g6f6 e8h8 f6g6 a4a5 d2a2 a5b6 a2f2 b6c7 f2f4 c7d7 f4g4 h8g8 g6h6 g8f8 h6h5 f8h8 h5g6 h8e8 g6h6 b4b5 e6e5 d7d8 g4d4 d8c7 d4c5 c7b7 e5e4 b5b6 e4e3 e8e6 h6g7 b7a6 c5a3 a6b7 a3d3 e6e7 g7g6 e7e6 g6h5 e6h3 h5g6 h3e6 g6h7 e6f7 h7h6 f7e6 h6h5 e6h3 h5g6 h3h8 d3e4 b7a7 e3e2 h8g8 g6h5 g8h8 h5g4 h8c8 g4h4 c8h8 h4g3 h8c3 g3g2 b6b7 e2e1q c3e1 e4e1");
+            Console.WriteLine(Engine.Board.ToFenString());
+            Program.ParseCommand("go depth 16");
+            Engine.Wait();
+        }
     }
 }

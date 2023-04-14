@@ -31,11 +31,21 @@ namespace Pedantic.Chess
         public const int MINOR_PIECE_COUNT = 4;
         public const int MAJOR_MINOR_PIECE_COUNT = 6;
         public const short PV_SCORE = 20000;
+        public const short BAD_CAPTURE = 11400;
         public const short CAPTURE_SCORE = 10000;
         public const short PROMOTE_SCORE = 9000;
         public const short KILLER_SCORE = 7000;
         public const short HISTORY_SCORE = 5000;
         public const short INFINITE_WINDOW = short.MaxValue;
+        public const ulong LINEUP_K = 0ul;
+        public const ulong LINEUP_KQ = 0x0005ul;
+        public const ulong LINEUP_KR = 0x0004ul;
+        public const ulong LINEUP_KB = 0x0003ul;
+        public const ulong LINEUP_KN = 0x0002ul;
+        public const ulong LINEUP_KP = 0x0001ul;
+        public const ulong LINEUP_KNN = 0x0012ul;
+        public const ulong LINEUP_KBN = 0x001Aul;
+        public const ulong LINEUP_KBB = 0x001Bul;
 
         public const string REGEX_FEN = @"^\s*([rnbqkpRNBQKP1-8]+/){7}[rnbqkpRNBQKP1-8]+\s[bw]\s(-|K?Q?k?q?)\s(-|[a-h][36])\s\d+\s\d+\s*$";
         public const string REGEX_MOVE = @"^[a-h][1-8][a-h][1-8](n|b|r|q)?$";

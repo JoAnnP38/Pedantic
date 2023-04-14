@@ -202,13 +202,13 @@ namespace Pedantic.Collections
         }
 
 
-        public void Rotate()
+        public void Rotate(int n = 0)
         {
             // move list up in order and replace tail with head
-            if (insertIndex >= 2)
+            if (insertIndex - n >= 2)
             {
-                T head = array[0];
-                for (int i = 1; i < insertIndex; ++i)
+                T head = array[n];
+                for (int i = n + 1; i < insertIndex; ++i)
                 {
                     array[i - 1] = array[i];
                 }
@@ -216,6 +216,11 @@ namespace Pedantic.Collections
                 array[insertIndex - 1] = head;
             }
 
+        }
+
+        public void SwapElements(int n1, int n2)
+        {
+            (array[n1], array[n2]) = (array[n2], array[n1]);
         }
 
         public ValueList<T> Clone()

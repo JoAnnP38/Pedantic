@@ -162,7 +162,7 @@ namespace Pedantic
 
                                 int eval = search.Eval.Compute(bd);
                                 int delta = Math.Abs(search.Quiesce(-Constants.INFINITE_WINDOW,
-                                    Constants.INFINITE_WINDOW, 0) - eval);
+                                    Constants.INFINITE_WINDOW, 0, bd.IsChecked()) - eval);
                                 if (delta == 0)
                                 {
                                     yield return new Position(bd.Hash, ply, gamePly, bd.ToFenString(), result);

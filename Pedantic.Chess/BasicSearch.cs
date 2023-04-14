@@ -37,6 +37,7 @@ namespace Pedantic.Chess
             Score = 0;
             NodesVisited = 0L;
             evaluation = new Evaluation(true, randomSearch, true);
+            startDateTime = DateTime.Now;
         }
 
         public void Search()
@@ -46,22 +47,22 @@ namespace Pedantic.Chess
             long startNodes = 0;
             ulong? ponderMove = null;
             bool oneLegalMove = board.OneLegalMove(out ulong bestMove);
-            evaluation.CalcMaterialAdjustment(board);
             bool inCheck = board.IsChecked();
-            Score = Quiesce(-Constants.INFINITE_WINDOW, Constants.INFINITE_WINDOW, 0);
+            Score = Quiesce(-Constants.INFINITE_WINDOW, Constants.INFINITE_WINDOW, 0, inCheck);
 
-            while (Depth++ < maxSearchDepth && time.CanSearchDeeper() && (!IsCheckmate(Score, out int mateIn) || Math.Abs(mateIn) * 2 >= Depth))
+            while (++Depth < maxSearchDepth && time.CanSearchDeeper() && (!IsCheckmate(Score, out int mateIn) || Math.Abs(mateIn) * 2 + 2 >= Depth))
             {
                 time.StartInterval();
                 history.Rescale();
                 UpdateTtWithPv(PV, Depth);
                 int iAlpha = 0, iBeta = 0, result, alpha, beta;
+                seldepth = Depth;
 
                 do
                 {
                     alpha = Window[iAlpha] == -Constants.INFINITE_WINDOW ? -Constants.INFINITE_WINDOW : Score - Window[iAlpha];
                     beta = Window[iBeta] == Constants.INFINITE_WINDOW ? Constants.INFINITE_WINDOW : Score + Window[iBeta];
-                    result = Search(alpha, beta, Depth, 0, inCheck);
+                    result = SearchRoot(alpha, beta, Depth, inCheck);
 
                     if (wasAborted)
                     {
@@ -97,7 +98,6 @@ namespace Pedantic.Chess
                 startNodes = NodesVisited;
                 Score = result;
                 ReportSearchResults(ref bestMove, ref ponderMove);
-
                 if (Depth == 5 && oneLegalMove)
                 {
                     break;
@@ -122,21 +122,156 @@ namespace Pedantic.Chess
                     ReportSearchResults(ref bestMove, ref ponderMove);
                 }
             }
+
+            if (TryGetCpuLoad(startDateTime, out int cpuLoad))
+            {
+                Uci.Usage(TtTran.Usage, cpuLoad);
+            }
+
             Uci.BestMove(bestMove, CanPonder ? ponderMove : null);
+        }
+
+        public int SearchRoot(int alpha, int beta, int depth, bool inCheck)
+        {
+            int originalAlpha = alpha;
+            depth = Math.Min(depth, 63);
+
+            if (TtTran.TryGetScore(board.Hash, depth, 0, ref alpha, ref beta, out int score, out ulong bestMove) &&
+                board.IsLegalMove(bestMove))
+            {
+                return score;
+            }
+
+            if (depth <= 0)
+            {
+                return Quiesce(alpha, beta, 0, inCheck);
+            }
+
+            NodesVisited++;
+
+            if (MustAbort || wasAborted)
+            {
+                wasAborted = true;
+                return 0;
+            }
+
+            int X = CalcExtension(inCheck);
+            int expandedNodes = 0;
+            bool raisedAlpha = false;
+            history.SideToMove = board.SideToMove;
+            MoveList moveList = moveListPool.Get();
+
+            foreach (ulong move in board.Moves(0, killerMoves, history, moveList))
+            {
+                if (!board.MakeMove(move))
+                {
+                    continue;
+                }
+
+                expandedNodes++;
+                if (startReporting || (DateTime.Now - startDateTime).TotalMilliseconds >= 1000)
+                {
+                    startReporting = true;
+                    Uci.CurrentMove(depth, move, expandedNodes);
+                }
+
+                bool checkingMove = board.IsChecked();
+                bool isQuiet = Move.IsQuiet(move);
+                bool badCapture = Move.IsCapture(move) && Move.GetScore(move) == Constants.BAD_CAPTURE;
+                bool interesting = inCheck || checkingMove || (!isQuiet && !badCapture) || !raisedAlpha;
+
+                int R = 0;
+                if (!interesting && !killerMoves.Exists(0, move))
+                {
+                    R = LMR[Math.Min(depth, 31)][Math.Min(expandedNodes - 1, 63)];
+                }
+
+                if (X > 0 && R > 0)
+                {
+                    R--;
+                }
+
+                for (;;)
+                {
+                    if (!raisedAlpha)
+                    {
+                        score = -Search(-beta, -alpha, depth + X - 1, 1, checkingMove);
+                    }
+                    else
+                    {
+                        score = -Search(-alpha - 1, -alpha, Math.Max(depth + X - R - 1, 0), 1, checkingMove, isPv: false);
+                        if (score > alpha)
+                        {
+                            score = -Search(-beta, -alpha, Math.Max(depth + X - R - 1, 0), 1, checkingMove, true, R == 0);
+                        }
+                    }
+
+                    if (R > 0 && score > alpha)
+                    {
+                        R = 0;
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+
+                board.UnmakeMove();
+
+                if (wasAborted)
+                {
+                    break;
+                }
+
+                if (score > alpha)
+                {
+                    raisedAlpha = true;
+                    alpha = score;
+                    bestMove = move;
+
+                    if (score >= beta)
+                    {
+                        if (Move.IsQuiet(move))
+                        {
+                            killerMoves.Add(move, 0);
+                            history.Update(Move.GetFrom(move), Move.GetTo(move), depth);
+                        }
+
+                        break;
+                    }
+                }
+            }
+
+            moveListPool.Return(moveList);
+
+            if (wasAborted)
+            {
+                return 0;
+            }
+
+            if (expandedNodes == 0)
+            {
+                return inCheck ? -Constants.CHECKMATE_SCORE : 0;
+            }
+
+            TtTran.Add(board.Hash, depth, 0, originalAlpha, beta, alpha, bestMove);
+            return alpha;
         }
 
         public int Search(int alpha, int beta, int depth, int ply, bool inCheck, bool canNull = true, bool isPv = true)
         {
             int originalAlpha = alpha;
-
-            if (board.IsDraw())
-            {
-                return Contempt;
-            }
+            depth = Math.Min(depth, 63);
 
             if (ply >= Constants.MAX_PLY - 1)
             {
                 return evaluation.Compute(board);
+            }
+
+            var repeated = board.PositionRepeated();
+            if (repeated.Repeated && !inCheck)
+            {
+                return Contempt;
             }
 
             // This is a trick from CPW-Engine which I do not understand
@@ -149,17 +284,18 @@ namespace Pedantic.Chess
                 return alpha;
             }
 
-            if (ply > 0 && TtTran.TryGetScore(board.Hash, depth, ply, ref alpha, ref beta, out int score, out ulong _))
+            if (TtTran.TryGetScore(board.Hash, depth, ply, ref alpha, ref beta, out int score, out ulong _))
             {
                 return score;
             }
 
             if (depth <= 0)
             {
-                return Quiesce(alpha, beta, ply);
+                return Quiesce(alpha, beta, ply, inCheck);
             }
 
             NodesVisited++;
+            seldepth = Math.Max(seldepth, ply);
 
             if (MustAbort || wasAborted)
             {
@@ -174,7 +310,7 @@ namespace Pedantic.Chess
             if (canNull && !inCheck && !isPv)
             {
                 // null move pruning
-                if (depth >= 3 && eval >= beta && board.HasMinorMajorPieces(board.OpponentColor, 600))
+                if (depth >= 3 && eval >= beta && board.PieceCount(board.OpponentColor) > 1)
                 {
                     int R = 2 + NMP[depth];
                     if (board.MakeMove(Move.NullMove))
@@ -200,7 +336,7 @@ namespace Pedantic.Chess
                     int threshold = alpha - FutilityMargin[depth];
                     if (eval <= threshold)
                     {
-                        score = Quiesce(alpha, beta, ply);
+                        score = Quiesce(alpha, beta, ply, inCheck);
                         if (score <= alpha)
                         {
                             return score;
@@ -239,7 +375,8 @@ namespace Pedantic.Chess
 
                 bool checkingMove = board.IsChecked();
                 bool isQuiet = Move.IsQuiet(move);
-                bool interesting = inCheck || checkingMove || !isQuiet || expandedNodes == 1;
+                bool badCapture = Move.IsCapture(move) && Move.GetScore(move) == Constants.BAD_CAPTURE;
+                bool interesting = inCheck || checkingMove || (!isQuiet && !badCapture) || expandedNodes == 1;
 
                 if (canPrune && !interesting && expandedNodes > LMP[depth])
                 {
@@ -257,7 +394,7 @@ namespace Pedantic.Chess
                 int R = 0;
                 if (!interesting && !killerMoves.Exists(ply, move))
                 {
-                    R = LMR[Math.Min(depth, 31)][Math.Min(expandedNodes, 63)];
+                    R = LMR[Math.Min(depth, 31)][Math.Min(expandedNodes - 1, 63)];
                 }
 
                 if (X > 0 && R > 0)
@@ -331,9 +468,10 @@ namespace Pedantic.Chess
             return alpha;
         }
 
-        public int Quiesce(int alpha, int beta, int ply)
+        public int Quiesce(int alpha, int beta, int ply, bool inCheck)
         {
             NodesVisited++;
+            seldepth = Math.Max(seldepth, ply);
 
             if (MustAbort || wasAborted)
             {
@@ -346,14 +484,13 @@ namespace Pedantic.Chess
                 return evaluation.Compute(board);
             }
 
-            if (board.IsDraw())
+            var repeated = board.PositionRepeated();
+            if (repeated.Repeated && !inCheck)
             {
                 return Contempt;
             }
 
             history.SideToMove = board.SideToMove;
-            bool inCheck = board.IsChecked();
-
             if (!inCheck)
             {
                 int standPatScore = evaluation.Compute(board);
@@ -382,7 +519,15 @@ namespace Pedantic.Chess
                 }
 
                 expandedNodes++;
-                int score = -Quiesce(-beta, -alpha, ply + 1);
+
+                bool checkingMove = board.IsChecked();
+                if (!inCheck && !checkingMove && Move.GetScore(move) == Constants.BAD_CAPTURE)
+                {
+                    board.UnmakeMove();
+                    continue;
+                }
+
+                int score = -Quiesce(-beta, -alpha, ply + 1, checkingMove);
                 board.UnmakeMove();
 
                 if (wasAborted)
@@ -465,11 +610,11 @@ namespace Pedantic.Chess
 
             if (IsCheckmate(Score, out int mateIn))
             {
-                Uci.InfoMate(Depth, mateIn, NodesVisited, time.Elapsed, PV);
+                Uci.InfoMate(Depth, seldepth, mateIn, NodesVisited, time.Elapsed, PV, TtTran.Usage);
             }
             else
             {
-                Uci.Info(Depth, Score, NodesVisited, time.Elapsed, PV);
+                Uci.Info(Depth, seldepth, Score, NodesVisited, time.Elapsed, PV, TtTran.Usage);
             }
         }
 
@@ -529,6 +674,18 @@ namespace Pedantic.Chess
             }
 
             return checkMate;
+        }
+
+        public bool TryGetCpuLoad(DateTime start, out int cpuLoad)
+        {
+            cpuLoad = 0;
+            if ((DateTime.Now - start).TotalMilliseconds < 1000)
+            {
+                return false;
+            }
+
+            cpuLoad = cpuStats.CpuLoad;
+            return true;
         }
 
         public bool MustAbort => NodesVisited >= maxNodes ||
@@ -603,6 +760,10 @@ namespace Pedantic.Chess
         private bool wasAborted = false;
         private readonly ObjectPool<MoveList> moveListPool = new(Constants.MAX_PLY);
         private readonly List<ChessStats> stats = new();
+        private readonly CpuStats cpuStats = new();
+        private readonly DateTime startDateTime;
+        private bool startReporting = false;
+        private int seldepth;
 
         internal static readonly ulong[] EmptyPv = Array.Empty<ulong>();
         internal static readonly int[] Window = { 25, 100, Constants.INFINITE_WINDOW };

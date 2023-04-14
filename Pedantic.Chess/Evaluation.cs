@@ -48,6 +48,10 @@ namespace Pedantic.Chess
             currentPhase = GetGamePhase(board, out opWt, out egWt);
             score = currentPhase == GamePhase.EndGameMopup ? ComputeMopUp(board) : ComputeNormal(board);
             score = board.SideToMove == Color.White ? score : (short)-score;
+            if (board.InsufficientMaterialForMate())
+            {
+                score >>= 4;
+            }
 
             TtEval.Add(board.Hash, score);
             return score;
@@ -60,7 +64,7 @@ namespace Pedantic.Chess
             {
                 int c = (int)color;
                 int o = c ^ 1;
-                egScore[c] += AdjustMaterial(board.EndGameMaterial[c], adjust[c]);
+                egScore[c] += board.EndGameMaterial[c];
                 if (color == winning)
                 {
                     egScore[c] += (short)(centerDistance[kingIndex[o]] << 3);
@@ -109,10 +113,8 @@ namespace Pedantic.Chess
                     egScore[c] += egPawnScore[c];
                 }
 
-                opScore[c] += (short)(AdjustMaterial(board.OpeningMaterial[c], adjust[c]) +
-                                      board.OpeningPieceSquare[c]);
-                egScore[c] += (short)(AdjustMaterial(board.EndGameMaterial[c], adjust[c]) +
-                                      board.EndGamePieceSquare[c]);
+                opScore[c] += (short)(board.OpeningMaterial[c] + board.OpeningPieceSquare[c]);
+                egScore[c] += (short)(board.EndGameMaterial[c] + board.EndGamePieceSquare[c]);
             }
 
             if (!pawnsCalculated)

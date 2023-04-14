@@ -46,11 +46,11 @@ namespace Pedantic.Chess
             Console.Out.WriteLineAsync($@"info string {message}");
         }
 
-        public static void Info(int depth, int score, long nodes, long timeMs, ulong[] pv)
+        public static void Info(int depth, int seldepth, int score, long nodes, long timeMs, ulong[] pv, int hashfull)
         {
             StringBuilder sb = new();
             int nps = (int)(nodes * 1000 / Math.Max(1, timeMs));
-            sb.Append(@$"info depth {depth} score cp {score} nodes {nodes} nps {nps} time {timeMs} pv");
+            sb.Append(@$"info depth {depth} seldepth {seldepth} score cp {score} nodes {nodes} hashfull {hashfull} nps {nps} time {timeMs} pv");
             for (int n = 0; n < pv.Length; n++)
             {
                 sb.Append($@" {Move.ToString(pv[n])}");
@@ -65,11 +65,11 @@ namespace Pedantic.Chess
             Util.WriteLine(output);
         }
 
-        public static void InfoMate(int depth, int mateIn, long nodes, long timeMs, ulong[] pv)
+        public static void InfoMate(int depth, int seldepth, int mateIn, long nodes, long timeMs, ulong[] pv, int hashfull)
         {
             StringBuilder sb = new();
             int nps = (int)(nodes * 1000 / Math.Max(1, timeMs));
-            sb.Append(@$"info depth {depth} score mate {mateIn} nodes {nodes} nps {nps} time {timeMs} pv");
+            sb.Append(@$"info depth {depth} seldepth {seldepth} score mate {mateIn} nodes {nodes} hashfull {hashfull} nps {nps} time {timeMs} pv");
             for (int n = 0; n < pv.Length; n++)
             {
                 sb.Append($@" {Move.ToString(pv[n])}");
@@ -119,6 +119,11 @@ namespace Pedantic.Chess
         public static void CurrentMove(int depth, ulong move, int moveNumber)
         {
             Console.Out.WriteLineAsync($@"info depth {depth} currmove {Move.ToString(move)} currmovenumber {moveNumber}");
+        }
+
+        public static void Usage(int hashfull, int cpuload)
+        {
+            Console.Out.WriteLineAsync($@"info hashfull {hashfull} cpuload {cpuload}");
         }
     }
 }

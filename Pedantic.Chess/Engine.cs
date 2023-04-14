@@ -28,6 +28,8 @@ namespace Pedantic.Chess
         private static Color color = Color.White;
         private static string evaluationId = string.Empty;
         private static BasicSearch? search = null;
+        private static int searchCounter = 0;
+        private static bool gameDrawn = false;
 
         public static bool Debug { get; set; } = false;
         public static bool IsRunning { get; private set; } = true;
@@ -104,6 +106,10 @@ namespace Pedantic.Chess
             searchThread = null;
             search = null;
             ClearHashTable();
+            if (searchCounter % 10 == 0)
+            {
+                GC.Collect();
+            }
         }
 
         public static void Quit()
@@ -422,6 +428,7 @@ namespace Pedantic.Chess
             };
             IsRunning = true;
             searchThread.Start();
+            searchCounter++;
         }
     }
 }

@@ -44,7 +44,8 @@ namespace Pedantic.Chess
                        (((ulong)score & 0x0fffful) << 24) |
                        (((ulong)ttFlag & 0x03ul) << 40) |
                        (((byte)depth & 0x0fful) << 42) |
-                       (((byte)age & 0x0fful) << 50);
+                       (((byte)age & 0x0fful) << 50) |
+                       (1ul << 58);
 
                 this.hash = hash ^ data;
             }
@@ -61,6 +62,8 @@ namespace Pedantic.Chess
                 set => BitOps.BitFieldSet(data, value, 50, 8);
             }
 
+            public bool InUse => (bool)(BitOps.GetBit(data, 58) == 1);
+
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public bool IsValid(ulong hash)
             {
@@ -74,7 +77,8 @@ namespace Pedantic.Chess
                             (((ulong)score & 0x0fffful) << 24) |
                             (((ulong)flag & 0x03ul) << 40) |
                             (((byte)depth & 0x0fful) << 42) |
-                            (((byte)age & 0x0fful) << 50);
+                            (((byte)age & 0x0fful) << 50) |
+                            (1ul << 58);
                 item.hash = hash ^ item.data;
             }
         }
@@ -82,11 +86,13 @@ namespace Pedantic.Chess
 
         private static TtTranItem[] table;
         private static int capacity;
+        private static int used;
         private static uint mask;
 
         static TtTran()
         {
             capacity = DEFAULT_SIZE_MB * CAPACITY_MULTIPLIER;
+            used = 0;
             table = new TtTranItem[capacity];
             mask = (uint)(capacity - 1);
         }
@@ -105,6 +111,11 @@ namespace Pedantic.Chess
                 }
 
                 bestMove = bestMove == 0 ? item.BestMove : bestMove;
+            }
+
+            if (!item.InUse)
+            {
+                ++used;
             }
 
             if (Evaluation.IsCheckmate(score))
@@ -130,6 +141,7 @@ namespace Pedantic.Chess
         public static void Clear()
         {
             Array.Clear(table);
+            used = 0;
         }
 
         public static void Resize(int sizeMb)
@@ -142,9 +154,12 @@ namespace Pedantic.Chess
             capacity = Math.Min(sizeMb, MAX_SIZE_MB) * CAPACITY_MULTIPLIER;
             table = new TtTranItem[capacity];
             mask = (uint)(capacity - 1);
+            used = 0;
         }
 
         public static int Capacity => capacity;
+
+        public static int Usage => (int)((used * 1000L) / capacity);
 
         public static bool TryGetBestMove(ulong hash, out ulong bestMove)
         {
