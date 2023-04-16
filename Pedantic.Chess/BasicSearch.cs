@@ -15,6 +15,7 @@
 // </summary>
 // ***********************************************************************
 
+using System.Diagnostics;
 using Pedantic.Genetics;
 using Pedantic.Utilities;
 
@@ -47,10 +48,11 @@ namespace Pedantic.Chess
             long startNodes = 0;
             ulong? ponderMove = null;
             bool oneLegalMove = board.OneLegalMove(out ulong bestMove);
+            Eval.CalcMaterialAdjustment(board);
             bool inCheck = board.IsChecked();
             Score = Quiesce(-Constants.INFINITE_WINDOW, Constants.INFINITE_WINDOW, 0, inCheck);
 
-            while (++Depth < maxSearchDepth && time.CanSearchDeeper() && (!IsCheckmate(Score, out int mateIn) || Math.Abs(mateIn) * 2 + 2 >= Depth))
+            while (++Depth < maxSearchDepth && time.CanSearchDeeper() && (!IsCheckmate(Score, out int mateIn) || (Math.Abs(mateIn) << 1) + (Math.Abs(mateIn) >> 1) + 2 >= Depth))
             {
                 time.StartInterval();
                 history.Rescale();
@@ -169,6 +171,10 @@ namespace Pedantic.Chess
                 }
 
                 expandedNodes++;
+                if (Move.GetFrom(move) == Index.E6 && Move.GetTo(move) == Index.B3)
+                {
+                    Debugger.Break();
+                }
                 if (startReporting || (DateTime.Now - startDateTime).TotalMilliseconds >= 1000)
                 {
                     startReporting = true;
@@ -265,7 +271,7 @@ namespace Pedantic.Chess
 
             if (ply >= Constants.MAX_PLY - 1)
             {
-                return evaluation.Compute(board);
+                return evaluation.Compute(board, alpha, beta);
             }
 
             var repeated = board.PositionRepeated();
@@ -304,7 +310,7 @@ namespace Pedantic.Chess
             }
 
             int X = CalcExtension(inCheck);
-            int eval = evaluation.Compute(board);
+            int eval = evaluation.Compute(board, alpha, beta);
             bool canPrune = false;
 
             if (canNull && !inCheck && !isPv)
@@ -481,7 +487,7 @@ namespace Pedantic.Chess
 
             if (ply >= Constants.MAX_PLY - 1)
             {
-                return evaluation.Compute(board);
+                return evaluation.Compute(board, alpha, beta);
             }
 
             var repeated = board.PositionRepeated();
@@ -493,7 +499,7 @@ namespace Pedantic.Chess
             history.SideToMove = board.SideToMove;
             if (!inCheck)
             {
-                int standPatScore = evaluation.Compute(board);
+                int standPatScore = evaluation.Compute(board, alpha, beta);
                 if (standPatScore >= beta)
                 {
                     return standPatScore;
@@ -621,7 +627,7 @@ namespace Pedantic.Chess
         private ulong[] ExtractPv(int depth)
         {
             int maxDepth = depth + 4;
-            List<ulong> result = new(maxDepth);
+            MoveList result = moveListPool.Get();
             Board bd = board.Clone();
             int d = 0;
 
@@ -636,7 +642,9 @@ namespace Pedantic.Chess
                 result.Add(bestMove);
             }
 
-            return result.ToArray();
+            ulong[] array = result.ToArray();
+            moveListPool.Return(result);
+            return array;
         }
 
         private static ulong[] MergeMove(ulong[] pv, ulong move)
@@ -666,8 +674,7 @@ namespace Pedantic.Chess
         {
             mateIn = 0;
             int absScore = Math.Abs(score);
-            bool checkMate = absScore >= Constants.CHECKMATE_SCORE - Constants.MAX_PLY &&
-                             absScore <= Constants.CHECKMATE_SCORE;
+            bool checkMate = absScore is >= Constants.CHECKMATE_SCORE - Constants.MAX_PLY and <= Constants.CHECKMATE_SCORE;
             if (checkMate)
             {
                 mateIn = ((Constants.CHECKMATE_SCORE - absScore + 1) / 2) * Math.Sign(score);

@@ -120,33 +120,35 @@ namespace Pedantic.Chess
         {
             long elapsed = Elapsed;
 
-            if (!Infinite)
+            if (Infinite)
             {
-                //estimate the branching factor
-                long estimate;
-                if (movesToGo == 1)
-                {
-                    estimate = ElapsedInterval;
-                }
-                else
-                {
-                    estimate = (ElapsedInterval * branching_factor_estimate) >> branching_factor_denominator;
-                }
-                long total = elapsed + estimate;
-
-                //no increment... we need to stay within the per-move time budget
-                if (increment == 0 && total > TimePerMoveWithMargin)
-                    return false;
-                //we have already exceeded the average move
-                if (elapsed > TimePerMoveWithMargin)
-                    return false;
-                //shouldn't spend more then the 2x the average on a move (get rid of this???)
-                if (total > 2 * TimePerMoveWithMargin)
-                    return false;
-                //can't afford the estimate
-                if (total > TimeRemainingWithMargin)
-                    return false;
+                return true;
             }
+
+            //estimate the branching factor
+            long estimate;
+            if (movesToGo == 1)
+            {
+                estimate = ElapsedInterval;
+            }
+            else
+            {
+                estimate = (ElapsedInterval * branching_factor_estimate) >> branching_factor_denominator;
+            }
+            long total = elapsed + estimate;
+
+            //no increment... we need to stay within the per-move time budget
+            if (increment == 0 && total > TimePerMoveWithMargin)
+                return false;
+            //we have already exceeded the average move
+            if (elapsed > TimePerMoveWithMargin)
+                return false;
+            //shouldn't spend more then the 2x the average on a move (get rid of this???)
+            if (total > 2 * TimePerMoveWithMargin)
+                return false;
+            //can't afford the estimate
+            if (total > TimeRemainingWithMargin)
+                return false;
 
             //all conditions fulfilled
             return true;

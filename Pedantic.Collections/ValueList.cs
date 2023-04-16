@@ -89,6 +89,13 @@ namespace Pedantic.Collections
             Array.Copy(this.array, 0, array, arrayIndex, insertIndex);
         }
 
+        public T[] ToArray()
+        {
+            var toArray = new T[insertIndex];
+            Array.Copy(array, toArray, toArray.Length);
+            return toArray;
+        }
+
         public bool Remove(T item)
         {
             int index = FindIndex(element => element.Equals(item));

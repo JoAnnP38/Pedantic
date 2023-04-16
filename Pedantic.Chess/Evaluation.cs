@@ -33,7 +33,7 @@ namespace Pedantic.Chess
             this.useMopUp = useMopUp;
         }
 
-        public short Compute(Board board)
+        public short Compute(Board board, int alpha = -Constants.INFINITE_WINDOW, int beta = Constants.INFINITE_WINDOW)
         {
             if (TtEval.TryGetScore(board.Hash, out short score))
             {
@@ -46,13 +46,8 @@ namespace Pedantic.Chess
             kingIndex[0] = BitOps.TzCount(board.Pieces(Color.White, Piece.King));
             kingIndex[1] = BitOps.TzCount(board.Pieces(Color.Black, Piece.King));
             currentPhase = GetGamePhase(board, out opWt, out egWt);
-            score = currentPhase == GamePhase.EndGameMopup ? ComputeMopUp(board) : ComputeNormal(board);
+            score = currentPhase == GamePhase.EndGameMopup ? ComputeMopUp(board) : ComputeNormal(board, alpha, beta);
             score = board.SideToMove == Color.White ? score : (short)-score;
-            if (board.InsufficientMaterialForMate())
-            {
-                score >>= 4;
-            }
-
             TtEval.Add(board.Hash, score);
             return score;
         }
@@ -64,7 +59,7 @@ namespace Pedantic.Chess
             {
                 int c = (int)color;
                 int o = c ^ 1;
-                egScore[c] += board.EndGameMaterial[c];
+                egScore[c] += AdjustMaterial(board.EndGameMaterial[c], adjust[c]);
                 if (color == winning)
                 {
                     egScore[c] += (short)(centerDistance[kingIndex[o]] << 3);
@@ -92,49 +87,101 @@ namespace Pedantic.Chess
             return (short)(egScore[0] - egScore[1]);
         }
 
-        public short ComputeNormal(Board board)
+        public short ComputeNormal(Board board, int alpha, int beta)
         {
-            bool pawnsCalculated = TtPawnEval.TryLookup(board.PawnHash, out TtPawnEval.TtPawnItem item);
-
             for (Color color = Color.White; color <= Color.Black; color++)
             {
                 int c = (int)color;
-                ComputeKingAttacks(color, board);
-                ComputeMisc(color, board);
-                if (pawnsCalculated)
-                {
-                    opScore[c] += item.GetOpeningScore(color);
-                    egScore[c] += item.GetEndGameScore(color);
-                }
-                else if (totalPawns > 0)
-                {
-                    ComputePawns(color, board);
-                    opScore[c] += opPawnScore[c];
-                    egScore[c] += egPawnScore[c];
-                }
-
-                opScore[c] += (short)(board.OpeningMaterial[c] + board.OpeningPieceSquare[c]);
-                egScore[c] += (short)(board.EndGameMaterial[c] + board.EndGamePieceSquare[c]);
+                opScore[c] += (short)(AdjustMaterial(board.OpeningMaterial[c], adjust[c]) + board.OpeningPieceSquare[c]);
+                egScore[c] += (short)(AdjustMaterial(board.EndGameMaterial[c], adjust[c]) + board.EndGamePieceSquare[c]);
             }
+            int score = (((opScore[0] - opScore[1]) * opWt) >> 7) +
+                        (((egScore[0] - egScore[1]) * egWt) >> 7);
 
-            if (!pawnsCalculated)
+            int evalScore = board.SideToMove == Color.White ? score : -score;
+            if (evalScore >= alpha - Constants.LAZY_EVAL_MARGIN && evalScore <= beta + Constants.LAZY_EVAL_MARGIN)
             {
-                TtPawnEval.Add(board.PawnHash, opPawnScore, egPawnScore);
+                bool pawnsCalculated = TtPawnEval.TryLookup(board.PawnHash, out TtPawnEval.TtPawnItem item);
+
+                for (Color color = Color.White; color <= Color.Black; color++)
+                {
+                    int c = (int)color;
+                    opScore[c] = 0;
+                    egScore[c] = 0;
+                    ComputeKingAttacks(color, board);
+                    ComputeMisc(color, board);
+                    if (pawnsCalculated)
+                    {
+                        opScore[c] += item.GetOpeningScore(color);
+                        egScore[c] += item.GetEndGameScore(color);
+                    }
+                    else if (totalPawns > 0)
+                    {
+                        ComputePawns(color, board);
+                        opScore[c] += opPawnScore[c];
+                        egScore[c] += egPawnScore[c];
+                    }
+
+                }
+
+                if (!pawnsCalculated)
+                {
+                    TtPawnEval.Add(board.PawnHash, opPawnScore, egPawnScore);
+                }
+
+                score += (short)((((opScore[0] - opScore[1]) * opWt) >> 7) +
+                                 (((egScore[0] - egScore[1]) * egWt) >> 7));
+
+                if (random)
+                {
+                    score += (short)Random.Shared.Next(-8, 9);
+                }
             }
 
-            short score = (short)((((opScore[0] - opScore[1]) * opWt) >> 7) +
-                            (((egScore[0] - egScore[1]) * egWt) >> 7));
-
-            if (random)
+            var canWin = CanWin(board);
+            if ((score > 0 && !canWin.WhiteCanWin) || (score < 0 && !canWin.BlackCanWin))
             {
-                score += (short)Random.Shared.Next(-8, 9);
+                score >>= 3;
             }
-            return score;
+            else if (board.HalfMoveClock > 84)
+            {
+                score = (short)((score * Math.Min(board.HalfMoveClock - 84, 16)) >> 4);
+            }
+
+            return (short)score;
+        }
+
+        /// <summary>
+        /// Determines whether this instance can win the specified board.
+        /// </summary>
+        /// <remarks>
+        /// This function implements an estimate on whether a side can win;
+        /// however, it is simple. We can extend this with more detailed
+        /// heuristic in a later release.
+        /// </remarks>
+        /// <param name="board">The board.</param>
+        /// <returns>System.ValueTuple&lt;System.Boolean, System.Boolean&gt;.</returns>
+        public (bool WhiteCanWin, bool BlackCanWin) CanWin(Board board)
+        {
+            bool whiteCanWin = false, blackCanWin = false;
+            if (board.Pieces(Color.White, Piece.Pawn) != 0 ||
+                board.MaterialNoKing(Color.White) - board.MaterialNoKing(Color.Black) >= 400)
+            {
+                whiteCanWin = true;
+            }
+
+            if (board.Pieces(Color.Black, Piece.Pawn) != 0 ||
+                board.MaterialNoKing(Color.Black) - board.MaterialNoKing(Color.White) >= 400)
+            {
+                blackCanWin = true;
+            }
+
+            return (whiteCanWin, blackCanWin);
         }
 
         public short AdjustMaterial(short material, int adjustWt)
         {
-            return adjustMaterial ? (short)((material * adjustWt) / 10) : material;
+            return adjustMaterial ? (short)((material * adjustWt) >> 5) : material;
         }
 
         public void ComputeKingAttacks(Color color, Board board)
@@ -311,13 +358,13 @@ namespace Pedantic.Chess
 
             if (materialWhite > 0 && materialBlack > 0 && Math.Abs(materialWhite - materialBlack + seeValue) >= 200)
             {
-                adjust[0] = Math.Max(Math.Min((materialBlack * 10) / materialWhite, 10), 9);
-                adjust[1] = Math.Max(Math.Min((materialWhite * 10) / materialBlack, 10), 9);
+                adjust[0] = Math.Max(Math.Min((materialBlack << 5) / materialWhite, 32), 31);
+                adjust[1] = Math.Max(Math.Min((materialWhite << 5) / materialBlack, 32), 31);
             }
             else
             {
-                adjust[0] = 10;
-                adjust[1] = 10;
+                adjust[0] = 32;
+                adjust[1] = 32;
             }
         }
 
@@ -446,7 +493,7 @@ namespace Pedantic.Chess
         private readonly bool adjustMaterial;
         private readonly bool random;
         private int totalPawns;
-        private readonly int[] adjust = { 10, 10 };
+        private readonly int[] adjust = { 32, 32 };
         private readonly int[] kingIndex = new int[2];
         private readonly short[] opScore = { 0, 0 };
         private readonly short[] egScore = { 0, 0 };

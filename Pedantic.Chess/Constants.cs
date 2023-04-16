@@ -46,6 +46,7 @@ namespace Pedantic.Chess
         public const ulong LINEUP_KNN = 0x0012ul;
         public const ulong LINEUP_KBN = 0x001Aul;
         public const ulong LINEUP_KBB = 0x001Bul;
+        public const int LAZY_EVAL_MARGIN = 400;
 
         public const string REGEX_FEN = @"^\s*([rnbqkpRNBQKP1-8]+/){7}[rnbqkpRNBQKP1-8]+\s[bw]\s(-|K?Q?k?q?)\s(-|[a-h][36])\s\d+\s\d+\s*$";
         public const string REGEX_MOVE = @"^[a-h][1-8][a-h][1-8](n|b|r|q)?$";

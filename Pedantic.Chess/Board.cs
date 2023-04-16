@@ -238,22 +238,53 @@ namespace Pedantic.Chess
         public bool IsLegalMove(ulong move)
         {
             bool legal = false;
-            MoveList moveList = new();
-            GenerateMoves(moveList);
-            for (int n = 0; n < moveList.Count; n++)
+            IHistory hist = new FakeHistory();
+            int from = Move.GetFrom(move);
+            MoveType type = Move.GetMoveType(move);
+            Piece piece = board[from].Piece;
+            if (piece == Piece.None)
             {
-                if (Move.Compare(move, moveList[n]) == 0)
-                {
-                    if (MakeMove(move))
-                    {
-                        UnmakeMove();
-                        legal = true;
-                    }
-
-                    break;
-                }
+                return false;
             }
 
+            MoveList moveList = moveListPool.Get();
+
+            switch (piece, type)
+            {
+                case (Piece.Pawn, MoveType.EnPassant):
+                    GenerateEnPassant(moveList, 1ul << from);
+                    break;
+                    
+                case (Piece.Pawn, not MoveType.EnPassant):
+                    GeneratePawnMoves(moveList, hist, 1ul << from);
+                    break;
+
+                case (Piece.King, MoveType.Castle):
+                    GenerateCastling(moveList, hist);
+                    break;
+
+                default:
+                    GeneratePieceMoves(moveList, hist, piece, from);
+                    break;
+            }
+
+            for (int n = 0; n < moveList.Count; n++)
+            {
+                if (Move.Compare(move, moveList[n]) != 0)
+                {
+                    continue;
+                }
+
+                if (MakeMove(move))
+                {
+                    UnmakeMove();
+                    legal = true;
+                }
+
+                break;
+            }
+
+            moveListPool.Return(moveList);
             return legal;
         }
 
@@ -304,26 +335,23 @@ namespace Pedantic.Chess
 
         public (bool Repeated, bool OverFiftyMoves) PositionRepeated()
         {
-            if (gameStack.Count < 4)
+            if (halfMoveClock < 4)
             {
                 return (false, false);
             }
 
-            if (gameStack.Count > 99)
+            if (halfMoveClock > 99)
             {
                 return (false, true);
             }
 
-            if (gameStack.Count > halfMoveClock)
+            var stackSpan = gameStack.AsSpan();
+            
+            for (int n = stackSpan.Length - 2; n >= Math.Max(stackSpan.Length - halfMoveClock, 0); n -= 2)
             {
-                ReadOnlySpan<BoardState> stackSpan = gameStack.AsSpan();
-                
-                for (int n = stackSpan.Length - 1; n >= stackSpan.Length - halfMoveClock; n -= 2)
+                if (hash == stackSpan[n].Hash)
                 {
-                    if (hash == stackSpan[n].Hash)
-                    {
-                        return (true, false);
-                    }
+                    return (true, false);
                 }
             }
 
@@ -923,7 +951,7 @@ namespace Pedantic.Chess
             }
 
             moveList.Clear();
-            GeneratePromotions(moveList);
+            GeneratePromotions(moveList, Pieces(sideToMove, Piece.Pawn));
             for (int n = 0; n < moveList.Count; n++)
             {
                 moveList.Sort(n);
@@ -989,7 +1017,7 @@ namespace Pedantic.Chess
             }
 
             moveList.Clear();
-            GeneratePromotions(moveList);
+            GeneratePromotions(moveList, Pieces(sideToMove, Piece.Pawn));
             for (int n = 0; n < moveList.Count; n++)
             {
                 moveList.Sort(n);
@@ -1142,9 +1170,10 @@ namespace Pedantic.Chess
         public void GenerateMoves(MoveList list, IHistory? history = null)
         {
             IHistory hist = history ?? fakeHistory;
-            GenerateEnPassant(list);
+            ulong pawns = Pieces(sideToMove, Piece.Pawn);
+            GenerateEnPassant(list, pawns);
             GenerateCastling(list, hist);
-            GeneratePawnMoves(list, hist);
+            GeneratePawnMoves(list, hist, pawns);
 
             for (Piece piece = Piece.Knight; piece <= Piece.King; ++piece)
             {
@@ -1164,6 +1193,22 @@ namespace Pedantic.Chess
                         list.Add(from, to, score: hist[from, to]);
                     }
                 }
+            }
+        }
+
+        public void GeneratePieceMoves(MoveList list, IHistory hist, Piece piece, int from)
+        {
+            ulong bb2 = GetPieceMoves(piece, from);
+
+            for (ulong bb3 = bb2 & Units(OpponentColor); bb3 != 0; bb3 = BitOps.ResetLsb(bb3))
+            {
+                int to = BitOps.TzCount(bb3);
+                list.Add(from, to, MoveType.Capture, (Piece)board[to], score: CaptureScore((Piece)board[to], piece));
+            }
+            for (ulong bb3 = BitOps.AndNot(bb2, All); bb3 != 0; bb3 = BitOps.ResetLsb(bb3))
+            {
+                int to = BitOps.TzCount(bb3);
+                list.Add(from, to, score: hist[from, to]);
             }
         }
 
@@ -1189,7 +1234,7 @@ namespace Pedantic.Chess
         public void GenerateQuietMoves(MoveList list, IHistory history)
         {
             GenerateCastling(list, history);
-            GenerateQuietPawnMoves(list, history);
+            GenerateQuietPawnMoves(list, history, Pieces(sideToMove, Piece.Pawn));
 
             for (Piece piece = Piece.Knight; piece <= Piece.King; ++piece)
             {
@@ -1209,8 +1254,9 @@ namespace Pedantic.Chess
 
         public void GenerateCaptures(MoveList list)
         {
-            GenerateEnPassant(list);
-            GeneratePawnCaptures(list);
+            ulong pawns = Pieces(sideToMove, Piece.Pawn);
+            GenerateEnPassant(list, pawns);
+            GeneratePawnCaptures(list, pawns);
 
             for (Piece piece = Piece.Knight; piece <= Piece.King; ++piece)
             {
@@ -1228,11 +1274,10 @@ namespace Pedantic.Chess
             }
         }
 
-        public void GeneratePromotions(MoveList list)
+        public void GeneratePromotions(MoveList list, ulong pawns)
         {
             // only concerned about pawns on the 7th rank (or 2nd for black)
-            ulong pawnsToPromote = Pieces(sideToMove, Piece.Pawn) &
-                                   MaskRanks[Index.NormalizedIndex[(int)sideToMove][Index.A7]];
+            ulong pawnsToPromote = pawns & MaskRanks[Index.NormalizedIndex[(int)sideToMove][Index.A7]];
 
             ulong bb = sideToMove == Color.White
                 ? BitOps.AndNot(pawnsToPromote, All >> 8)
@@ -1249,11 +1294,11 @@ namespace Pedantic.Chess
             }
         }
 
-        public void GenerateEnPassant(MoveList list)
+        public void GenerateEnPassant(MoveList list, ulong pawns)
         {
             if (enPassantValidated != Index.NONE)
             {
-                ulong bb = PawnDefends(sideToMove, enPassantValidated) & Pieces(sideToMove, Piece.Pawn);
+                ulong bb = PawnDefends(sideToMove, enPassantValidated) & pawns;
                 for (; bb != 0; bb = BitOps.ResetLsb(bb))
                 {
                     int from = BitOps.TzCount(bb);
@@ -1292,12 +1337,10 @@ namespace Pedantic.Chess
             }
         }
 
-        public void GenerateQuietPawnMoves(MoveList list, IHistory hist)
+        public void GenerateQuietPawnMoves(MoveList list, IHistory hist, ulong pawns)
         {
             ulong bb1, bb2;
             int from, to;
-
-            ulong pawns = Pieces(sideToMove, Piece.Pawn);
 
             if (sideToMove == Color.White)
             {
@@ -1314,7 +1357,7 @@ namespace Pedantic.Chess
             {
                 from = BitOps.TzCount(bb1);
                 to = pawnPlus[(int)sideToMove, from];
-                AddPawnMove(list, from, to, MoveType.PawnMove, score: hist[from, to]);
+                AddPawnMove(list, from, to, score: hist[from, to]);
             }
 
             for (; bb2 != 0; bb2 = BitOps.ResetLsb(bb2))
@@ -1325,12 +1368,10 @@ namespace Pedantic.Chess
             }
         }
 
-        public void GeneratePawnMoves(MoveList list, IHistory hist)
+        public void GeneratePawnMoves(MoveList list, IHistory hist, ulong pawns)
         {
             ulong bb1, bb2, bb3, bb4;
             int from, to;
-
-            ulong pawns = Pieces(sideToMove, Piece.Pawn);
 
             if (sideToMove == Color.White)
             {
@@ -1376,12 +1417,10 @@ namespace Pedantic.Chess
             }
         }
 
-        public void GeneratePawnCaptures(MoveList list)
+        public void GeneratePawnCaptures(MoveList list, ulong pawns)
         {
             ulong bb1, bb2;
             int from, to;
-
-            ulong pawns = Pieces(sideToMove, Piece.Pawn);
 
             if (sideToMove == Color.White)
             {
@@ -1671,6 +1710,8 @@ namespace Pedantic.Chess
                 CastlingMask = mask;
             }
         }
+
+        private readonly ObjectPool<MoveList> moveListPool = new(4);
 
         public static readonly CastlingRookMove[] CastlingRookMoves =
         {

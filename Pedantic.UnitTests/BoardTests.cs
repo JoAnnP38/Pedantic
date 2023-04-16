@@ -251,7 +251,7 @@ namespace Pedantic.UnitTests
         {
             Board bd = new(fen);
             MoveList list = new();
-            bd.GeneratePromotions(list);
+            bd.GeneratePromotions(list, bd.Pieces(bd.SideToMove, Piece.Pawn));
 
             for (int n = 0; n < list.Count; n++)
             {

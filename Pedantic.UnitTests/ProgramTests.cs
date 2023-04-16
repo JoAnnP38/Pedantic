@@ -450,5 +450,15 @@ namespace Pedantic.UnitTests
             Program.ParseCommand("go depth 16");
             Engine.Wait();
         }
+
+        [TestMethod]
+        public void PositionRepeatTest()
+        {
+            //Engine.Infinite = true;
+            Program.ParseCommand("position startpos moves b1c3 e7e5 e2e4 b8c6 g1f3 g8f6 f1e2 d7d5 e4d5 f6d5 e1g1 d5c3 d2c3 d8d1 f1d1 f8d6 c1e3 c8f5 a1c1 h7h6 f3d2 e8c8 e2f3 c8b8 d2c4 e5e4 c4d6 c7d6 f3e2 f5e6 d1d2 g7g5 c1d1 b8c7 e3d4 c6d4 d2d4 d6d5 g2g3 f7f5 f2f3 h6h5 h2h4 g5h4 g3h4 h8g8 g1f2 d8e8 d1e1 e6f7 f2e3 g8g3 e3f4 g3h3 e1d1 h3h2 e2b5 e8f8 d4d2 h2h3 d1f1 c7d6 b5e2 f7e6 c3c4 f8g8 f3e4 f5e4 c4d5 e4e3 d2d3 g8f8 f4e4 e6f5 f1f5 h3h4 e4e3 f8f5 e2f3 f5e5 e3f2 h4f4 f2g3 f4c4 c2c3 h5h4 g3h3 c4f4 b2b4 e5g5 f3e2 g5d5 d3e3 b7b5 e3e8 d5g5 e8d8 d6c7 d8d3 c7b6 e2d1 a7a5 b4a5 b6a5 d1b3 a5b6 d3e3 b6c5 b3e6 c5b6 e6b3 b6c5 b3e6 c5b6");
+            Console.WriteLine(Engine.Board.ToFenString());
+            Program.ParseCommand("go wtime 14966 btime 20197 winc 2000 binc 2000");
+            Engine.Wait();
+        }
     }
 }
