@@ -248,6 +248,64 @@ namespace Pedantic.Chess
             return false;
         }
 
+        public static void Save(ulong hash, int depth, int score, TtFlag flag, int ply, ulong move)
+        {
+            int index = GetStoreIndex(hash);
+            ref TtTranItem item = ref table[index];
+            ulong bestMove = move;
+            if (item.IsValid(hash))
+            {
+                if (item.Depth > depth)
+                {
+                    return;
+                }
+
+                bestMove = bestMove == 0 ? item.BestMove : bestMove;
+            }
+
+            if (!item.InUse)
+            {
+                ++used;
+            }
+
+            if (Evaluation.IsCheckmate(score))
+            {
+                score += Math.Sign(score) * ply;
+            }
+
+            TtTranItem.SetValue(ref item, hash, (short)score, (sbyte)depth, 0, flag, bestMove);
+        }
+
+        public static int Probe(ulong hash, int depth, int ply, int alpha, int beta, out ulong bestMove)
+        {
+            int score = Constants.INVALID_PROBE;
+            bestMove = 0;
+            
+            if (GetLoadIndex(hash, out int index))
+            {
+                ref TtTranItem item = ref table[index];
+                bestMove = item.BestMove;
+
+                if (item.Depth >= depth)
+                {
+                    score = item.Flag switch
+                    {
+                        TtFlag.Exact => item.Score,
+                        TtFlag.UpperBound when item.Score <= alpha => alpha,
+                        TtFlag.LowerBound when item.Score >= beta => beta,
+                        _ => score
+                    };
+
+                    if (score != Constants.INVALID_PROBE && Evaluation.IsCheckmate(score))
+                    {
+                        score -= Math.Sign(score) * ply;
+                    }
+                }
+            }
+
+            return score;
+        }
+
         private static int GetStoreIndex(ulong hash)
         {
             int index = (int)(hash & mask);

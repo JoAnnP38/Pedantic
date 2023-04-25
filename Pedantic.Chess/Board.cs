@@ -194,6 +194,7 @@ namespace Pedantic.Chess
         }
 
         public short TotalMaterial => (short)(material[0] + material[1]);
+        public short TotalMaterialNoKings => (short)(MaterialNoKing(Color.White) + MaterialNoKing(Color.Black));
         public ulong PawnHash => pawnHash;
         public short[] OpeningMaterial => opMaterial;
         public short[] EndGameMaterial => egMaterial;
@@ -431,12 +432,12 @@ namespace Pedantic.Chess
         {
             get
             {
-                if (TotalMaterial >= Evaluation.OpeningPhaseMaterial)
+                if (TotalMaterialNoKings >= Evaluation.OpeningPhaseMaterial)
                 {
                     return GamePhase.Opening;
                 }
 
-                if (TotalMaterial <= Evaluation.EndGamePhaseMaterial)
+                if (TotalMaterialNoKings <= Evaluation.EndGamePhaseMaterial)
                 {
                     return GamePhase.EndGame;
                 }

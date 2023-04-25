@@ -144,7 +144,8 @@ namespace Pedantic.Chess
                 return score;
             }
 
-            if (depth <= 0)
+            int X = CalcExtension(inCheck);
+            if (depth + X <= 0)
             {
                 return Quiesce(alpha, beta, 0, inCheck);
             }
@@ -157,7 +158,6 @@ namespace Pedantic.Chess
                 return 0;
             }
 
-            int X = CalcExtension(inCheck);
             int expandedNodes = 0;
             bool raisedAlpha = false;
             history.SideToMove = board.SideToMove;
@@ -171,10 +171,6 @@ namespace Pedantic.Chess
                 }
 
                 expandedNodes++;
-                if (Move.GetFrom(move) == Index.E6 && Move.GetTo(move) == Index.B3)
-                {
-                    Debugger.Break();
-                }
                 if (startReporting || (DateTime.Now - startDateTime).TotalMilliseconds >= 1000)
                 {
                     startReporting = true;
@@ -295,7 +291,8 @@ namespace Pedantic.Chess
                 return score;
             }
 
-            if (depth <= 0)
+            int X = CalcExtension(inCheck);
+            if (depth + X <= 0)
             {
                 return Quiesce(alpha, beta, ply, inCheck);
             }
@@ -309,7 +306,6 @@ namespace Pedantic.Chess
                 return 0;
             }
 
-            int X = CalcExtension(inCheck);
             int eval = evaluation.Compute(board, alpha, beta);
             bool canPrune = false;
 

@@ -25,7 +25,7 @@ namespace Pedantic.Chess
     {
         private const int time_margin = 50;
         // changed branching factor from 2.5 to 2.125 (17/8) +27 Elo
-        private const int branching_factor_estimate = 33; 
+        private const int branching_factor_estimate = 34; 
         private const int branching_factor_denominator = 4;
         private const int max_time_remaining = int.MaxValue / 3;
 
