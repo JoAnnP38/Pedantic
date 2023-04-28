@@ -12,9 +12,9 @@ Pedantic is my first step in advancing my knowledge of computer chess to the poi
 * Windows 11
 * Microsoft Visual Studio Community 2022
 * C# / .NET 7.0 (and soon to be released .NET 8.0
-* LiteDB NoSQL Database for Storing Trained Weights
+* JSON files for Storing Trained Weights
 #### Structure
-* Multi-threaded, command-line, console application
+* Multi-threaded, command-line, console application (single-threaded search)
 * UCI protocol for interoperability with chess clients
 * Opening book library in Polyglot binary format
 #### Functionality
@@ -37,6 +37,8 @@ Pedantic is my first step in advancing my knowledge of computer chess to the poi
 * Transposition Tables (search, evaluation, pawn structure)
 * Pondering
 * Magic Bitboard Move Generation
+* Lazy Evaluation
+* Static Exchange Evaluation (SEE)
 #### Machine Learning
 * Transform PGN Files into Labeled Training Data
 * Random Sample Selection from Training Data (currently 30 million positions and growing)
@@ -160,6 +162,8 @@ Jordan, Bill. _Advanced Chess Programming_. Orlando: Independently Published, 20
 Jordan, Bill. _How to Write a Bitboard Chess Engine_. Orlando: Independently Published: 2020.
 
 Jordan, Bill. _Teach a Chess Program Strategy_. Orlando: Independently Published: 2022.
+
+Rustad-Elliotr, Rhys. [_Fast Chess Move Generation With Magic Bitboards_](https://rhysre.net/fast-chess-move-generation-with-magic-bitboards.html). 2017.
 
 Levy, David. _Computer Gamesmanship_. London: Century Publishing, 1983.
 

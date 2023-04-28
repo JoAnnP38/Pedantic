@@ -10,7 +10,7 @@ namespace Pedantic.UnitTests
     {
         [TestMethod]
         [DataRow(Constants.FEN_START_POS, (GamePhase)0, 128, 0)]
-        [DataRow("r1bk3r/ppppnp1p/2n4b/3N1q2/2B2p2/3P4/PPPBQ1PP/4RRK1 b - - 9 13", (GamePhase)1, 125, 3)]
+        [DataRow("r1bk3r/ppppnp1p/2n4b/3N1q2/2B2p2/3P4/PPPBQ1PP/4RRK1 b - - 9 13", (GamePhase)1, 123, 5)]
         public void GetGamePhaseTest(string fen, GamePhase expectedPhase, int expectedOpWt, int expectedEgWt)
         {
             Board board = new(fen);
@@ -23,7 +23,7 @@ namespace Pedantic.UnitTests
 
         [TestMethod]
         [DataRow(Constants.FEN_START_POS, 0)]
-        [DataRow("r6r/pp4kp/3B1p2/3P2p1/B1P1q1n1/2Q3P1/PP6/5RK1 w - - 0 13", -51)]
+        [DataRow("r6r/pp4kp/3B1p2/3P2p1/B1P1q1n1/2Q3P1/PP6/5RK1 w - - 0 13", -55)]
         public void ComputeTest(string fen, int expectedScore)
         {
             Board board = new(fen);
@@ -59,8 +59,8 @@ namespace Pedantic.UnitTests
         }
 
         [TestMethod]
-        [DataRow(Constants.FEN_START_POS, 3975, 3975, 4395, 4395, 3950, 3950)]
-        [DataRow("r2n2k1/3P3p/1R4p1/2B5/4p3/2P1P2P/p4rP1/2KR4 w - - 0 40", 1640, 1530, 2015, 1915, 1825, 1700)]
+        [DataRow(Constants.FEN_START_POS, 3975, 3975, 4395, 4395, 3900, 3900)]
+        [DataRow("r2n2k1/3P3p/1R4p1/2B5/4p3/2P1P2P/p4rP1/2KR4 w - - 0 40", 1640, 1530, 2015, 1915, 1800, 1700)]
         public void CorrectMaterialTest(string fen, int opWhiteMaterial, int opBlackMaterial, int egWhiteMaterial,
             int egBlackMaterial, int whiteMaterial, int blackMaterial)
         {

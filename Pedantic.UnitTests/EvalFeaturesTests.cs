@@ -32,7 +32,6 @@ namespace Pedantic.UnitTests
         [DataRow("2K5/4r3/5k2/8/8/8/8/8 b - - 9 81")]
         public void ComputeTest(string fen)
         {
-            Evaluation.LoadWeights("641a9312a0624206d2bc8ab9");
             Board bd = new Board(fen);
             EvalFeatures features = new EvalFeatures(bd);
 
@@ -42,7 +41,7 @@ namespace Pedantic.UnitTests
             ReadOnlySpan<short> opWeights = new ReadOnlySpan<short>(weights, 0, vecSize);
             ReadOnlySpan<short> egWeights = new ReadOnlySpan<short>(weights, vecSize, vecSize);
 
-            Evaluation eval = new(false, false);
+            Evaluation eval = new(false);
             short expected = eval.Compute(bd);
             short actual = features.Compute(opWeights, egWeights);
             Assert.AreEqual(expected, actual);

@@ -106,8 +106,6 @@ namespace Pedantic.Chess
                 for (Color color = Color.White; color <= Color.Black; color++)
                 {
                     int c = (int)color;
-                    opScore[c] = 0;
-                    egScore[c] = 0;
                     ComputeKingAttacks(color, board);
                     ComputeMisc(color, board);
                     if (pawnsCalculated)
@@ -129,8 +127,8 @@ namespace Pedantic.Chess
                     TtPawnEval.Add(board.PawnHash, opPawnScore, egPawnScore);
                 }
 
-                score += (short)((((opScore[0] - opScore[1]) * opWt) >> 7) +
-                                 (((egScore[0] - egScore[1]) * egWt) >> 7));
+                score = (short)((((opScore[0] - opScore[1]) * opWt) >> 7) +
+                                (((egScore[0] - egScore[1]) * egWt) >> 7));
 
                 if (random)
                 {
