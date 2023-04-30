@@ -358,7 +358,11 @@ namespace Pedantic
                     case "Evaluation_ID":
                         if (tokens[3] == "value")
                         {
-                            Engine.EvaluationId = tokens.Length >= 5 ? tokens[4] : string.Empty;
+                            if (tokens.Length >= 5 && !Guid.TryParse(tokens[4], out Guid _))
+                            {
+                                Uci.Log($"Ignoring illegal GUID specified for evaluation ID: '{tokens[4]}'.");
+                            }
+                            Engine.EvaluationId = tokens.Length >= 5 && Guid.TryParse(tokens[4], out Guid _) ? tokens[4] : string.Empty;
                         }
 
                         break;
