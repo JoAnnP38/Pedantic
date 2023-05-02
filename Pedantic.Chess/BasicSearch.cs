@@ -16,6 +16,7 @@
 // ***********************************************************************
 
 using System.Diagnostics;
+using System.Text.RegularExpressions;
 using Pedantic.Genetics;
 using Pedantic.Utilities;
 
@@ -52,7 +53,7 @@ namespace Pedantic.Chess
             bool inCheck = board.IsChecked();
             Score = Quiesce(-Constants.INFINITE_WINDOW, Constants.INFINITE_WINDOW, 0, inCheck);
 
-            while (++Depth < maxSearchDepth && time.CanSearchDeeper() && (!IsCheckmate(Score, out int mateIn) || (Math.Abs(mateIn) << 1) + (Math.Abs(mateIn) >> 1) + 2 >= Depth))
+            while (++Depth <= maxSearchDepth && time.CanSearchDeeper() && (!IsCheckmate(Score, out int mateIn) || (Math.Abs(mateIn) << 1) + (Math.Abs(mateIn) >> 1) + 2 >= Depth))
             {
                 time.StartInterval();
                 history.Rescale();
@@ -309,10 +310,20 @@ namespace Pedantic.Chess
             int eval = evaluation.Compute(board, alpha, beta);
             bool canPrune = false;
 
-            if (canNull && !inCheck && !isPv)
+            if (!inCheck && !isPv)
             {
+                // static null move pruning
+                if (depth <= 2)
+                {
+                    int evalWithMargin = eval - depth * Constants.STATIC_NULL_MOVE_MARGIN;
+                    if (evalWithMargin >= beta)
+                    {
+                        return evalWithMargin;
+                    }
+                }
+
                 // null move pruning
-                if (depth >= 3 && eval >= beta && board.PieceCount(board.OpponentColor) > 1)
+                if (canNull && depth >= 3 && eval >= beta && board.PieceCount(board.OpponentColor) > 1)
                 {
                     int R = 2 + NMP[depth];
                     if (board.MakeMove(Move.NullMove))
@@ -333,7 +344,7 @@ namespace Pedantic.Chess
                 }
 
                 // razoring
-                if (depth <= 3)
+                if (canNull && depth <= 3)
                 {
                     int threshold = alpha - FutilityMargin[depth];
                     if (eval <= threshold)
