@@ -136,8 +136,8 @@ namespace Pedantic.Chess
                 }
             }
 
-            var canWin = CanWin(board);
-            if ((score > 0 && !canWin.WhiteCanWin) || (score < 0 && !canWin.BlackCanWin))
+            (bool whiteCanWin, bool blackCanWin) = CanWin(board);
+            if ((score > 0 && !whiteCanWin) || (score < 0 && !blackCanWin))
             {
                 score >>= 3;
             }
@@ -159,7 +159,7 @@ namespace Pedantic.Chess
         /// </remarks>
         /// <param name="board">The board.</param>
         /// <returns>System.ValueTuple&lt;System.Boolean, System.Boolean&gt;.</returns>
-        public (bool WhiteCanWin, bool BlackCanWin) CanWin(Board board)
+        public static (bool WhiteCanWin, bool BlackCanWin) CanWin(Board board)
         {
             bool whiteCanWin = false, blackCanWin = false;
             if (board.Pieces(Color.White, Piece.Pawn) != 0 ||

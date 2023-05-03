@@ -29,7 +29,6 @@ namespace Pedantic.Chess
         private static string evaluationId = string.Empty;
         private static BasicSearch? search = null;
         private static int searchCounter = 0;
-        private static bool gameDrawn = false;
 
         public static bool Debug { get; set; } = false;
         public static bool IsRunning { get; private set; } = true;

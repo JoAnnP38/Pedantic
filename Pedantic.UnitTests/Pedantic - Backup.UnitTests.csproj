@@ -11,14 +11,24 @@
 
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
 
-    <Configurations>Debug;Release</Configurations>
+    <Configurations>Debug;Release;ReleaseNoIntrinsics;DebugNoIntrinsics</Configurations>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <DefineConstants>$(DefineConstants);TRACE</DefineConstants>
     <DebugType>full</DebugType>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <DebugType>full</DebugType>
+    <Optimize>True</Optimize>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugNoIntrinsics|AnyCPU'">
+    <DebugType>full</DebugType>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseNoIntrinsics|AnyCPU'">
     <DebugType>full</DebugType>
     <Optimize>True</Optimize>
   </PropertyGroup>

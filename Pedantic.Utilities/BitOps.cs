@@ -24,58 +24,59 @@ namespace Pedantic.Utilities
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong GetMask(int index)
         {
-            Util.Assert(index >= 0 && index < 64);
+            Util.Assert(index is >= 0 and < 64);
             return 1ul << index;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SetBit(ulong bitBoard, int bitIndex)
         {
+            Util.Assert(bitIndex is >= 0 and < 64);
             return bitBoard | (1ul << bitIndex);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong ResetBit(ulong bitBoard, int bitIndex)
         {
+            Util.Assert(bitIndex is >= 0 and < 64);
             return bitBoard & ~(1ul << bitIndex);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int GetBit(ulong bitBoard, int bitIndex)
         {
-            //return (int)Bmi1.X64.BitFieldExtract(bitBoard, (byte)bitIndex, 1);
-            //return (bitBoard & GetMask(bitIndex)) == 0ul ? 0 : 1;
+            Util.Assert(bitIndex is >= 0 and < 64);
             return (int)((bitBoard >> bitIndex) & 1);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int TzCount(ulong bitBoard)
         {
-#if X64
-            return (int)Bmi1.X64.TrailingZeroCount(bitBoard);
-#else
+            if (Bmi1.X64.IsSupported)
+            {
+                return (int)Bmi1.X64.TrailingZeroCount(bitBoard);
+            }
             return BitOperations.TrailingZeroCount(bitBoard);
-#endif
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int LzCount(ulong bitBoard)
         {
-#if X64
-            return (int)Lzcnt.X64.LeadingZeroCount(bitBoard);
-#else
+            if (Lzcnt.X64.IsSupported)
+            {
+                return (int)Lzcnt.X64.LeadingZeroCount(bitBoard);
+            }
             return BitOperations.LeadingZeroCount(bitBoard);
-#endif
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong ResetLsb(ulong bitBoard)
         {
-#if X64
-            return Bmi1.X64.ResetLowestSetBit(bitBoard);
-#else
+            if (Bmi1.X64.IsSupported)
+            {
+                return Bmi1.X64.ResetLowestSetBit(bitBoard);
+            }
             return ResetBit(bitBoard, TzCount(bitBoard));
-#endif
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -87,11 +88,11 @@ namespace Pedantic.Utilities
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int PopCount(ulong bitBoard)
         {
-#if X64
-            return (int)Popcnt.X64.PopCount(bitBoard);
-#else
+            if (Popcnt.X64.IsSupported)
+            {
+                return (int)Popcnt.X64.PopCount(bitBoard);
+            }
             return BitOperations.PopCount(bitBoard);
-#endif
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -99,11 +100,11 @@ namespace Pedantic.Utilities
         {
             Util.Assert(start < 64);
             Util.Assert(length <= 64 - start);
-#if X64
-            return (int)Bmi1.X64.BitFieldExtract(bits, start, length);
-#else
+            if (Bmi1.X64.IsSupported)
+            {
+                return (int)Bmi1.X64.BitFieldExtract(bits, start, length);
+            }
             return (int)((bits >> start) & ((1ul << length) - 1ul));
-#endif
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -137,12 +138,10 @@ namespace Pedantic.Utilities
 
         public static ulong ParallelBitDeposit(ulong value, ulong mask)
         {
-#if X64
             if (Bmi2.X64.IsSupported)
             {
                 return Bmi2.X64.ParallelBitDeposit(value, mask);
             }
-#endif
             ulong res = 0;
             for (ulong bb = 1; mask != 0; bb += bb)
             {

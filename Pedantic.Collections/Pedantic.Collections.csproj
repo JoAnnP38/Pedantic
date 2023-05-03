@@ -4,29 +4,16 @@
     <TargetFramework>net7.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <Platforms>x64</Platforms>
+    <Platforms>AnyCPU</Platforms>
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
-    <Configurations>Debug;Release;ReleaseNoIntrinsics;DebugNoIntrinsics</Configurations>
+    <Configurations>Debug;Release</Configurations>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <DefineConstants>$(DefineConstants);X64</DefineConstants>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <DebugType>full</DebugType>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <DefineConstants>$(DefineConstants);X64</DefineConstants>
-    <Optimize>True</Optimize>
-    <DebugType>full</DebugType>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugNoIntrinsics|x64'">
-    <DefineConstants>$(DefineConstants)</DefineConstants>
-    <DebugType>full</DebugType>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseNoIntrinsics|x64'">
-    <DefineConstants>$(DefineConstants)</DefineConstants>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <Optimize>True</Optimize>
     <DebugType>full</DebugType>
   </PropertyGroup>
