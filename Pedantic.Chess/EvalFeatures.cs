@@ -145,7 +145,7 @@ namespace Pedantic.Chess
                 {
                     int sq = BitOps.TzCount(p);
 
-                    if ((otherPawns & Evaluation.PassedPawnMasks[c][sq]) == 0)
+                    if ((otherPawns & Evaluation.PassedPawnMasks[c, sq]) == 0)
                     {
                         IncrementPassedPawns(v);
 
@@ -170,7 +170,7 @@ namespace Pedantic.Chess
                         IncrementIsolatedPawns(v);
                     }
 
-                    if ((pawns & Evaluation.BackwardPawnMasks[c][sq]) == 0)
+                    if ((pawns & Evaluation.BackwardPawnMasks[c, sq]) == 0)
                     {
                         IncrementBackwardPawns(v);
                     }
@@ -183,7 +183,7 @@ namespace Pedantic.Chess
 
                 for (int file = 0; file < Constants.MAX_COORDS && pawns != 0; file++)
                 {
-                    short count = (short)BitOps.PopCount(pawns & Board.MaskFiles[file]);
+                    short count = (short)BitOps.PopCount(pawns & Board.MaskFile(file));
                     if ( count > 1)
                     {
                         IncrementDoubledPawns(v, --count);
@@ -220,7 +220,7 @@ namespace Pedantic.Chess
 
                 for (int d = 0; d < 3; d++)
                 {
-                    short count = (short)BitOps.PopCount(pawns & Evaluation.KingProximity[d][ki]);
+                    short count = (short)BitOps.PopCount(pawns & Evaluation.KingProximity[d, ki]);
                     if (count > 0)
                     {
                         SetPawnShield(v, d, count);
@@ -233,7 +233,7 @@ namespace Pedantic.Chess
                 for (ulong bb = bd.Pieces(color, Piece.Rook); bb != 0; bb = BitOps.ResetLsb(bb))
                 {
                     int sq = BitOps.TzCount(bb);
-                    ulong mask = Board.MaskFiles[sq];
+                    ulong mask = Board.MaskFile(sq);
                     ulong potentials = mask & rooks;
 
                     if ((mask & allPawns) == 0)

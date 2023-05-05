@@ -15,6 +15,9 @@
 //     for now in case we need to rollback.
 // </summary>
 // ***********************************************************************
+
+using System.Data.SqlTypes;
+using Pedantic.Collections;
 using Pedantic.Utilities;
 
 namespace Pedantic.Chess
@@ -60,7 +63,7 @@ namespace Pedantic.Chess
 
         private static void InitPieceMasks()
         {
-            ulong edgeSquares = MaskRanks[0] | MaskRanks[63] | MaskFiles[0] | MaskFiles[7];
+            ulong edgeSquares = MaskFile(0) | MaskFile(63) | MaskFile(0) | MaskFile(7);
 
             for (int sq = 0; sq < Constants.MAX_SQUARES; ++sq)
             {
@@ -68,8 +71,8 @@ namespace Pedantic.Chess
                 bishopMasks[sq] = ray.NorthEast | ray.NorthWest | ray.SouthEast | ray.SouthWest;
                 bishopMasks[sq] = BitOps.AndNot(bishopMasks[sq], edgeSquares);
 
-                rookMasks[sq] = BitOps.AndNot(ray.North, MaskRanks[63]) | BitOps.AndNot(ray.South, MaskRanks[0]) |
-                                BitOps.AndNot(ray.East, MaskFiles[7]) | BitOps.AndNot(ray.West, MaskFiles[0]);
+                rookMasks[sq] = BitOps.AndNot(ray.North, MaskFile(63)) | BitOps.AndNot(ray.South, MaskFile(0)) |
+                                BitOps.AndNot(ray.East, MaskFile(7)) | BitOps.AndNot(ray.West, MaskFile(0));
             }
         }
 
@@ -95,9 +98,10 @@ namespace Pedantic.Chess
             }
         }
 
-        private static readonly ulong[] rookMagics =
+        private static readonly UnsafeArray<ulong> rookMagics = new (Constants.MAX_SQUARES)
         {
             #region rookMagics data
+
             0xa8002c000108020ul, 0x6c00049b0002001ul, 0x100200010090040ul, 0x2480041000800801ul, 0x280028004000800ul,
             0x900410008040022ul, 0x280020001001080ul, 0x2880002041000080ul, 0xa000800080400034ul, 0x4808020004000ul,
             0x2290802004801000ul, 0x411000d00100020ul, 0x402800800040080ul, 0xb000401004208ul, 0x2409000100040200ul,
@@ -111,12 +115,14 @@ namespace Pedantic.Chess
             0x200100401700ul, 0x2244100408008080ul, 0x8000400801980ul, 0x2000810040200ul, 0x8010100228810400ul,
             0x2000009044210200ul, 0x4080008040102101ul, 0x40002080411d01ul, 0x2005524060000901ul, 0x502001008400422ul,
             0x489a000810200402ul, 0x1004400080a13ul, 0x4000011008020084ul, 0x26002114058042ul
+
             #endregion
         };
 
-        private static readonly ulong[] bishopMagics =
+        private static readonly UnsafeArray<ulong> bishopMagics = new (Constants.MAX_SQUARES)
         {
             #region bishopMagics data
+
             0x89a1121896040240ul, 0x2004844802002010ul, 0x2068080051921000ul, 0x62880a0220200808ul, 0x4042004000000ul,
             0x100822020200011ul, 0xc00444222012000aul, 0x28808801216001ul, 0x400492088408100ul, 0x201c401040c0084ul,
             0x840800910a0010ul, 0x82080240060ul, 0x2000840504006000ul, 0x30010c4108405004ul, 0x1008005410080802ul,
@@ -130,10 +136,11 @@ namespace Pedantic.Chess
             0x2101004202410000ul, 0x8200000041108022ul, 0x21082088000ul, 0x2410204010040ul, 0x40100400809000ul,
             0x822088220820214ul, 0x40808090012004ul, 0x910224040218c9ul, 0x402814422015008ul, 0x90014004842410ul,
             0x1000042304105ul, 0x10008830412a00ul, 0x2520081090008908ul, 0x40102000a0a60140ul
+
             #endregion
         };
 
-        private static readonly int[] rookIndexBits =
+        private static readonly UnsafeArray<int> rookIndexBits = new (Constants.MAX_SQUARES)
         {
             12, 11, 11, 11, 11, 11, 11, 12,
             11, 10, 10, 10, 10, 10, 10, 11,
@@ -145,7 +152,7 @@ namespace Pedantic.Chess
             12, 11, 11, 11, 11, 11, 11, 12
         };
 
-        private static readonly int[] bishopIndexBits =
+        private static readonly UnsafeArray<int> bishopIndexBits = new (Constants.MAX_SQUARES)
         {
             6, 5, 5, 5, 5, 5, 5, 6,
             5, 5, 5, 5, 5, 5, 5, 5,
@@ -157,10 +164,10 @@ namespace Pedantic.Chess
             6, 5, 5, 5, 5, 5, 5, 6
         };
         
-        private static readonly ulong[] rookMasks = new ulong[Constants.MAX_SQUARES];
-        private static readonly ulong[] bishopMasks = new ulong[Constants.MAX_SQUARES];
-        private static readonly ulong[] rookTable = new ulong[Constants.MAX_SQUARES * 4096];
-        private static readonly ulong[] bishopTable = new ulong[Constants.MAX_SQUARES * 1024];
+        private static readonly UnsafeArray<ulong> rookMasks = new (Constants.MAX_SQUARES, true);
+        private static readonly UnsafeArray<ulong> bishopMasks = new (Constants.MAX_SQUARES, true);
+        private static readonly UnsafeArray<ulong> rookTable = new (Constants.MAX_SQUARES * 4096, true);
+        private static readonly UnsafeArray<ulong> bishopTable = new(Constants.MAX_SQUARES * 1024, true);
 
         #endregion
     }

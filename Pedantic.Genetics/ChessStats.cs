@@ -16,7 +16,7 @@ namespace Pedantic.Genetics
 {
     public sealed class ChessStats
     {
-        public const string CURRENT_VERSION = "0.2";
+        public const string CURRENT_VERSION = "0.3";
 
         public ChessStats(Guid id, string phase, int depth, long nodesVisited, string version)
         {

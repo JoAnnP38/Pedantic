@@ -31,11 +31,11 @@ namespace Pedantic.Chess
         public const int MINOR_PIECE_COUNT = 4;
         public const int MAJOR_MINOR_PIECE_COUNT = 6;
         public const short PV_SCORE = 20000;
-        public const short BAD_CAPTURE = 11400;
         public const short CAPTURE_SCORE = 10000;
         public const short PROMOTE_SCORE = 9000;
         public const short KILLER_SCORE = 7000;
-        public const short HISTORY_SCORE = 5000;
+        public const short BAD_CAPTURE = 5000;
+        public const short HISTORY_SCORE = 3000;
         public const short INFINITE_WINDOW = short.MaxValue;
         public const ulong LINEUP_K = 0ul;
         public const ulong LINEUP_KQ = 0x0005ul;
