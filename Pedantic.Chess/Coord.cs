@@ -44,5 +44,28 @@ namespace Pedantic.Chess
             Util.Assert(IsValid(value));
             return new string((char)('1' + value), 1);
         }
+
+        #region Named Coords
+
+        public const int NONE = -1;
+        public const int RANK_1 = 0;
+        public const int RANK_2 = 1;
+        public const int RANK_3 = 2;
+        public const int RANK_4 = 3;
+        public const int RANK_5 = 4;
+        public const int RANK_6 = 5;
+        public const int RANK_7 = 6;
+        public const int RANK_8 = 7;
+
+        public const int FILE_A = 0;
+        public const int FILE_B = 1;
+        public const int FILE_C = 2;
+        public const int FILE_D = 3;
+        public const int FILE_E = 4;
+        public const int FILE_F = 5;
+        public const int FILE_G = 6;
+        public const int FILE_H = 7;
+
+        #endregion
     }
 }
