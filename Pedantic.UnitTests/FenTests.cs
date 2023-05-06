@@ -20,7 +20,6 @@ namespace Pedantic.UnitTests
             Assert.AreEqual(0, fen.FullMoveCounter);
         }
 
-        // TODO: create CtorBoardTest() after Board tests are complete
         [TestMethod]
         public void CtorBoardTest()
         {

@@ -147,5 +147,13 @@ namespace Pedantic.UnitTests
             short actual = eval.Compute(bd);
             Assert.AreEqual(expected, actual);
         }
+
+        [TestMethod]
+        public void IsDoubledTest()
+        {
+            Board bd = new("rn1k4/ppq3pp/3p1bb1/2pP1Nn1/N1P1Q1B1/1P2R3/P6r/2K1R3 w - - 0 1");
+            Assert.IsTrue(Evaluation.IsDoubled(bd, bd.Pieces(Color.White, Piece.Rook) & Board.MaskFile(Index.E1)));
+            Assert.IsFalse(Evaluation.IsDoubled(bd, bd.Pieces(Color.Black, Piece.Rook) & Board.MaskFile(Index.H1)));
+        }
     }
 }

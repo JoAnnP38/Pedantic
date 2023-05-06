@@ -18,6 +18,7 @@
 // ***********************************************************************
 
 using System.Runtime.CompilerServices;
+using Pedantic.Collections;
 
 namespace Pedantic.Chess
 {
@@ -59,11 +60,10 @@ namespace Pedantic.Chess
         private const int rand64_turn_offset = 780;
 
 
-        private static readonly ulong[] rand64 = new ulong[781]
-
-        #region rand64 initialization (from polyglot specifications)
-
+        private static readonly UnsafeArray<ulong> rand64 = new (781)
         {
+            #region rand64 initialization (from polyglot specifications)
+
             0x9D39247E33776D41ul, 0x2AF7398005AAA5C7ul, 0x44DB015024623547ul,
             0x9C15F73E62A76AE2ul,
             0x75834465489C0C89ul, 0x3290AC3A203001BFul, 0x0FBBAD1F61042279ul,
@@ -455,11 +455,12 @@ namespace Pedantic.Chess
             0xCF3145DE0ADD4289ul, 0xD0E4427A5514FB72ul, 0x77C621CC9FB3A483ul,
             0x67A34DAC4356550Bul,
             0xF8D626AAAF278509ul
+
+            #endregion
         };
 
-        #endregion
 
-        private static readonly ulong[] castleKeys =
+        private static readonly UnsafeArray<ulong> castleKeys = new(16)
         {
             /*  0 */ 0ul,
             /*  1 */ rand64[rand64_castle_offset],

@@ -164,6 +164,17 @@ namespace Pedantic.UnitTests
         }
 
         [TestMethod]
+        [DataRow("rn1k4/ppq3pp/3p1bb1/2pP1Nn1/N1P1Q1B1/1P2R3/P6r/2K1R3 w - - 0 1")]
+        public void CheckMateInFourTest(string fen)
+        {
+            //Engine.Infinite = true;
+            Engine.UseOwnBook = true;
+            Program.ParseCommand(@$"position fen {fen}");
+            Program.ParseCommand("go wtime 300000 btime 300000 winc 0 binc 0");
+            Engine.Wait();
+        }
+
+        [TestMethod]
         public void ShortenedPVTest()
         {
             //Engine.Infinite = true;
