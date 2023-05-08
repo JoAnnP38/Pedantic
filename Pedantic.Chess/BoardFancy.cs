@@ -221,6 +221,13 @@ namespace Pedantic.Chess
             return fancyLookupTable[FancyBishopIndex(square, blockers)];
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static ulong GetQueenAttacksFancy(int square, ulong blockers)
+        {
+            return fancyLookupTable[FancyRookIndex(square, blockers)] |
+                   fancyLookupTable[FancyBishopIndex(square, blockers)];
+        }
+
         private static void InitFancyMagic()
         {
             for (int x = 0; x < 8; x++)

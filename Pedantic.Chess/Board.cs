@@ -90,8 +90,6 @@ namespace Pedantic.Chess
                 RevVectors[63 - sq] = Vectors[sq];
             }
 
-            InitPieceMasks();
-            InitPieceMagicTables();
             InitFancyMagic();
         }
 
@@ -152,7 +150,7 @@ namespace Pedantic.Chess
 
 
         public Color SideToMove => sideToMove;
-        public Color OpponentColor => (Color)((int)sideToMove ^ 1);
+        public Color OpponentColor => sideToMove.Other();
         public CastlingRights Castling => castling;
         public int EnPassant => enPassant;
         public int HalfMoveClock => halfMoveClock;
@@ -369,7 +367,7 @@ namespace Pedantic.Chess
         public bool GameDrawnByRepetition()
         {
             int matchCount = 1;
-            if (gameStack.Count > 99)
+            if (halfMoveClock > 99)
             {
                 return true;
             }
@@ -391,12 +389,6 @@ namespace Pedantic.Chess
             }
 
             return matchCount == 3;
-        }
-
-        public bool InsufficientMaterialForMate()
-        {
-            return ((Pieces(Color.White, Piece.Pawn) | Pieces(Color.Black, Piece.Pawn)) == 0 &&
-                    MaterialNoKing(Color.White) <= 300 && MaterialNoKing(Color.Black) <= 300);
         }
 
         public bool IsEnPassantValid(Color color)
@@ -741,7 +733,7 @@ namespace Pedantic.Chess
             {
                 attacks |= GetPieceMoves(Piece.Bishop, to, blockers) & dSliders;
             }
-
+            
             if (piece == Piece.Pawn || piece.IsOrthogonalSlider())
             {
                 attacks |= GetPieceMoves(Piece.Rook, to, blockers) & oSliders;
@@ -797,13 +789,13 @@ namespace Pedantic.Chess
         public ulong AttacksTo(int sq)
         {
             ulong attacks = (PawnDefends(Color.White, sq) & Pieces(Color.White, Piece.Pawn)) |
-                            (PawnDefends(Color.Black, sq) & Pieces(Color.Black, Piece.Pawn));
+                              (PawnDefends(Color.Black, sq) & Pieces(Color.Black, Piece.Pawn));
 
             attacks |= GetPieceMoves(Piece.Knight, sq) &
-                       (Pieces(Color.White, Piece.Knight) | Pieces(Color.Black, Piece.Knight));
+                         (Pieces(Color.White, Piece.Knight) | Pieces(Color.Black, Piece.Knight));
 
             attacks |= GetPieceMoves(Piece.King, sq) &
-                       (Pieces(Color.White, Piece.King) | Pieces(Color.Black, Piece.King));
+                         (Pieces(Color.White, Piece.King) | Pieces(Color.Black, Piece.King));
 
             ulong dSliders = DiagonalSliders(Color.White) | DiagonalSliders(Color.Black);
             ulong oSliders = OrthogonalSliders(Color.White) | OrthogonalSliders(Color.Black);
@@ -865,18 +857,18 @@ namespace Pedantic.Chess
                 return true;
             }
 
-            if ((GetPieceMoves(Piece.Knight, index) & Pieces(color, Piece.Knight)) != 0)
+            if ((knightMoves[index] & Pieces(color, Piece.Knight)) != 0)
             {
                 return true;
             }
 
-            if ((GetPieceMoves(Piece.King, index) & Pieces(color, Piece.King)) != 0)
+            if ((kingMoves[index] & Pieces(color, Piece.King)) != 0)
             {
                 return true;
             }
 
             if ((GetPieceMoves(Piece.Rook, index) &
-                (Pieces(color, Piece.Rook) | Pieces(color, Piece.Queen))) != 0)
+                 (Pieces(color, Piece.Rook) | Pieces(color, Piece.Queen))) != 0)
             {
                 return true;
             }
@@ -1469,7 +1461,7 @@ namespace Pedantic.Chess
                 Piece.Knight => knightMoves[from],
                 Piece.Bishop => GetBishopAttacksFancy(from, occupied),
                 Piece.Rook => GetRookAttacksFancy(from, occupied),
-                Piece.Queen => GetBishopAttacksFancy(from, occupied) | GetRookAttacksFancy(from, occupied),
+                Piece.Queen => GetQueenAttacksFancy(from, occupied),
                 Piece.King => kingMoves[from],
                 _ => 0ul
             };
@@ -1501,6 +1493,20 @@ namespace Pedantic.Chess
                        BitOps.AndNot(ray.South, RevVectors[BitOps.LzCount(ray.South & blockers)].South) |
                        BitOps.AndNot(ray.West, RevVectors[BitOps.LzCount(ray.West & blockers)].West);
 
+            return bb;
+        }
+
+        public static ulong GetQueenAttacks(int from, ulong blockers)
+        {
+            Ray ray = Vectors[from];
+            ulong bb = BitOps.AndNot(ray.NorthEast, Vectors[BitOps.TzCount(ray.NorthEast & blockers)].NorthEast) |
+                       BitOps.AndNot(ray.NorthWest, Vectors[BitOps.TzCount(ray.NorthWest & blockers)].NorthWest) |
+                       BitOps.AndNot(ray.SouthEast, RevVectors[BitOps.LzCount(ray.SouthEast & blockers)].SouthEast) |
+                       BitOps.AndNot(ray.SouthWest, RevVectors[BitOps.LzCount(ray.SouthWest & blockers)].SouthWest) |
+                       BitOps.AndNot(ray.North, Vectors[BitOps.TzCount(ray.North & blockers)].North) |
+                       BitOps.AndNot(ray.East, Vectors[BitOps.TzCount(ray.East & blockers)].East) |
+                       BitOps.AndNot(ray.South, RevVectors[BitOps.LzCount(ray.South & blockers)].South) |
+                       BitOps.AndNot(ray.West, RevVectors[BitOps.LzCount(ray.West & blockers)].West);
             return bb;
         }
 
