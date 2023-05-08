@@ -90,6 +90,8 @@ namespace Pedantic.Chess
                 RevVectors[63 - sq] = Vectors[sq];
             }
 
+            InitPext();
+            IsPextSupported = PextSupported();
             InitFancyMagic();
         }
 
@@ -731,12 +733,12 @@ namespace Pedantic.Chess
 
             if (piece == Piece.Pawn || piece.IsDiagonalSlider())
             {
-                attacks |= GetPieceMoves(Piece.Bishop, to, blockers) & dSliders;
+                attacks |= GetBishopMoves(to, blockers) & dSliders;
             }
             
             if (piece == Piece.Pawn || piece.IsOrthogonalSlider())
             {
-                attacks |= GetPieceMoves(Piece.Rook, to, blockers) & oSliders;
+                attacks |= GetRookMoves(to, blockers) & oSliders;
             }
 
             for (attacks &= blockers; attacks != 0; attacks &= blockers)
@@ -760,12 +762,12 @@ namespace Pedantic.Chess
                 blockers = BitOps.ResetBit(blockers, BitOps.TzCount(attacksFrom));
                 if (piece == Piece.Pawn || piece.IsDiagonalSlider())
                 {
-                    attacks |= GetPieceMoves(Piece.Bishop, to, blockers) & dSliders;
+                    attacks |= GetBishopMoves(to, blockers) & dSliders;
                 }
 
                 if (piece == Piece.Pawn || piece.IsOrthogonalSlider())
                 {
-                    attacks |= GetPieceMoves(Piece.Rook, to, blockers) & oSliders;
+                    attacks |= GetRookMoves(to, blockers) & oSliders;
                 }
 
                 captures[cIndex] = -captures[cIndex - 1] + atkPieceValue;
@@ -788,31 +790,32 @@ namespace Pedantic.Chess
 
         public ulong AttacksTo(int sq)
         {
-            ulong attacks = (PawnDefends(Color.White, sq) & Pieces(Color.White, Piece.Pawn)) |
+            ulong attacksTo = (PawnDefends(Color.White, sq) & Pieces(Color.White, Piece.Pawn)) |
                               (PawnDefends(Color.Black, sq) & Pieces(Color.Black, Piece.Pawn));
 
-            attacks |= GetPieceMoves(Piece.Knight, sq) &
+            attacksTo |= knightMoves[sq] &
                          (Pieces(Color.White, Piece.Knight) | Pieces(Color.Black, Piece.Knight));
 
-            attacks |= GetPieceMoves(Piece.King, sq) &
+            attacksTo |= kingMoves[sq] &
                          (Pieces(Color.White, Piece.King) | Pieces(Color.Black, Piece.King));
 
             ulong dSliders = DiagonalSliders(Color.White) | DiagonalSliders(Color.Black);
             ulong oSliders = OrthogonalSliders(Color.White) | OrthogonalSliders(Color.Black);
 
-            attacks |= GetPieceMoves(Piece.Bishop, sq) & dSliders;
-            attacks |= GetPieceMoves(Piece.Rook, sq) & oSliders;
+            attacksTo |= GetBishopMoves(sq, all) & dSliders;
+            attacksTo |= GetRookMoves(sq, all) & oSliders;
 
-            return attacks;
+            return attacksTo;
         }
 
         public ulong AttacksTo(Color byColor, int sq)
         {
-            ulong attacks = PawnDefends(byColor, sq) & Pieces(byColor, Piece.Pawn);
-            attacks |= GetPieceMoves(Piece.Knight, sq) & Pieces(byColor, Piece.Knight);
-            attacks |= GetPieceMoves(Piece.Bishop, sq) & DiagonalSliders(byColor);
-            attacks |= GetPieceMoves(Piece.Rook, sq) & OrthogonalSliders(byColor);
-            return attacks;
+            ulong attacksTo = PawnDefends(byColor, sq) & Pieces(byColor, Piece.Pawn);
+            attacksTo |= knightMoves[sq] & Pieces(byColor, Piece.Knight);
+            attacksTo |= kingMoves[sq] & Pieces(byColor, Piece.King);
+            attacksTo |= GetBishopMoves(sq, all) & DiagonalSliders(byColor);
+            attacksTo |= GetRookMoves(sq, all) & OrthogonalSliders(byColor);
+            return attacksTo;
         }
 
         public bool HasLegalMoves(MoveList moveList)
@@ -867,13 +870,13 @@ namespace Pedantic.Chess
                 return true;
             }
 
-            if ((GetPieceMoves(Piece.Rook, index) &
+            if ((GetRookMoves(index, all) &
                  (Pieces(color, Piece.Rook) | Pieces(color, Piece.Queen))) != 0)
             {
                 return true;
             }
 
-            return (GetPieceMoves(Piece.Bishop, index) &
+            return (GetBishopMoves(index, all) &
                     (Pieces(color, Piece.Bishop) | Pieces(color, Piece.Queen))) != 0;
         }
 
@@ -1459,9 +1462,9 @@ namespace Pedantic.Chess
             return piece switch
             {
                 Piece.Knight => knightMoves[from],
-                Piece.Bishop => GetBishopAttacksFancy(from, occupied),
-                Piece.Rook => GetRookAttacksFancy(from, occupied),
-                Piece.Queen => GetQueenAttacksFancy(from, occupied),
+                Piece.Bishop => GetBishopMoves(from, occupied),
+                Piece.Rook => GetRookMoves(from, occupied),
+                Piece.Queen => GetQueenMoves(from, occupied),
                 Piece.King => kingMoves[from],
                 _ => 0ul
             };
@@ -1690,6 +1693,39 @@ namespace Pedantic.Chess
         public static int CaptureScore(Piece captured, Piece attacker, Piece promote = Piece.None)
         {
             return Constants.CAPTURE_SCORE + promote.Value() + ((int)captured << 3) + (Constants.MAX_PIECES - (int)attacker);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static ulong GetBishopMoves(int sq, ulong blockers)
+        {
+            if (IsPextSupported)
+            {
+                return GetBishopAttacksPext(sq, blockers);
+            }
+
+            return GetBishopAttacksFancy(sq, blockers);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static ulong GetRookMoves(int sq, ulong blockers)
+        {
+            if (IsPextSupported)
+            {
+                return GetRookAttacksPext(sq, blockers);
+            }
+
+            return GetRookAttacksFancy(sq, blockers);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static ulong GetQueenMoves(int sq, ulong blockers)
+        {
+            if (IsPextSupported)
+            {
+                return GetQueenAttacksPext(sq, blockers);
+            }
+
+            return GetQueenAttacksFancy(sq, blockers);
         }
 
         private static readonly FakeHistory fakeHistory = new();

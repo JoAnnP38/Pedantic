@@ -136,6 +136,7 @@ namespace Pedantic.Utilities
             return v >> 1; // previous power of 2
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong ParallelBitDeposit(ulong value, ulong mask)
         {
             if (Bmi2.X64.IsSupported)
@@ -147,6 +148,23 @@ namespace Pedantic.Utilities
             {
                 if ((value & bb) != 0)
                     res |= mask & (ulong)(-(long)mask);
+                mask &= mask - 1;
+            }
+            return res;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static ulong ParallelBitExtract(ulong value, ulong mask)
+        {
+            if (Bmi2.X64.IsSupported)
+            {
+                return Bmi2.X64.ParallelBitExtract(value, mask);
+            }
+            
+            ulong res = 0;
+            for (ulong bb = 1; mask != 0; bb += bb) {
+                if ( (value & mask & (ulong)(-(long)mask)) != 0)
+                    res |= bb;
                 mask &= mask - 1;
             }
             return res;

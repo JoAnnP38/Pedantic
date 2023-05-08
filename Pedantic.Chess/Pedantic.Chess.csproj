@@ -19,7 +19,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="BoardPext.cs" />
     <Compile Remove="MinimalSearch.cs" />
     <Compile Remove="MtdSearch.cs" />
     <Compile Remove="OldEvaluation.cs" />
