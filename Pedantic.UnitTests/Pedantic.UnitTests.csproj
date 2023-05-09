@@ -4,13 +4,9 @@
     <TargetFramework>net7.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-
     <IsPackable>false</IsPackable>
-
     <Platforms>AnyCPU</Platforms>
-
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
-
     <Configurations>Debug;Release</Configurations>
   </PropertyGroup>
 
@@ -21,6 +17,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <DebugType>full</DebugType>
     <Optimize>True</Optimize>
+    <TieredPGO>true</TieredPGO>
   </PropertyGroup>
 
   <ItemGroup>

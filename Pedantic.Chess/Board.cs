@@ -355,7 +355,7 @@ namespace Pedantic.Chess
 
             var stackSpan = gameStack.AsSpan();
             
-            for (int n = stackSpan.Length - 2; n >= Math.Max(stackSpan.Length - halfMoveClock, 0); n -= 2)
+            for (int n = stackSpan.Length - 2; n >= Arith.Max(stackSpan.Length - halfMoveClock, 0); n -= 2)
             {
                 if (hash == stackSpan[n].Hash)
                 {
@@ -782,7 +782,7 @@ namespace Pedantic.Chess
 
             for (int n = cIndex - 1; n > 0; n--)
             {
-                captures[n - 1] = -Math.Max(-captures[n - 1], captures[n]);
+                captures[n - 1] = -Arith.Max(-captures[n - 1], captures[n]);
             }
 
             return captures[0];
