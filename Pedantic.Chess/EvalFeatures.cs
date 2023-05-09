@@ -144,12 +144,12 @@ namespace Pedantic.Chess
                 for (ulong p = pawns; p != 0; p = BitOps.ResetLsb(p))
                 {
                     int sq = BitOps.TzCount(p);
-
-                    if ((otherPawns & Evaluation.PassedPawnMasks[c, sq]) == 0)
+                    Ray ray = Board.Vectors[sq];
+                    ulong doubledFriends = color == Color.White ? ray.North : ray.South;
+                    if ((otherPawns & Evaluation.PassedPawnMasks[c, sq]) == 0 && (pawns & doubledFriends) == 0)
                     {
                         IncrementPassedPawns(v);
 
-                        Ray ray = Board.Vectors[sq];
                         ulong bb;
                         if (color == Color.White)
                         {

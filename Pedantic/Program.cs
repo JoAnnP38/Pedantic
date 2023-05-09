@@ -20,6 +20,8 @@ using System.CommandLine;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Threading.Tasks.Dataflow;
+
 // ReSharper disable LocalizableElement
 
 
@@ -32,7 +34,8 @@ namespace Pedantic
         public const string APP_NAME_VER = APP_NAME + " v" + APP_VERSION;
         public const string AUTHOR = "JoAnn D. Peeler";
         public const string PROGRAM_URL = "https://github.com/JoAnnP38/Pedantic";
-        public const double CONVERGENCE_TOLERANCE = 0.0000005;
+        public const double CONVERGENCE_TOLERANCE = 0.00000005;
+        public const int MAX_CONVERGENCE_FAILURE = 5;
 
         private enum PerftRunType
         {
@@ -677,6 +680,7 @@ namespace Pedantic
             short[] bestWeights = ArrayEx.Clone(weights);
             int wtLen = weights.Length;
             int passes = 0;
+            int batchCounter = 0;
             int failureCount = 0;
             int sampleSize = slices.Sum(s => s.Length);
             var rep = new ChessDb();
@@ -688,7 +692,7 @@ namespace Pedantic
                 index[n] = n;
             }
 
-            while (improved && failureCount < 3 && passes < maxPass)
+            while (improved && failureCount < MAX_CONVERGENCE_FAILURE && passes < maxPass)
             {
                 improved = false;
                 if (curError < bestError)
@@ -696,13 +700,17 @@ namespace Pedantic
                     bestError = curError;
                     Array.Copy(weights, bestWeights, bestWeights.Length);
                 }
+                else
+                {
+                    Array.Copy(bestWeights, weights, weights.Length);
+                }
 
                 DateTime wtOptTime = DateTime.Now;
                 Random.Shared.Shuffle(index);
                 int optAttempts = 0;
                 int optHits = 0;
                 float effRate = 0;
-                refError = MiniEvalErrorParallel(weights, slices, k, passes);
+                refError = MiniEvalErrorParallel(weights, slices, k, batchCounter);
                 double errAdjust = curError / refError;
 
                 for (int n = 0; n < wtLen; n++)
@@ -721,7 +729,7 @@ namespace Pedantic
                         }
                         short oldValue = weights[i];
                         weights[i] += increment;
-                        double error = MiniEvalErrorParallel(weights, slices, k, passes);
+                        double error = MiniEvalErrorParallel(weights, slices, k, batchCounter);
                         optAttempts++;
                         bool goodIncrement = error < refError;
                         improved = improved || goodIncrement;
@@ -729,7 +737,7 @@ namespace Pedantic
                         if (!goodIncrement)
                         {
                             weights[i] -= (short)(increment * 2);
-                            error = MiniEvalErrorParallel(weights, slices, k, passes);
+                            error = MiniEvalErrorParallel(weights, slices, k, batchCounter);
                             optAttempts++;
                             goodIncrement = error < refError;
                             improved = improved || goodIncrement;
@@ -747,40 +755,49 @@ namespace Pedantic
                     }
                 }
 
-                ++passes;
+                ++batchCounter;
                 DateTime now = DateTime.Now;
-                TimeSpan totalElapsed = now - startTime;
-                TimeSpan avgT = totalElapsed.Divide(passes);
                 TimeSpan passT = now - wtOptTime;
                 curError = EvalErrorParallel(weights, slices, k);
-
-                if (preserve && passes % 10 == 0 && improved)
-                {
-                    ChessWeights intermediate = new(weights)
-                    {
-                        Description = $"Pass {passes}",
-                        Fitness = (float)curError,
-                        K = (float)k,
-                        TotalPasses = (short)passes,
-                        SampleSize = sampleSize,
-                        UpdatedOn = DateTime.UtcNow
-                    };
-                    rep.Weights.Insert(intermediate);
-                    rep.Save();
-                    Console.WriteLine($"Pass stats {passes,3} - \u03B5: {curError:F6}, Δt: {passT:mm\\:ss}, eff: {effRate:F3}, OID: {intermediate.Id}");
-                }
-                else
-                {
-                    Console.WriteLine($"Pass stats {passes,3} - \u03B5: {curError:F6}, Δt: {passT:mm\\:ss}, eff: {effRate:F3}                        ");
-                }
 
                 if (curError + CONVERGENCE_TOLERANCE < bestError)
                 {
                     failureCount = 0;
+                    ++passes;
                 }
                 else
                 {
                     ++failureCount;
+                }
+
+                if (failureCount == 0)
+                {
+                    if (preserve && passes % 10 == 0 && improved)
+                    {
+                        ChessWeights intermediate = new(weights)
+                        {
+                            Description = $"Pass {passes}",
+                            Fitness = (float)curError,
+                            K = (float)k,
+                            TotalPasses = (short)passes,
+                            SampleSize = sampleSize,
+                            UpdatedOn = DateTime.UtcNow
+                        };
+                        rep.Weights.Insert(intermediate);
+                        rep.Save();
+                        Console.WriteLine(
+                            $"Pass stats {passes,3} - \u03B5: {curError:F6}, Δt: {passT:mm\\:ss}, eff: {effRate:F3}, OID: {intermediate.Id}");
+                    }
+                    else
+                    {
+                        Console.WriteLine(
+                            $"Pass stats {passes,3} - \u03B5: {curError:F6}, Δt: {passT:mm\\:ss}, eff: {effRate:F3}                        ");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine(
+                        $"Pass stats {passes, 3} - \u03B5: {curError:F6}, Δt: {passT:mm\\:ss}, NO IMPROVEMENT                              ");
                 }
             }
 
@@ -934,7 +951,7 @@ namespace Pedantic
         public static double MiniEvalErrorParallel(short[] weights, List<PosRecord[]> slices, double k, int batch)
         {
             int totalLength = slices.Sum(s => s.Length);
-            int miniBatchSize = totalLength / 10;
+            int miniBatchSize = totalLength / 8;
             if (UsableProcessorCount == 1)
             {
                 return EvalErrorParallel(weights, slices, k);

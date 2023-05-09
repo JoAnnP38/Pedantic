@@ -215,13 +215,14 @@ namespace Pedantic.Chess
             for (ulong p = pawns; p != 0; p = BitOps.ResetLsb(p))
             {
                 int sq = BitOps.TzCount(p);
+                Ray ray = Board.Vectors[sq];
+                ulong doubledFriends = color == Color.White ? ray.North : ray.South;
 
-                if ((otherPawns & PassedPawnMasks[c, sq]) == 0)
+                if ((otherPawns & PassedPawnMasks[c, sq]) == 0 && (pawns & doubledFriends) == 0)
                 {
                     opPawnScore[c] += wt.OpeningPassedPawn;
                     egPawnScore[c] += wt.EndGamePassedPawn;
 
-                    Ray ray = Board.Vectors[sq];
                     ulong bb = color == Color.White
                         ? BitOps.AndNot(ray.South, Board.RevVectors[BitOps.LzCount(ray.South & board.All)].South)
                         : BitOps.AndNot(ray.North, Board.Vectors[BitOps.TzCount(ray.North & board.All)].North);
