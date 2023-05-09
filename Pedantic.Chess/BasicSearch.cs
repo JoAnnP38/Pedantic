@@ -53,7 +53,7 @@ namespace Pedantic.Chess
             bool inCheck = board.IsChecked();
             Score = Quiesce(-Constants.INFINITE_WINDOW, Constants.INFINITE_WINDOW, 0, inCheck);
 
-            while (++Depth <= maxSearchDepth && time.CanSearchDeeper() && (!IsCheckmate(Score, out int mateIn) || (Math.Abs(mateIn) << 1) + (Math.Abs(mateIn) >> 1) + 2 >= Depth))
+            while (++Depth <= maxSearchDepth && time.CanSearchDeeper() && (!IsCheckmate(Score, out int mateIn) || (Arith.Abs(mateIn) << 1) + (Arith.Abs(mateIn) >> 1) + 2 >= Depth))
             {
                 time.StartInterval();
                 history.Rescale();
@@ -137,7 +137,7 @@ namespace Pedantic.Chess
         public int SearchRoot(int alpha, int beta, int depth, bool inCheck)
         {
             int originalAlpha = alpha;
-            depth = Math.Min(depth, 63);
+            depth = Arith.Min(depth, 63);
 
             if (TtTran.TryGetScore(board.Hash, depth, 0, ref alpha, ref beta, out int score, out ulong bestMove) &&
                 board.IsLegalMove(bestMove))
@@ -186,7 +186,7 @@ namespace Pedantic.Chess
                 int R = 0;
                 if (!interesting && !killerMoves.Exists(0, move))
                 {
-                    R = LMR[Math.Min(depth, 31)][Math.Min(expandedNodes - 1, 63)];
+                    R = LMR[Arith.Min(depth, 31)][Arith.Min(expandedNodes - 1, 63)];
                 }
 
                 if (X > 0 && R > 0)
@@ -202,10 +202,10 @@ namespace Pedantic.Chess
                     }
                     else
                     {
-                        score = -Search(-alpha - 1, -alpha, Math.Max(depth + X - R - 1, 0), 1, checkingMove, isPv: false);
+                        score = -Search(-alpha - 1, -alpha, Arith.Max(depth + X - R - 1, 0), 1, checkingMove, isPv: false);
                         if (score > alpha)
                         {
-                            score = -Search(-beta, -alpha, Math.Max(depth + X - R - 1, 0), 1, checkingMove, true, R == 0);
+                            score = -Search(-beta, -alpha, Arith.Max(depth + X - R - 1, 0), 1, checkingMove, true, R == 0);
                         }
                     }
 
@@ -264,7 +264,7 @@ namespace Pedantic.Chess
         public int Search(int alpha, int beta, int depth, int ply, bool inCheck, bool canNull = true, bool isPv = true)
         {
             int originalAlpha = alpha;
-            depth = Math.Min(depth, 63);
+            depth = Arith.Min(depth, 63);
 
             if (ply >= Constants.MAX_PLY - 1)
             {
@@ -279,8 +279,8 @@ namespace Pedantic.Chess
 
             // This is a trick from CPW-Engine which I do not understand
             // but I leave the code here anyways.
-            alpha = Math.Max(alpha, -Constants.CHECKMATE_SCORE + ply - 1);
-            beta = Math.Min(beta, Constants.CHECKMATE_SCORE - ply);
+            alpha = Arith.Max(alpha, -Constants.CHECKMATE_SCORE + ply - 1);
+            beta = Arith.Min(beta, Constants.CHECKMATE_SCORE - ply);
 
             if (alpha >= beta)
             {
@@ -299,7 +299,7 @@ namespace Pedantic.Chess
             }
 
             NodesVisited++;
-            seldepth = Math.Max(seldepth, ply);
+            seldepth = Arith.Max(seldepth, ply);
 
             if (MustAbort || wasAborted)
             {
@@ -328,7 +328,7 @@ namespace Pedantic.Chess
                     int R = 2 + NMP[depth];
                     if (board.MakeMove(Move.NullMove))
                     {
-                        score = -Search(-beta, -beta + 1, Math.Max(depth - R - 1, 0), ply + 1, false, false, false);
+                        score = -Search(-beta, -beta + 1, Arith.Max(depth - R - 1, 0), ply + 1, false, false, false);
                         board.UnmakeMove();
                         if (wasAborted)
                         {
@@ -407,7 +407,7 @@ namespace Pedantic.Chess
                 int R = 0;
                 if (!interesting && !killerMoves.Exists(ply, move))
                 {
-                    R = LMR[Math.Min(depth, 31)][Math.Min(expandedNodes - 1, 63)];
+                    R = LMR[Arith.Min(depth, 31)][Arith.Min(expandedNodes - 1, 63)];
                 }
 
                 if (X > 0 && R > 0)
@@ -423,10 +423,10 @@ namespace Pedantic.Chess
                     }
                     else
                     {
-                        score = -Search(-alpha - 1, -alpha, Math.Max(depth + X - R - 1, 0), ply + 1, checkingMove, true, false);
+                        score = -Search(-alpha - 1, -alpha, Arith.Max(depth + X - R - 1, 0), ply + 1, checkingMove, true, false);
                         if (score > alpha)
                         {
-                            score = -Search(-beta, -alpha, Math.Max(depth + X - R - 1, 0), ply + 1, checkingMove, true, R == 0);
+                            score = -Search(-beta, -alpha, Arith.Max(depth + X - R - 1, 0), ply + 1, checkingMove, true, R == 0);
                         }
                     }
 
@@ -484,7 +484,7 @@ namespace Pedantic.Chess
         public int Quiesce(int alpha, int beta, int ply, bool inCheck)
         {
             NodesVisited++;
-            seldepth = Math.Max(seldepth, ply);
+            seldepth = Arith.Max(seldepth, ply);
 
             if (MustAbort || wasAborted)
             {
@@ -512,7 +512,7 @@ namespace Pedantic.Chess
                     return standPatScore;
                 }
 
-                alpha = Math.Max(alpha, standPatScore);
+                alpha = Arith.Max(alpha, standPatScore);
             }
 
 #if DEBUG
@@ -680,11 +680,11 @@ namespace Pedantic.Chess
         private static bool IsCheckmate(int score, out int mateIn)
         {
             mateIn = 0;
-            int absScore = Math.Abs(score);
+            int absScore = Arith.Abs(score);
             bool checkMate = absScore is >= Constants.CHECKMATE_SCORE - Constants.MAX_PLY and <= Constants.CHECKMATE_SCORE;
             if (checkMate)
             {
-                mateIn = ((Constants.CHECKMATE_SCORE - absScore + 1) / 2) * Math.Sign(score);
+                mateIn = ((Constants.CHECKMATE_SCORE - absScore + 1) / 2) * Arith.Sign(score);
             }
 
             return checkMate;

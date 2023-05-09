@@ -120,7 +120,7 @@ namespace Pedantic.Chess
 
             if (Evaluation.IsCheckmate(score))
             {
-                score += Math.Sign(score) * ply;
+                score += Arith.Sign(score) * ply;
             }
 
             sbyte itemDepth = (sbyte)depth;
@@ -219,7 +219,7 @@ namespace Pedantic.Chess
 
                 if (Evaluation.IsCheckmate(score))
                 {
-                    score -= Math.Sign(score) * ply;
+                    score -= Arith.Sign(score) * ply;
                 }
 
                 if (item.Flag == TtFlag.Exact)
@@ -233,7 +233,7 @@ namespace Pedantic.Chess
                     {
                         return true;
                     }
-                    beta = Math.Min(score, beta);
+                    beta = Arith.Min(score, beta);
                 }
                 else if (item.Flag == TtFlag.LowerBound)
                 {
@@ -241,7 +241,7 @@ namespace Pedantic.Chess
                     {
                         return true;
                     }
-                    alpha = Math.Max(score, alpha);
+                    alpha = Arith.Max(score, alpha);
                 }
             }
 
@@ -270,7 +270,7 @@ namespace Pedantic.Chess
 
             if (Evaluation.IsCheckmate(score))
             {
-                score += Math.Sign(score) * ply;
+                score += Arith.Sign(score) * ply;
             }
 
             TtTranItem.SetValue(ref item, hash, (short)score, (sbyte)depth, 0, flag, bestMove);
@@ -298,7 +298,7 @@ namespace Pedantic.Chess
 
                     if (score != Constants.INVALID_PROBE && Evaluation.IsCheckmate(score))
                     {
-                        score -= Math.Sign(score) * ply;
+                        score -= Arith.Sign(score) * ply;
                     }
                 }
             }
