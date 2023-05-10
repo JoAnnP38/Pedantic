@@ -10,6 +10,7 @@
     <StartupObject>Pedantic.Program</StartupObject>
     <Configurations>Debug;Release</Configurations>
     <Version>0.3.0</Version>
+    <TieredPGO>true</TieredPGO>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
@@ -19,7 +20,6 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <Optimize>True</Optimize>
     <DebugType>full</DebugType>
-    <TieredPGO>true</TieredPGO>
   </PropertyGroup>
 
   <ItemGroup>

@@ -16,7 +16,6 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <DebugType>full</DebugType>
     <Optimize>True</Optimize>
-    <TieredPGO>true</TieredPGO>
   </PropertyGroup>
 
   <ItemGroup>

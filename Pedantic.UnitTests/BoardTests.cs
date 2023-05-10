@@ -215,7 +215,7 @@ namespace Pedantic.UnitTests
         public void MoveCapturesTest()
         {
             Board bd = new("7r/P7/1K2k3/8/8/8/7p/1R6 b - - 0 1");
-            foreach (ulong move in bd.CaptureMoves(new MoveList()))
+            foreach (ulong move in bd.CaptureMoves(0, new MoveList()))
             {
                 Console.WriteLine(Move.ToString(move));
             }

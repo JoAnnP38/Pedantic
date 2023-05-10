@@ -886,6 +886,9 @@ namespace Pedantic.Chess
 
         public IEnumerable<ulong> Moves(int ply, KillerMoves killerMoves, History history, MoveList moveList)
         {
+            ulong[] bc = badCaptures[ply];
+            int bcIndex = 0;
+
             if (TtTran.TryGetBestMove(hash, out ulong bestMove))
             {
                 yield return bestMove;
@@ -905,23 +908,13 @@ namespace Pedantic.Chess
 
                 int from = Move.GetFrom(move);
                 Piece capture = Move.GetCapture(move);
-                if (board[from].Piece.Value() > capture.Value() && PreMoveStaticExchangeEval(SideToMove, move) < 0)
+                if (bcIndex < 20 && board[from].Piece.Value() > capture.Value() && PreMoveStaticExchangeEval(SideToMove, move) < 0)
                 {
-                    moveList[n] = Move.SetScore(move, Constants.BAD_CAPTURE);
+                    bc[bcIndex++] = Move.SetScore(move, Constants.BAD_CAPTURE);
                     continue;
                 }
                 
                 yield return move;
-            }
-
-            for (int n = 0; n < moveList.Count; n++)
-            {
-                if (Move.GetScore(moveList[n]) != Constants.BAD_CAPTURE)
-                {
-                    continue;
-                }
-
-                yield return moveList[n];
             }
 
             moveList.Clear();
@@ -947,6 +940,12 @@ namespace Pedantic.Chess
                 }
             }
 
+            // now return the bad captures deferred from earlier
+            for (int n = 0; n < bcIndex; n++)
+            {
+                yield return bc[n];
+            }
+
             moveList.Clear();
             GenerateQuietMoves(moveList, history);
             for (int n = 0; n < moveList.Count; n++)
@@ -960,8 +959,11 @@ namespace Pedantic.Chess
             }
         }
 
-        public IEnumerable<ulong> CaptureMoves(MoveList moveList)
+        public IEnumerable<ulong> CaptureMoves(int ply, MoveList moveList)
         {
+            ulong[] bc = badCaptures[ply];
+            int bcIndex = 0;
+
             moveList.Clear();
             GenerateCaptures(moveList);
 
@@ -971,9 +973,9 @@ namespace Pedantic.Chess
                 ulong move = moveList[n];
                 int from = Move.GetFrom(move);
                 Piece capture = Move.GetCapture(move);
-                if (board[from].Piece.Value() > capture.Value() && PreMoveStaticExchangeEval(SideToMove, move) < 0)
+                if (bcIndex < 20 && board[from].Piece.Value() > capture.Value() && PreMoveStaticExchangeEval(SideToMove, move) < 0)
                 {
-                    moveList[n] = Move.SetScore(move, Constants.BAD_CAPTURE);
+                    bc[bcIndex++] = Move.SetScore(move, Constants.BAD_CAPTURE);
                     continue;
                 }
 
@@ -996,6 +998,11 @@ namespace Pedantic.Chess
             {
                 moveList.Sort(n);
                 yield return moveList[n];
+            }
+
+            for (int n = 0; n < bcIndex; n++)
+            {
+                yield return bc[n];
             }
         }
 
@@ -1766,6 +1773,7 @@ namespace Pedantic.Chess
 
         private readonly ObjectPool<MoveList> moveListPool = new(4);
 
+        private static readonly ulong[][] badCaptures = Mem.Allocate2D<ulong>(Constants.MAX_PLY, 20);
         public static readonly CastlingRookMove[] CastlingRookMoves =
         {
             new(Index.E1, Index.C1, Index.D1, Index.A1, Index.D1, CastlingRights.WhiteQueenSide, WHITE_QS_CLEAR_MASK),

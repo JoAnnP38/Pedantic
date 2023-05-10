@@ -522,7 +522,7 @@ namespace Pedantic.Chess
             int expandedNodes = 0;
             MoveList moveList = moveListPool.Get();
             IEnumerable<ulong> moves =
-                inCheck ? board.Moves(ply, killerMoves, history, moveList) : board.CaptureMoves(moveList);
+                inCheck ? board.Moves(ply, killerMoves, history, moveList) : board.CaptureMoves(ply, moveList);
 
             foreach (ulong move in moves)
             {
