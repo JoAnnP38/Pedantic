@@ -127,40 +127,47 @@ namespace Pedantic.Chess
         public static bool TryParseMove(Board board, string s, out ulong move)
         {
             move = 0;
-            if (s.Length < 4)
+            try
             {
-                throw new ArgumentException(@"Parameter to short to represent a valid move.", nameof(s));
-            }
-
-            if (!Index.TryParse(s[..2], out int from))
-            {
-                throw new ArgumentException(@"Invalid from square in move.", nameof(s));
-            }
-
-            if (!Index.TryParse(s[2..4], out int to))
-            {
-                throw new ArgumentException(@"Invalid to square in move.", nameof(s));
-            }
-
-            Piece promote = s.Length > 4 ? Conversion.ParsePiece(s[4]) : Piece.None;
-
-            MoveList moveList = new();
-            board.GenerateMoves(moveList);
-
-            for (int n = 0; n < moveList.Count; ++n)
-            {
-                ulong mv = moveList[n];
-                string mvString = Move.ToString(mv);
-                if (from == GetFrom(mv) && to == GetTo(mv) && promote == GetPromote(mv))
+                if (s.Length < 4)
                 {
-                    bool legal = board.MakeMove(mv);
-                    if (legal)
+                    throw new ArgumentException(@"Parameter too short to represent a valid move.", nameof(s));
+                }
+
+                if (!Index.TryParse(s[..2], out int from))
+                {
+                    throw new ArgumentException(@"Invalid from square in move.", nameof(s));
+                }
+
+                if (!Index.TryParse(s[2..4], out int to))
+                {
+                    throw new ArgumentException(@"Invalid to square in move.", nameof(s));
+                }
+
+                Piece promote = s.Length > 4 ? Conversion.ParsePiece(s[4]) : Piece.None;
+
+                MoveList moveList = new();
+                board.GenerateMoves(moveList);
+
+                for (int n = 0; n < moveList.Count; ++n)
+                {
+                    ulong mv = moveList[n];
+                    string mvString = Move.ToString(mv);
+                    if (from == GetFrom(mv) && to == GetTo(mv) && promote == GetPromote(mv))
                     {
-                        board.UnmakeMove();
-                        move = mv;
-                        return true;
+                        bool legal = board.MakeMove(mv);
+                        if (legal)
+                        {
+                            board.UnmakeMove();
+                            move = mv;
+                            return true;
+                        }
                     }
                 }
+            }
+            catch (Exception ex)
+            {
+                Util.TraceError(ex.ToString());
             }
 
             return false;

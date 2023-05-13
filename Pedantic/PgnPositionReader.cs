@@ -42,6 +42,7 @@ namespace Pedantic
             public readonly int Ply;
             public readonly int GamePly;
             public readonly string Fen;
+            public readonly byte HasCastled;
             public readonly float Result;
 
             public Position()
@@ -50,15 +51,25 @@ namespace Pedantic
                 Ply = 0;
                 GamePly = 0;
                 Fen = string.Empty;
+                HasCastled = 0;
                 Result = 0;
             }
 
-            public Position(ulong hash, int ply, int gamePly, string fen, float result)
+            public Position(ulong hash, int ply, int gamePly, string fen, bool[] hasCastled, float result)
             {
                 Hash = hash;
                 Ply = ply;
                 GamePly = gamePly;
                 Fen = fen;
+                if (hasCastled[0])
+                {
+                    HasCastled |= 0x01;
+                }
+
+                if (hasCastled[1])
+                {
+                    HasCastled |= 0x02;
+                }
                 Result = result;
             }
         }
@@ -83,12 +94,14 @@ namespace Pedantic
             PositionState state = PositionState.SeekHeader;
             List<string> moves = new();
             float result = 0;
+            long lineNumber = 0;
 
             for(;;)
             {
                 string? line = reader.ReadLine();
 
                 if (line == null) break;
+                lineNumber++;
 
                 string[] tokens = line.Split(' ',
                     StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
@@ -165,12 +178,14 @@ namespace Pedantic
                                     Constants.INFINITE_WINDOW, 0, bd.IsChecked()) - eval);
                                 if (delta == 0)
                                 {
-                                    yield return new Position(bd.Hash, ply, gamePly, bd.ToFenString(), result);
+                                    yield return new Position(bd.Hash, ply, gamePly, bd.ToFenString(),
+                                        bd.HasCastled, result);
                                 }
                             }
                             else
                             {
                                 Util.WriteLine($"Illegal token encountered: {mv}... skipping to next game.");
+                                Console.WriteLine($@"{lineNumber}: Illegal token encountered - '{line}'");
                                 break;
                             }
                         }
@@ -180,8 +195,6 @@ namespace Pedantic
                     }
                 }
             }
-            
         }
-
     }
 }

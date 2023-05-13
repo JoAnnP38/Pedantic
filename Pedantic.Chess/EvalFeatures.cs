@@ -64,8 +64,12 @@ namespace Pedantic.Chess
          * [410]        # rooks on half-open file
          * [411]        # rooks behind passed pawn
          * [412]        # doubled rooks on file
+         * [413]        0-1 king on open file
+         * [414]        # of potential castle moves available
+         * [415]        0-1 side has already castled
+         * [416 - 418]  # center control (d0 - d2)
          */
-        public const int FEATURE_SIZE = 413;
+        public const int FEATURE_SIZE = 419;
         public const int GAME_PHASE_BOUNDARY = 0;
         public const int MATERIAL = 1;
         public const int PIECE_SQUARE_TABLES = 7;
@@ -84,6 +88,10 @@ namespace Pedantic.Chess
         public const int ROOK_HALF_OPEN_FILE = 410;
         public const int ROOK_BEHIND_PASSED_PAWN = 411;
         public const int DOUBLED_ROOKS_ON_FILE = 412;
+        public const int KING_ON_OPEN_FILE = 413;
+        public const int CASTLING_AVAILABLE = 414;
+        public const int CASTLING_COMPLETE = 415;
+        public const int CENTER_CONTROL = 416;
 
         private readonly SparseArray<short>[] sparse = { new(), new() };
 		private readonly short[][] features = { Array.Empty<short>(), Array.Empty<short>() };
@@ -93,8 +101,9 @@ namespace Pedantic.Chess
 
         public EvalFeatures(Board bd)
         {
-            short[] mobility = new short[Constants.MAX_PIECES];
-            short[] kingAttacks = new short[3];
+            Span<short> mobility = stackalloc short[Constants.MAX_PIECES];
+            Span<short> kingAttacks = stackalloc short[3];
+            Span<short> centerControl = stackalloc short[3];
 
             totalPawns = (sbyte)BitOps.PopCount(bd.Pieces(Color.White, Piece.Pawn) | bd.Pieces(Color.Black, Piece.Pawn));
             sideToMove = bd.SideToMove;
@@ -115,7 +124,7 @@ namespace Pedantic.Chess
                     }
                 }
 
-                bd.GetPieceMobility(color, mobility, kingAttacks);
+                bd.GetPieceMobility(color, mobility, kingAttacks, centerControl);
                 for (Piece pc = Piece.Knight; pc <= Piece.Queen; pc++)
                 {
                     int p = (int)pc;
@@ -130,6 +139,11 @@ namespace Pedantic.Chess
                     if (kingAttacks[d] > 0)
                     {
                         SetKingAttack(v, d, kingAttacks[d]);
+                    }
+
+                    if (centerControl[d] > 0)
+                    {
+                        SetCenterControl(v, d, centerControl[d]);
                     }
                 }
 
@@ -257,6 +271,23 @@ namespace Pedantic.Chess
                     }
                 }
 
+                int kingFile = Index.GetFile(ki);
+                if ((Board.MaskFile(kingFile) & allPawns) == 0)
+                {
+                    SetKingOnOpenFile(v);
+                }
+
+                if (bd.HasCastled[c])
+                {
+                    SetCastlingComplete(v);
+                }
+                else
+                {
+                    ulong mask = (ulong)CastlingRights.WhiteRights << (c << 1);
+                    short cntRights = (short)BitOps.PopCount((ulong)bd.Castling & mask);
+                    SetCastlingAvailable(v, cntRights);
+                }
+
                 int length = sparse[c].Count;
 				features[c] = new short[length];
 				indexMap[c] = new int[length];
@@ -283,12 +314,12 @@ namespace Pedantic.Chess
 
                 MapWeights(opWeights, egWeights);
 
-                    for (Color color = Color.White; color <= Color.Black; color++)
-                    {
-                        int c = (int)color;
-                        opScore[c] = DotProduct(features[c], openingWts[c]);
-                        egScore[c] = DotProduct(features[c], endGameWts[c]);
-                    }
+                for (Color color = Color.White; color <= Color.Black; color++)
+                {
+                    int c = (int)color;
+                    opScore[c] = DotProduct(features[c], openingWts[c]);
+                    egScore[c] = DotProduct(features[c], endGameWts[c]);
+                }
 
                 GamePhase gamePhase = GetGamePhase(opWeights[GAME_PHASE_BOUNDARY],
                     egWeights[GAME_PHASE_BOUNDARY], out int opWt, out int egWt);
@@ -427,6 +458,12 @@ namespace Pedantic.Chess
         private static void SetKingAttack(IDictionary<int, short> v, int d, short count)
         {
             v[KING_ATTACK + d] = count;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void SetCenterControl(IDictionary<int, short> v, int d, short count)
+        {
+            v[CENTER_CONTROL + d] = count;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -582,6 +619,25 @@ namespace Pedantic.Chess
                 v.Add(DOUBLED_ROOKS_ON_FILE, 1);
             }
         }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void SetKingOnOpenFile(IDictionary<int, short> v)
+        {
+            v[KING_ON_OPEN_FILE] = 1;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void SetCastlingComplete(IDictionary<int, short> v)
+        {
+            v[CASTLING_COMPLETE] = 1;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void SetCastlingAvailable(IDictionary<int, short> v, short count)
+        {
+            v[CASTLING_AVAILABLE] = count;
+        }
+
 #pragma warning restore CA1854
     }
 }

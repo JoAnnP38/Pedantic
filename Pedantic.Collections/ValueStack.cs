@@ -76,14 +76,14 @@ namespace Pedantic.Collections
             }
         }
 
-        public T Peek()
+        public ref T Peek()
         {
             if (sp <= 0)
             {
                 throw new InvalidOperationException(@"Cannot peek into an empty stack.");
             }
 
-            return stack[sp - 1];
+            return ref stack[sp - 1];
         }
 
         public T Pop()
