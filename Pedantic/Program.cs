@@ -1130,7 +1130,6 @@ namespace Pedantic
             WriteLine($"/* {section} center control */");
             WriteLine($"{wts[ChessWeights.CENTER_CONTROL]}, // D0");
             WriteLine($"{wts[ChessWeights.CENTER_CONTROL + 1]}, // D1");
-            WriteLine($"{wts[ChessWeights.CENTER_CONTROL + 2]}, // D2");
         }
 
         private static void WriteIndent()

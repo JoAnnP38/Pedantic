@@ -67,9 +67,9 @@ namespace Pedantic.Chess
          * [413]        0-1 king on open file
          * [414]        # of potential castle moves available
          * [415]        0-1 side has already castled
-         * [416 - 418]  # center control (d0 - d2)
+         * [416 - 417]  # center control (d0 - d1)
          */
-        public const int FEATURE_SIZE = 419;
+        public const int FEATURE_SIZE = 418;
         public const int GAME_PHASE_BOUNDARY = 0;
         public const int MATERIAL = 1;
         public const int PIECE_SQUARE_TABLES = 7;
@@ -140,7 +140,10 @@ namespace Pedantic.Chess
                     {
                         SetKingAttack(v, d, kingAttacks[d]);
                     }
+                }
 
+                for (int d = 0; d < 2; d++)
+                {
                     if (centerControl[d] > 0)
                     {
                         SetCenterControl(v, d, centerControl[d]);

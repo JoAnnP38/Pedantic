@@ -20,8 +20,8 @@ namespace Pedantic.Genetics
 {
     public sealed class ChessWeights
     {
-        public const int MAX_WEIGHTS = 838;
-        public const int ENDGAME_WEIGHTS = 419;
+        public const int MAX_WEIGHTS = 836;
+        public const int ENDGAME_WEIGHTS = 418;
         public const int PIECE_WEIGHT_LENGTH = 6;
         public const int PIECE_SQUARE_LENGTH = 384;
         public const int GAME_PHASE_MATERIAL = 0;
@@ -296,7 +296,6 @@ namespace Pedantic.Genetics
             /* opening center control */
             2, // D0
             1, // D1
-            0, // D2
 
             /*------------------- END GAME WEIGHTS -------------------*/
 
@@ -436,8 +435,7 @@ namespace Pedantic.Genetics
 
             /* end game center control */
             3, // D0
-            2, // D1
-            0, // D2
+            2 // D1
         };
     }
 }

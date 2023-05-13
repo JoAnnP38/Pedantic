@@ -24,7 +24,6 @@ namespace Pedantic.Chess
     {
         public const ulong D0_CENTER_CONTROL_MASK = 0x0000001818000000ul;
         public const ulong D1_CENTER_CONTROL_MASK = 0x00003C24243C0000ul;
-        public const ulong D2_CENTER_CONTROL_MASK = 0x007E424242427E00ul;
 
         static Evaluation()
         {
@@ -191,7 +190,7 @@ namespace Pedantic.Chess
 
             Span<short> mobility = stackalloc short[Constants.MAX_PIECES];
             Span<short> kingAttacks = stackalloc short[3];
-            Span<short> centerControl = stackalloc short[3];
+            Span<short> centerControl = stackalloc short[2];
 
             int c = (int)color;
             int o = (int)color.Other();
@@ -202,13 +201,18 @@ namespace Pedantic.Chess
                 egScore[c] += (short)(mobility[(int)piece] * wt.EndGamePieceMobility(piece));
             }
 
-            for (int d = 0; d < 3; d++)
-            {
-                opScore[c] += (short)(kingAttacks[d] * wt.OpeningKingAttack(d));
-                egScore[c] += (short)(kingAttacks[d] * wt.EndGameKingAttack(d));
-                opScore[c] += (short)(centerControl[d] * wt.OpeningCenterControl(d));
-                egScore[c] += (short)(centerControl[d] * wt.EndGameCenterControl(d));
-            }
+            opScore[c] += (short)(kingAttacks[0] * wt.OpeningKingAttack(0));
+            egScore[c] += (short)(kingAttacks[0] * wt.EndGameKingAttack(0));
+            opScore[c] += (short)(centerControl[0] * wt.OpeningCenterControl(0));
+            egScore[c] += (short)(centerControl[0] * wt.EndGameCenterControl(0));
+
+            opScore[c] += (short)(kingAttacks[1] * wt.OpeningKingAttack(1));
+            egScore[c] += (short)(kingAttacks[1] * wt.EndGameKingAttack(1));
+            opScore[c] += (short)(centerControl[1] * wt.OpeningCenterControl(1));
+            egScore[c] += (short)(centerControl[1] * wt.EndGameCenterControl(1));
+
+            opScore[c] += (short)(kingAttacks[2] * wt.OpeningKingAttack(2));
+            egScore[c] += (short)(kingAttacks[2] * wt.EndGameKingAttack(2));
         }
 
         public void ComputePawns(Color color, Board board)

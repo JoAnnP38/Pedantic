@@ -1162,7 +1162,6 @@ namespace Pedantic.Chess
                 ulong captures = PawnCaptures(color, square);
                 centerControl[0] += (short)BitOps.PopCount(captures & Evaluation.D0_CENTER_CONTROL_MASK);
                 centerControl[1] += (short)BitOps.PopCount(captures & Evaluation.D1_CENTER_CONTROL_MASK);
-                centerControl[2] += (short)BitOps.PopCount(captures & Evaluation.D2_CENTER_CONTROL_MASK);
             }
 
             ulong excluded = pawnDefended | Units(color);
@@ -1183,7 +1182,6 @@ namespace Pedantic.Chess
                     kingAttacks[2] += (short)BitOps.PopCount(atkMoves & d2);
                     centerControl[0] += (short)BitOps.PopCount(moves & Evaluation.D0_CENTER_CONTROL_MASK);
                     centerControl[1] += (short)BitOps.PopCount(moves & Evaluation.D1_CENTER_CONTROL_MASK);
-                    centerControl[2] += (short)BitOps.PopCount(moves & Evaluation.D2_CENTER_CONTROL_MASK);
                 }
             }
         }
