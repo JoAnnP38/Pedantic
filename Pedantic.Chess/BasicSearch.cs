@@ -67,7 +67,7 @@ namespace Pedantic.Chess
                     location = "2";
                     do
                     {
-                        alpha = Window[iAlpha] == -Constants.INFINITE_WINDOW
+                        alpha = Window[iAlpha] == Constants.INFINITE_WINDOW
                             ? -Constants.INFINITE_WINDOW
                             : Score - Window[iAlpha];
                         location = "3";
