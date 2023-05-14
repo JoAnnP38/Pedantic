@@ -104,11 +104,7 @@ namespace Pedantic.Chess
             searchThread.Join();
             searchThread = null;
             search = null;
-            ClearHashTable();
-            if (searchCounter % 10 == 0)
-            {
-                GC.Collect();
-            }
+            //ClearHashTable();
         }
 
         public static void Quit()

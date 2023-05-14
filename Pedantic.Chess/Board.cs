@@ -55,6 +55,7 @@ namespace Pedantic.Chess
         private int halfMoveClock;
         private int fullMoveCounter;
         private ulong hash;
+        private readonly bool[] hasCastled = new bool[Constants.MAX_COLORS];
 
         public struct BoardState
         {
@@ -127,6 +128,7 @@ namespace Pedantic.Chess
             Array.Copy(other.egMaterial, egMaterial, egMaterial.Length);
             Array.Copy(other.opPcSquare, opPcSquare, opPcSquare.Length);
             Array.Copy(other.egPcSquare, egPcSquare, egPcSquare.Length);
+            Array.Copy(other.hasCastled, hasCastled, hasCastled.Length);
             pawnHash = other.pawnHash;
         }
 
@@ -158,6 +160,7 @@ namespace Pedantic.Chess
         public int HalfMoveClock => halfMoveClock;
         public int FullMoveCounter => fullMoveCounter;
         public ulong Hash => hash;
+        public bool[] HasCastled => hasCastled;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public short Material(Color color) => material[(int)color];
@@ -240,6 +243,7 @@ namespace Pedantic.Chess
             Array.Clear(egMaterial);
             Array.Clear(opPcSquare);
             Array.Clear(egPcSquare);
+            Array.Fill(hasCastled, false);
             pawnHash = 0;
         }
 
@@ -341,7 +345,7 @@ namespace Pedantic.Chess
             return lineup;
         }
 
-        public (bool Repeated, bool OverFiftyMoves) PositionRepeated()
+        public unsafe (bool Repeated, bool OverFiftyMoves) PositionRepeated()
         {
             if (halfMoveClock < 4)
             {
@@ -354,12 +358,17 @@ namespace Pedantic.Chess
             }
 
             var stackSpan = gameStack.AsSpan();
-            
-            for (int n = stackSpan.Length - 2; n >= Arith.Max(stackSpan.Length - halfMoveClock, 0); n -= 2)
+            int max = Arith.Max(stackSpan.Length - halfMoveClock, 0);
+            int start = stackSpan.Length - 2;
+
+            fixed (BoardState* pStart = &stackSpan[start], pEnd = &stackSpan[max])
             {
-                if (hash == stackSpan[n].Hash)
+                for (BoardState* p = pStart; p >= pEnd; p -= 2)
                 {
-                    return (true, false);
+                    if (hash == p->Hash)
+                    {
+                        return (true, false);
+                    }
                 }
             }
 
@@ -420,13 +429,7 @@ namespace Pedantic.Chess
 
         public int PieceCount(Color color)
         {
-            int pcCount = 0;
-            for (Piece piece = Piece.Knight; piece <= Piece.Queen; piece++)
-            {
-                pcCount += BitOps.PopCount(Pieces(color, piece));
-            }
-
-            return pcCount;
+            return BitOps.PopCount(Units(color) & ~Pieces(color, Piece.Pawn));
         }
 
         public GamePhase Phase
@@ -466,7 +469,19 @@ namespace Pedantic.Chess
 
         public bool MakeMove(ulong move)
         {
-            PushBoardState(move);
+            PushBoardState();
+            bool result = MakeMoveNs(move);
+            if (!result)
+            {
+                PopBoardState();
+            }
+
+            return result;
+        }
+
+        public bool MakeMoveNs(ulong move)
+        {
+            gameStack.Peek().Move = move;
 
             if (enPassantValidated != Index.NONE)
             {
@@ -503,7 +518,7 @@ namespace Pedantic.Chess
                     if (IsSquareAttackedByColor(from, OpponentColor) ||
                         IsSquareAttackedByColor(rookMove.KingMoveThrough, OpponentColor))
                     {
-                        BoardState state = gameStack.Pop();
+                        ref BoardState state = ref gameStack.Peek();
                         state.Restore(this);
                         return false;
                     }
@@ -512,6 +527,7 @@ namespace Pedantic.Chess
                     UpdatePiece(sideToMove, Piece.Rook, rookMove.RookFrom, rookMove.RookTo);
                     castling &= (CastlingRights)(castleMask[from] & castleMask[to]);
                     halfMoveClock++;
+                    hasCastled[(int)sideToMove] = true;
                     break;
 
                 case MoveType.EnPassant:
@@ -575,7 +591,7 @@ namespace Pedantic.Chess
 
             if (IsChecked(sideToMove))
             {
-                UnmakeMove();
+                UnmakeMoveNs();
                 return false;
             }
 
@@ -584,8 +600,14 @@ namespace Pedantic.Chess
 
         public void UnmakeMove()
         {
+            UnmakeMoveNs();
+            gameStack.Pop();
+        }
+
+        public void UnmakeMoveNs()
+        {
             sideToMove = OpponentColor;
-            BoardState state = gameStack.Pop();
+            BoardState state = gameStack.Peek();
             int from = Move.GetFrom(state.Move);
             int to = Move.GetTo(state.Move);
             MoveType type = Move.GetMoveType(state.Move);
@@ -609,6 +631,7 @@ namespace Pedantic.Chess
                     CastlingRookMove rookMove = LookupRookMove(to);
                     UpdatePiece(sideToMove, Piece.Rook, rookMove.RookTo, rookMove.RookFrom);
                     UpdatePiece(sideToMove, Piece.King, to, from);
+                    hasCastled[(int)sideToMove] = false;
                     break;
 
                 case MoveType.EnPassant:
@@ -642,8 +665,7 @@ namespace Pedantic.Chess
             state.Restore(this);
         }
 
-        [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
-        public void PushBoardState(ulong move)
+        public void PushBoardState()
         {
             if (gameStack.Count < Constants.MAX_GAME_LENGTH)
             {
@@ -655,14 +677,19 @@ namespace Pedantic.Chess
                 state.HalfMoveClock = halfMoveClock;
                 state.Hash = hash;
                 state.SideToMove = sideToMove;
-                state.Move = move;
+                state.Move = Move.NullMove;
                 gameStack.Push(ref state);
             }
             else
             {
                 throw new IndexOutOfRangeException(
-                    @$"Maximum game length exceeded - Hash {hash} BestMove {Move.ToString(move)}");
+                    @$"Maximum game length exceeded - Hash {hash} BestMove");
             }
+        }
+
+        public void PopBoardState()
+        {
+            gameStack.Pop();
         }
 
         #endregion
@@ -681,13 +708,13 @@ namespace Pedantic.Chess
             Piece captured = Move.GetCapture(move);
             Piece pc = Move.IsPromote(move) ? Move.GetPromote(move) : board[from].Piece;
 
-            ulong attacks = AttacksTo(to);
+            ulong attacksTo = AttacksTo(to);
             captures[0] = captured.Value();
 
             stm = stm.Other();
             tempAll = BitOps.ResetBit(tempAll, from);
 
-            return SeeImpl(captures, stm, to, pc, attacks, tempAll);
+            return SeeImpl(captures, stm, to, pc, attacksTo, tempAll);
         }
 
         // SEE where move has already been made on the board
@@ -697,7 +724,7 @@ namespace Pedantic.Chess
             captures.Clear();
 
             int to = Move.GetTo(move);
-            ulong attacks = AttacksTo(to);
+            ulong attacksTo = AttacksTo(to);
             Piece pc = board[to].Piece;
             captures[0] = pc.Value();
 
@@ -706,7 +733,7 @@ namespace Pedantic.Chess
             Piece piece = Piece.Pawn;
             for (; piece <= Piece.King; piece++)
             {
-                attacksFrom = Pieces(stm, piece) & attacks;
+                attacksFrom = Pieces(stm, piece) & attacksTo;
                 if (attacksFrom != 0)
                 {
                     break;
@@ -721,7 +748,7 @@ namespace Pedantic.Chess
             stm = stm.Other();
             ulong tempAll = BitOps.ResetBit(all, BitOps.TzCount(attacksFrom));
 
-            return SeeImpl(captures, stm, to, piece, attacks, tempAll);
+            return SeeImpl(captures, stm, to, piece, attacksTo, tempAll);
         }
 
         private int SeeImpl(Span<int> captures, Color stm, int to, Piece piece, ulong attacks, ulong blockers)
@@ -1114,18 +1141,27 @@ namespace Pedantic.Chess
             return mobility;
         }
 
-        public void GetPieceMobility(Color color, Span<short> mobility, Span<short> kingAttacks)
+        public void GetPieceMobility(Color color, Span<short> mobility, Span<short> kingAttacks, Span<short> centerControl)
         {
             Color other = (Color)((int)color ^ 1);
             ulong pawnDefended = 0ul;
             int kingIndex = BitOps.TzCount(Pieces(other, Piece.King));
             mobility.Clear();
             kingAttacks.Clear();
+            centerControl.Clear();
 
             for (ulong pawns = Pieces(other, Piece.Pawn); pawns != 0ul; pawns = BitOps.ResetLsb(pawns))
             {
                 int square = BitOps.TzCount(pawns);
                 pawnDefended |= PawnCaptures(other, square);
+            }
+
+            for (ulong pawns = Pieces(color, Piece.Pawn); pawns != 0ul; pawns = BitOps.ResetLsb(pawns))
+            {
+                int square = BitOps.TzCount(pawns);
+                ulong captures = PawnCaptures(color, square);
+                centerControl[0] += (short)BitOps.PopCount(captures & Evaluation.D0_CENTER_CONTROL_MASK);
+                centerControl[1] += (short)BitOps.PopCount(captures & Evaluation.D1_CENTER_CONTROL_MASK);
             }
 
             ulong excluded = pawnDefended | Units(color);
@@ -1144,6 +1180,8 @@ namespace Pedantic.Chess
                     kingAttacks[0] += (short)BitOps.PopCount(atkMoves & d0);
                     kingAttacks[1] += (short)BitOps.PopCount(atkMoves & d1);
                     kingAttacks[2] += (short)BitOps.PopCount(atkMoves & d2);
+                    centerControl[0] += (short)BitOps.PopCount(moves & Evaluation.D0_CENTER_CONTROL_MASK);
+                    centerControl[1] += (short)BitOps.PopCount(moves & Evaluation.D1_CENTER_CONTROL_MASK);
                 }
             }
         }
@@ -1772,8 +1810,8 @@ namespace Pedantic.Chess
         }
 
         private readonly ObjectPool<MoveList> moveListPool = new(4);
+        private readonly ulong[][] badCaptures = Mem.Allocate2D<ulong>(Constants.MAX_PLY, 20);
 
-        private static readonly ulong[][] badCaptures = Mem.Allocate2D<ulong>(Constants.MAX_PLY, 20);
         public static readonly CastlingRookMove[] CastlingRookMoves =
         {
             new(Index.E1, Index.C1, Index.D1, Index.A1, Index.D1, CastlingRights.WhiteQueenSide, WHITE_QS_CLEAR_MASK),

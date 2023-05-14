@@ -20,10 +20,8 @@ using System.CommandLine;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text;
-using System.Threading.Tasks.Dataflow;
 
 // ReSharper disable LocalizableElement
-
 
 namespace Pedantic
 {
@@ -107,7 +105,7 @@ namespace Pedantic
                 description: "Collect search statistics",
                 getDefaultValue: () => false);
 
-            var uciCommand = new Command("uci", "Start the pedantic application in UCI mode.")
+            var uciCommand = new Command("uci", "Start the pedantic application in UCI mode (default).")
             {
                 commandFileOption,
                 errorFileOption,
@@ -157,6 +155,7 @@ namespace Pedantic
             labelCommand.SetHandler(RunLabel, pgnFileOption, dataFileOption, maxPositionsOption);
             learnCommand.SetHandler(RunLearn, dataFileOption, sampleOption, iterOption, preserveOption);
             weightsCommand.SetHandler(RunWeights, immortalOption, displayOption);
+            rootCommand.SetHandler(async () => await RunUci(null, null, false, false));
 
             return rootCommand.InvokeAsync(args).Result;
         }
@@ -235,7 +234,7 @@ namespace Pedantic
                     Console.WriteLine(@"option name Ponder type check default true");
                     Console.WriteLine($@"option name Hash type spin default {TtTran.DEFAULT_SIZE_MB} min 1 max {TtTran.MAX_SIZE_MB}");
                     Console.WriteLine(@"option name Clear Hash type button");
-                    Console.WriteLine($@"option name MaxThreads type spin default 1 min 1 max {Math.Max(Environment.ProcessorCount - 2, 1)}");
+                    //Console.WriteLine($@"option name MaxThreads type spin default 1 min 1 max {Math.Max(Environment.ProcessorCount - 2, 1)}");
                     Console.WriteLine($@"option name UCI_EngineAbout type string default {APP_NAME_VER} by {AUTHOR}, see {PROGRAM_URL}");
                     Console.WriteLine(@"option name Evaluation_ID type string default <empty>");
                     Console.WriteLine(@"option name Random_Search type check default false");
@@ -343,12 +342,12 @@ namespace Pedantic
                         }
                         break;
 
-                    case "MaxThreads":
+                    /*case "MaxThreads":
                         if (tokens[3] == "value" && int.TryParse(tokens[4], out int searchThreads))
                         {
                             Engine.SearchThreads = searchThreads;
                         }
-                        break;
+                        break;*/
 
                     case "Ponder":
                         if (tokens[3] == "value" && bool.TryParse(tokens[4], out bool canPonder))
@@ -561,14 +560,14 @@ namespace Pedantic
 
                 long count = 0;
                 HashSet<ulong> hashes = new();
-                Console.WriteLine(@"Hash,Ply,GamePly,FEN,Result");
+                Console.WriteLine(@"Hash,Ply,GamePly,FEN,HasCastled,Result");
                 foreach (var p in posReader.Positions(Console.In))
                 {
                     if (!hashes.Contains(p.Hash))
                     {
                         Console.Error.Write($"{++count}\r");
                         hashes.Add(p.Hash);
-                        Console.WriteLine($@"{p.Hash:X16},{p.Ply},{p.GamePly},{p.Fen},{p.Result:F1}");
+                        Console.WriteLine($@"{p.Hash:X16},{p.Ply},{p.GamePly},{p.Fen},{p.HasCastled},{p.Result:F1}");
                         Console.Out.Flush();
                         if (++total >= maxPositions)
                         {
@@ -839,8 +838,9 @@ namespace Pedantic
 
                 string[] fields = str.Split(',');
                 string fen = fields[3];
-                float result = float.Parse(fields[4]);
-                posRecordList.Add(new PosRecord(fen, result));
+                byte hasCastled = byte.Parse(fields[4]);
+                float result = float.Parse(fields[5]);
+                posRecordList.Add(new PosRecord(fen, hasCastled, result));
             }
 
             sr.BaseStream.Seek(0L, SeekOrigin.Begin);
@@ -1117,6 +1117,19 @@ namespace Pedantic
             WriteLine();
             WriteLine($"/* {section} doubled rooks on file */");
             WriteLine($"{wts[ChessWeights.DOUBLED_ROOKS_ON_FILE]},");
+            WriteLine();
+            WriteLine($"/* {section} king on open file */");
+            WriteLine($"{wts[ChessWeights.KING_ON_OPEN_FILE]},");
+            WriteLine();
+            WriteLine($"/* {section} castling rights available */");
+            WriteLine($"{wts[ChessWeights.CASTLING_AVAILABLE]},");
+            WriteLine();
+            WriteLine($"/* {section} castling complete */");
+            WriteLine($"{wts[ChessWeights.CASTLING_COMPLETE]},");
+            WriteLine();
+            WriteLine($"/* {section} center control */");
+            WriteLine($"{wts[ChessWeights.CENTER_CONTROL]}, // D0");
+            WriteLine($"{wts[ChessWeights.CENTER_CONTROL + 1]}, // D1");
         }
 
         private static void WriteIndent()

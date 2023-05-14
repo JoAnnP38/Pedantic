@@ -43,6 +43,8 @@ namespace Pedantic.Chess
         WhiteQueenSide = 2,
         BlackKingSide = 4,
         BlackQueenSide = 8,
+        WhiteRights = WhiteKingSide | WhiteQueenSide,
+        BlackRights = BlackKingSide | BlackQueenSide,
         All = WhiteKingSide | WhiteQueenSide | BlackKingSide | BlackQueenSide
     }
 
@@ -65,6 +67,13 @@ namespace Pedantic.Chess
         MidGame,
         EndGame,
         EndGameMopup
+    }
+
+    public enum TtFlag : byte
+    {
+        Exact,
+        UpperBound,
+        LowerBound
     }
 
     public static class ChessExtensions
