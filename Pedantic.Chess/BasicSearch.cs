@@ -481,7 +481,7 @@ namespace Pedantic.Chess
             return alpha;
         }
 
-        public int Quiesce(int alpha, int beta, int ply, bool inCheck)
+        public int Quiesce(int alpha, int beta, int ply, bool inCheck, int qsPly = 0)
         {
             NodesVisited++;
             seldepth = Arith.Max(seldepth, ply);
@@ -522,7 +522,7 @@ namespace Pedantic.Chess
             int expandedNodes = 0;
             MoveList moveList = moveListPool.Get();
             IEnumerable<ulong> moves =
-                inCheck ? board.Moves(ply, killerMoves, history, moveList) : board.CaptureMoves(ply, moveList);
+                inCheck ? board.EvasionMoves(history, moveList) : board.QMoves(ply, qsPly, moveList);
 
             foreach (ulong move in moves)
             {
@@ -540,109 +540,7 @@ namespace Pedantic.Chess
                     continue;
                 }
 
-                int score = -Quiesce(-beta, -alpha, ply + 1, checkingMove);
-                board.UnmakeMove();
-
-                if (wasAborted)
-                {
-                    break;
-                }
-
-                if (score > alpha)
-                {
-                    alpha = score;
-                    if (score >= beta)
-                    {
-                        moveListPool.Return(moveList);
-                        return beta;
-                    }
-                }
-            }
-
-            if (wasAborted)
-            {
-                moveListPool.Return(moveList);
-                return 0;
-            }
-
-            if (expandedNodes == 0)
-            {
-                if (inCheck)
-                {
-                    moveListPool.Return(moveList);
-                    return -Constants.CHECKMATE_SCORE + ply;
-                }
-
-                if (!board.HasLegalMoves(moveList))
-                {
-                    moveListPool.Return(moveList);
-                    return Contempt;
-                }
-            }
-
-            moveListPool.Return(moveList);
-            return alpha;
-        }
-
-        public int QSearch(int alpha, int beta, int ply, bool inCheck, int qsPly = 0)
-        {
-            NodesVisited++;
-            seldepth = Arith.Max(seldepth, ply);
-
-            if (MustAbort || wasAborted)
-            {
-                wasAborted = true;
-                return 0;
-            }
-
-            if (ply >= Constants.MAX_PLY - 1)
-            {
-                return evaluation.Compute(board, alpha, beta);
-            }
-
-            (bool repeated, bool _) = board.PositionRepeated();
-            if (repeated)
-            {
-                return Contempt;
-            }
-
-            history.SideToMove = board.SideToMove;
-            if (!inCheck)
-            {
-                int standPatScore = evaluation.Compute(board, alpha, beta);
-                if (standPatScore >= beta)
-                {
-                    return standPatScore;
-                }
-
-                alpha = Arith.Max(alpha, standPatScore);
-            }
-
-#if DEBUG
-            string fen = board.ToFenString();
-#endif
-
-            int expandedNodes = 0;
-            MoveList moveList = moveListPool.Get();
-            IEnumerable<ulong> moves = board.QMoves(ply, killerMoves, history, moveList, qsPly, inCheck);
-
-            foreach (ulong move in moves)
-            {
-                if (!board.MakeMove(move))
-                {
-                    continue;
-                }
-
-                expandedNodes++;
-
-                bool checkingMove = board.IsChecked();
-                if (!inCheck && !checkingMove && Move.GetScore(move) == Constants.BAD_CAPTURE)
-                {
-                    board.UnmakeMove();
-                    continue;
-                }
-
-                int score = -QSearch(-beta, -alpha, ply + 1, checkingMove, qsPly + 1);
+                int score = -Quiesce(-beta, -alpha, ply + 1, checkingMove, qsPly + 1);
                 board.UnmakeMove();
 
                 if (wasAborted)
