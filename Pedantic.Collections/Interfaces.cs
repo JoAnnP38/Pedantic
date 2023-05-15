@@ -2,7 +2,7 @@
 {
     public interface IStack<T> : ICollection<T>
     {
-        public T Peek();
+        public ref T Peek();
         public T Pop();
         public void Push(T item);
         public bool TryPeek(out T item);
