@@ -215,7 +215,7 @@ namespace Pedantic.UnitTests
         public void MoveCapturesTest()
         {
             Board bd = new("7r/P7/1K2k3/8/8/8/7p/1R6 b - - 0 1");
-            foreach (ulong move in bd.CaptureMoves(0, new MoveList()))
+            foreach (ulong move in bd.QMoves(0, 0, new MoveList()))
             {
                 Console.WriteLine(Move.ToString(move));
             }
@@ -287,6 +287,58 @@ namespace Pedantic.UnitTests
             {
                 Assert.IsTrue(seeEval > 0);
             }
+        }
+
+        [TestMethod]
+        [DataRow("8/1pqk2Q1/2p4p/5pp1/5P2/7P/1P5K/2R1r3 b - - 0 1", 6)]
+        [DataRow("2kr1b1r/p1p3pp/Bp3n2/4B3/1q6/2N5/PPP2PbP/R2QK2R b KQ - 0 1", 2)]
+        [DataRow("r4rk1/pbp2ppp/1pnq1N2/8/QP1pPP2/3P3P/P2K3P/2RB1R2 b - - 0 1", 3)] /* pawn capture */
+        [DataRow("5r2/8/8/2B4k/5pP1/8/5P2/6K1 b - g3 0 1", 6)] /* e.p. */
+        public void GenerateEvasionsTest(string fen, int expected)
+        {
+            Board bd = new (fen);
+            MoveList list = new MoveList();
+            bd.GenerateEvasions(list);
+            int legalMoves = 0;
+            for (int n = 0; n < list.Count; n++)
+            {
+                ulong move = list[n];
+                if (!bd.MakeMove(move))
+                {
+                    continue;
+                }
+
+                legalMoves++;
+                Util.WriteLine(Move.ToLongString(move));
+                bd.UnmakeMove();
+            }
+
+            Assert.AreEqual(expected, legalMoves);
+
+        }
+
+        [TestMethod]
+        public void GenerateRecapturesTest()
+        {
+            Board bd = new("Bn2k2r/p5pp/3b2q1/8/4p1n1/8/PP5p/R1BQR2K w - - 0 1");
+            bd.MakeMove(Move.PackMove(Index.E1, Index.E4, MoveType.Capture, Piece.Pawn));
+            MoveList list = new MoveList();
+            bd.GenerateRecaptures(list, Index.E4);
+            int legalMoves = 0;
+            for (int n = 0; n < list.Count; n++)
+            {
+                ulong move = list[n];
+                if (!bd.MakeMove(move))
+                {
+                    continue;
+                }
+
+                legalMoves++;
+                Util.WriteLine(Move.ToLongString(move));
+                bd.UnmakeMove();
+            }
+
+            Assert.AreEqual(1, legalMoves);
         }
     }
 }

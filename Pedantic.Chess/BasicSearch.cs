@@ -509,7 +509,7 @@ namespace Pedantic.Chess
             return alpha;
         }
 
-        public int Quiesce(int alpha, int beta, int ply, bool inCheck)
+        public int Quiesce(int alpha, int beta, int ply, bool inCheck, int qsPly = 0)
         {
             NodesVisited++;
             seldepth = Arith.Max(seldepth, ply);
@@ -526,7 +526,7 @@ namespace Pedantic.Chess
             }
 
             var repeated = board.PositionRepeated();
-            if (repeated.Repeated && !inCheck)
+            if (repeated.Repeated)
             {
                 return Contempt;
             }
@@ -550,7 +550,7 @@ namespace Pedantic.Chess
             int expandedNodes = 0;
             MoveList moveList = GetMoveList();
             IEnumerable<ulong> moves =
-                inCheck ? board.Moves(ply, killerMoves, history, moveList) : board.CaptureMoves(ply, moveList);
+                inCheck ? board.EvasionMoves(history, moveList) : board.QMoves(ply, qsPly, moveList);
 
             foreach (ulong move in moves)
             {
@@ -568,7 +568,7 @@ namespace Pedantic.Chess
                     continue;
                 }
 
-                int score = -Quiesce(-beta, -alpha, ply + 1, checkingMove);
+                int score = -Quiesce(-beta, -alpha, ply + 1, checkingMove, qsPly + 1);
                 board.UnmakeMoveNs();
 
                 if (wasAborted)

@@ -22,6 +22,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 
 using Index = Pedantic.Chess.Index;
+using System.ComponentModel;
 
 namespace Pedantic.Chess
 {
@@ -31,6 +32,7 @@ namespace Pedantic.Chess
         public const ulong WHITE_QS_CLEAR_MASK = (1ul << Index.B1) | (1ul << Index.C1) | (1ul << Index.D1);
         public const ulong BLACK_KS_CLEAR_MASK = (1ul << Index.F8) | (1ul << Index.G8);
         public const ulong BLACK_QS_CLEAR_MASK = (1ul << Index.B8) | (1ul << Index.C8) | (1ul << Index.D8);
+        public const ulong ALL_SQUARES_MASK = 0xFFFFFFFFFFFFFFFFul;
 
         private readonly Square[] board = new Square[Constants.MAX_SQUARES];
         private readonly ulong[][] pieces = Mem.Allocate2D<ulong>(Constants.MAX_COLORS, Constants.MAX_PIECES);
@@ -986,13 +988,21 @@ namespace Pedantic.Chess
             }
         }
 
-        public IEnumerable<ulong> CaptureMoves(int ply, MoveList moveList)
+        public IEnumerable<ulong> QMoves(int ply, int qsPly, MoveList moveList)
         {
             ulong[] bc = badCaptures[ply];
             int bcIndex = 0;
 
             moveList.Clear();
-            GenerateCaptures(moveList);
+
+            if (qsPly < 6)
+            {
+                GenerateCaptures(moveList);
+            }
+            else if (Move.IsCapture(LastMove))
+            {
+                GenerateRecaptures(moveList, Move.GetTo(LastMove));
+            }
 
             for (int n = 0; n < moveList.Count; n++)
             {
@@ -1009,27 +1019,32 @@ namespace Pedantic.Chess
                 yield return move;
             }
 
-            for (int n = 0; n < moveList.Count; n++)
+            if (qsPly < 2)
             {
-                if (Move.GetScore(moveList[n]) != Constants.BAD_CAPTURE)
+                moveList.Clear();
+                GeneratePromotions(moveList, Pieces(sideToMove, Piece.Pawn));
+                for (int n = 0; n < moveList.Count; n++)
                 {
-                    continue;
+                    moveList.Sort(n);
+                    yield return moveList[n];
                 }
-
-                yield return moveList[n];
-            }
-
-            moveList.Clear();
-            GeneratePromotions(moveList, Pieces(sideToMove, Piece.Pawn));
-            for (int n = 0; n < moveList.Count; n++)
-            {
-                moveList.Sort(n);
-                yield return moveList[n];
             }
 
             for (int n = 0; n < bcIndex; n++)
             {
                 yield return bc[n];
+            }
+        }
+
+        public IEnumerable<ulong> EvasionMoves(IHistory? history, MoveList moveList)
+        {
+            moveList.Clear();
+            IHistory hist = history ?? fakeHistory;
+            GenerateEvasions(moveList, hist);
+            for (int n = 0; n < moveList.Count; n++)
+            {
+                moveList.Sort(n);
+                yield return moveList[n];
             }
         }
 
@@ -1313,17 +1328,22 @@ namespace Pedantic.Chess
             }
         }
 
-        public void GenerateEnPassant(MoveList list, ulong pawns)
+        public void GenerateEnPassant(MoveList list, ulong pawns, ulong validSquares = ALL_SQUARES_MASK)
         {
             if (enPassantValidated != Index.NONE)
             {
-                ulong bb = PawnDefends(sideToMove, enPassantValidated) & pawns;
-                for (; bb != 0; bb = BitOps.ResetLsb(bb))
+                ulong epMask = 1ul << enPassantValidated;
+                epMask = sideToMove == Color.White ? epMask >> 8 : epMask << 8;
+                if ((epMask & validSquares) != 0)
                 {
-                    int from = BitOps.TzCount(bb);
-                    int captIndex = enPassantValidated + EpOffset(sideToMove);
-                    list.Add(from, enPassantValidated, MoveType.EnPassant, capture: (Piece)board[captIndex],
-                        score: CaptureScore((Piece)board[captIndex], Piece.Pawn));
+                    ulong bb = PawnDefends(sideToMove, enPassantValidated) & pawns;
+                    for (; bb != 0; bb = BitOps.ResetLsb(bb))
+                    {
+                        int from = BitOps.TzCount(bb);
+                        int captIndex = enPassantValidated + EpOffset(sideToMove);
+                        list.Add(from, enPassantValidated, MoveType.EnPassant, capture: (Piece)board[captIndex],
+                            score: CaptureScore((Piece)board[captIndex], Piece.Pawn));
+                    }
                 }
             }
         }
@@ -1391,7 +1411,6 @@ namespace Pedantic.Chess
         {
             ulong bb1, bb2, bb3, bb4;
             int from, to;
-
             if (sideToMove == Color.White)
             {
                 bb1 = pawns & (BitOps.AndNot(Units(OpponentColor), MaskFile(7)) >> 7);
@@ -1436,20 +1455,77 @@ namespace Pedantic.Chess
             }
         }
 
-        public void GeneratePawnCaptures(MoveList list, ulong pawns)
+        public void GeneratePawnMoves(MoveList list, IHistory hist, ulong pawns, ulong validSquares)
+        {
+            ulong bb1, bb2, bb3, bb4;
+            int from, to;
+            ulong validEnemies = Units(OpponentColor) & validSquares;
+
+            if (sideToMove == Color.White)
+            {
+                bb1 = pawns & (BitOps.AndNot(validEnemies, MaskFile(7)) >> 7);
+                bb2 = pawns & (BitOps.AndNot(validEnemies, MaskFile(0)) >> 9);
+                bb3 = BitOps.AndNot(pawns, All >> 8);
+                bb4 = BitOps.AndNot(bb3 & MaskRank(Index.A2), All >> 16);
+            }
+            else
+            {
+                bb1 = pawns & (BitOps.AndNot(validEnemies, MaskFile(7)) << 9);
+                bb2 = pawns & (BitOps.AndNot(validEnemies, MaskFile(0)) << 7);
+                bb3 = BitOps.AndNot(pawns, All << 8);
+                bb4 = BitOps.AndNot(bb3 & MaskRank(Index.A7), All << 16);
+            }
+
+            for (; bb1 != 0; bb1 = BitOps.ResetLsb(bb1))
+            {
+                from = BitOps.TzCount(bb1);
+                to = PawnLeft(sideToMove, from);
+                AddPawnMove(list, from, to, MoveType.Capture, (Piece)board[to], score: CaptureScore(from, to));
+            }
+
+            for (; bb2 != 0; bb2 = BitOps.ResetLsb(bb2))
+            {
+                from = BitOps.TzCount(bb2);
+                to = PawnRight(sideToMove, from);
+                AddPawnMove(list, from, to, MoveType.Capture, (Piece)board[to], score: CaptureScore(from, to));
+            }
+
+            for (; bb3 != 0; bb3 = BitOps.ResetLsb(bb3))
+            {
+                from = BitOps.TzCount(bb3);
+                to = pawnPlus[(int)sideToMove, from];
+                if (BitOps.GetBit(validSquares, to) != 0)
+                {
+                    AddPawnMove(list, from, to, score: hist[from, to]);
+                }
+            }
+
+            for (; bb4 != 0; bb4 = BitOps.ResetLsb(bb4))
+            {
+                from = BitOps.TzCount(bb4);
+                to = pawnDouble[(int)sideToMove, from];
+                if (BitOps.GetBit(validSquares, to) != 0)
+                {
+                    list.Add(from, to, MoveType.DblPawnMove, score: hist[from, to]);
+                }
+            }
+        }
+
+        public void GeneratePawnCaptures(MoveList list, ulong pawns, ulong validSquares = ALL_SQUARES_MASK)
         {
             ulong bb1, bb2;
             int from, to;
 
+            ulong enemies = Units(OpponentColor) & validSquares;
             if (sideToMove == Color.White)
             {
-                bb1 = pawns & (BitOps.AndNot(Units(OpponentColor), MaskFile(7)) >> 7);
-                bb2 = pawns & (BitOps.AndNot(Units(OpponentColor), MaskFile(0)) >> 9);
+                bb1 = pawns & (BitOps.AndNot(enemies, MaskFile(7)) >> 7);
+                bb2 = pawns & (BitOps.AndNot(enemies, MaskFile(0)) >> 9);
             }
             else
             {
-                bb1 = pawns & (BitOps.AndNot(Units(OpponentColor), MaskFile(7)) << 9);
-                bb2 = pawns & (BitOps.AndNot(Units(OpponentColor), MaskFile(0)) << 7);
+                bb1 = pawns & (BitOps.AndNot(enemies, MaskFile(7)) << 9);
+                bb2 = pawns & (BitOps.AndNot(enemies, MaskFile(0)) << 7);
             }
 
             for (; bb1 != 0; bb1 = BitOps.ResetLsb(bb1))
@@ -1464,6 +1540,141 @@ namespace Pedantic.Chess
                 from = BitOps.TzCount(bb2);
                 to = PawnRight(sideToMove, from);
                 AddSearchedPawnMove(list, from, to, MoveType.Capture, (Piece)board[to], score: CaptureScore(from, to));
+            }
+        }
+
+        public void GenerateEvasions(MoveList moveList, IHistory? history = null)
+        {
+            Color opponent = sideToMove.Other();
+            int kingIndex = BitOps.TzCount(Pieces(sideToMove, Piece.King));
+            ulong attacksFrom = PawnDefends(opponent, kingIndex) & Pieces(opponent, Piece.Pawn);
+            attacksFrom |= knightMoves[kingIndex] & Pieces(opponent, Piece.Knight);
+
+            int checkCount = BitOps.PopCount(attacksFrom);
+
+            Ray ray = Vectors[kingIndex];
+            ulong bbRayBlockers = ray.NorthEast & all;
+            if (bbRayBlockers != 0 && checkCount < 2 && ((1ul << BitOps.TzCount(bbRayBlockers)) & DiagonalSliders(opponent)) != 0)
+            {
+                checkCount++;
+                attacksFrom |= BitOps.AndNot(ray.NorthEast, Vectors[BitOps.TzCount(bbRayBlockers)].NorthEast);
+            }
+
+            bbRayBlockers = ray.NorthWest & all;
+            if (bbRayBlockers != 0 && checkCount < 2 && ((1ul << BitOps.TzCount(bbRayBlockers)) & DiagonalSliders(opponent)) != 0)
+            {
+                checkCount++;
+                attacksFrom |= BitOps.AndNot(ray.NorthWest, Vectors[BitOps.TzCount(bbRayBlockers)].NorthWest);
+            }
+
+            bbRayBlockers = ray.SouthEast & all;
+            if (bbRayBlockers != 0 && checkCount < 2 && ((1ul << (63 - BitOps.LzCount(bbRayBlockers))) & DiagonalSliders(opponent)) != 0)
+            {
+                checkCount++;
+                attacksFrom |= BitOps.AndNot(ray.SouthEast, RevVectors[BitOps.LzCount(bbRayBlockers)].SouthEast);
+            }
+
+            bbRayBlockers = ray.SouthWest & all;
+            if (bbRayBlockers != 0 && checkCount < 2 && ((1ul << (63 - BitOps.LzCount(bbRayBlockers))) & DiagonalSliders(opponent)) != 0)
+            {
+                checkCount++;
+                attacksFrom |= BitOps.AndNot(ray.SouthWest, RevVectors[BitOps.LzCount(bbRayBlockers)].SouthWest);
+            }
+
+            bbRayBlockers = ray.North & all;
+            if (bbRayBlockers != 0 && checkCount < 2 && ((1ul << BitOps.TzCount(bbRayBlockers)) & OrthogonalSliders(opponent)) != 0)
+            {
+                checkCount++;
+                attacksFrom |= BitOps.AndNot(ray.North, Vectors[BitOps.TzCount(bbRayBlockers)].North);
+            }
+
+            bbRayBlockers = ray.East & all;
+            if (bbRayBlockers != 0 && checkCount < 2 && ((1ul << BitOps.TzCount(bbRayBlockers)) & OrthogonalSliders(opponent)) != 0)
+            {
+                checkCount++;
+                attacksFrom |= BitOps.AndNot(ray.East, Vectors[BitOps.TzCount(bbRayBlockers)].East);
+            }
+
+            bbRayBlockers = ray.South & all;
+            if (bbRayBlockers != 0 && checkCount < 2 && ((1ul << (63 - BitOps.LzCount(bbRayBlockers))) & OrthogonalSliders(opponent)) != 0)
+            {
+                checkCount++;
+                attacksFrom |= BitOps.AndNot(ray.South, RevVectors[BitOps.LzCount(bbRayBlockers)].South);
+            }
+
+            bbRayBlockers = ray.West & all;
+            if (bbRayBlockers != 0 && checkCount < 2 && ((1ul << (63 - BitOps.LzCount(bbRayBlockers))) & OrthogonalSliders(opponent)) != 0)
+            {
+                checkCount++;
+                attacksFrom |= BitOps.AndNot(ray.West, RevVectors[BitOps.LzCount(bbRayBlockers)].West);
+            }
+
+            ulong validEnemies = Units(opponent) & attacksFrom;
+            if (checkCount == 1)
+            {
+                IHistory hist = history ?? fakeHistory;
+                ulong pawns = Pieces(sideToMove, Piece.Pawn);
+                GenerateEnPassant(moveList, pawns, attacksFrom);
+                GeneratePawnMoves(moveList, hist, pawns, attacksFrom);
+
+                for (Piece piece = Piece.Knight; piece <= Piece.Queen; ++piece)
+                {
+                    for (ulong bb1 = Pieces(sideToMove, piece); bb1 != 0; bb1 = BitOps.ResetLsb(bb1))
+                    {
+                        int from = BitOps.TzCount(bb1);
+                        ulong bb2 = GetPieceMoves(piece, from);
+
+                        for (ulong bb3 = bb2 & validEnemies; bb3 != 0; bb3 = BitOps.ResetLsb(bb3))
+                        {
+                            int to = BitOps.TzCount(bb3);
+                            moveList.Add(from, to, MoveType.Capture, (Piece)board[to],
+                                score: CaptureScore((Piece)board[to], piece));
+                        }
+
+                        for (ulong bb3 = BitOps.AndNot(bb2, All); bb3 != 0; bb3 = BitOps.ResetLsb(bb3))
+                        {
+                            int to = BitOps.TzCount(bb3);
+                            if (BitOps.GetBit(attacksFrom, to) != 0)
+                            {
+                                moveList.Add(from, to, score: hist[from, to]);
+                            }
+                        }
+                    }
+                }
+            }
+
+            for (ulong bb = kingMoves[kingIndex] & validEnemies; bb != 0; bb = BitOps.ResetLsb(bb))
+            {
+                int to = BitOps.TzCount(bb);
+                moveList.Add(kingIndex, to, MoveType.Capture, board[to].Piece, score: CaptureScore(board[to].Piece, Piece.King));
+            }
+
+            for (ulong bb = kingMoves[kingIndex] & ~all; bb != 0; bb = BitOps.ResetLsb(bb))
+            {
+                int to = BitOps.TzCount(bb);
+                moveList.Add(kingIndex, to);
+            }
+        }
+
+        public void GenerateRecaptures(MoveList moveList, int captureSquare)
+        {
+            ulong captureMask = 1ul << captureSquare;
+            ulong pawns = Pieces(sideToMove, Piece.Pawn);
+            GeneratePawnCaptures(moveList, pawns, captureMask);
+
+            for (Piece piece = Piece.Knight; piece <= Piece.King; ++piece)
+            {
+                for (ulong bb1 = Pieces(sideToMove, piece); bb1 != 0; bb1 = BitOps.ResetLsb(bb1))
+                {
+                    int from = BitOps.TzCount(bb1);
+                    ulong bb2 = GetPieceMoves(piece, from);
+
+                    for (ulong bb3 = bb2 & captureMask; bb3 != 0; bb3 = BitOps.ResetLsb(bb3))
+                    {
+                        int to = BitOps.TzCount(bb3);
+                        moveList.Add(from, to, MoveType.Capture, (Piece)board[to], score: CaptureScore((Piece)board[to], piece));
+                    }
+                }
             }
         }
 
