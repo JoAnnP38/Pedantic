@@ -844,6 +844,7 @@ namespace Pedantic
             }
 
             sr.BaseStream.Seek(0L, SeekOrigin.Begin);
+            Random.Shared.Shuffle(posRecordList);
             return posRecordList.ToArray();
         }
 

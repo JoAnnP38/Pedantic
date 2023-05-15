@@ -783,7 +783,7 @@ namespace Pedantic.Chess
         {
             get
             {
-                int contempt = board.TotalMaterial > Evaluation.EndGamePhaseMaterial ? -50 : 0;
+                int contempt = board.TotalMaterialNoKings > Evaluation.EndGamePhaseMaterial ? -50 : 0;
                 if (board.SideToMove == Engine.Color)
                 {
                     return contempt;

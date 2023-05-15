@@ -349,7 +349,7 @@ namespace Pedantic.Chess
 
         public unsafe (bool Repeated, bool OverFiftyMoves) PositionRepeated()
         {
-            if (halfMoveClock < 4)
+            if (halfMoveClock < 4 || gameStack.Count <= 1)
             {
                 return (false, false);
             }
