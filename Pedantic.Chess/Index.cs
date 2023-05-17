@@ -108,7 +108,7 @@ namespace Pedantic.Chess
             (int File, int Rank) coord1 = (GetFile(index1), GetRank(index1));
             (int File, int Rank) coord2 = (GetFile(index2), GetRank(index2));
 
-            return Arith.Max(Arith.Abs(coord1.File - coord2.File), Arith.Abs(coord1.Rank - coord2.Rank));
+            return Math.Max(Math.Abs(coord1.File - coord2.File), Math.Abs(coord1.Rank - coord2.Rank));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

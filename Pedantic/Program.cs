@@ -17,6 +17,7 @@ using Pedantic.Chess;
 using Pedantic.Genetics;
 using Pedantic.Utilities;
 using System.CommandLine;
+using System.CommandLine.IO;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -39,7 +40,8 @@ namespace Pedantic
         {
             Normal,
             Average,
-            Details
+            Details,
+            Divide
         }
 
         private static int Main(string[] args)
@@ -56,6 +58,10 @@ namespace Pedantic
                 name: "--fen",
                 description: "Specifies the starting position if other than the default.",
                 getDefaultValue: () => null);
+            var testOption = new Option<bool>(
+                name: "--test",
+                description: "Execute test version.",
+                getDefaultValue: () => false) { IsHidden = true };
             var commandFileOption = new Option<string?>(
                 name: "--input",
                 description: "Specify a file read UCI commands from.",
@@ -117,7 +123,8 @@ namespace Pedantic
             {
                 typeOption,
                 depthOption,
-                fenOption
+                fenOption,
+                testOption
             };
 
             var labelCommand = new Command("label", "Pre-process and label PGN data.")
@@ -151,7 +158,7 @@ namespace Pedantic
             };
 
             uciCommand.SetHandler(async (inFile, errFile, random, stats) => await RunUci(inFile, errFile, random, stats), commandFileOption, errorFileOption, randomSearchOption, statsOption);
-            perftCommand.SetHandler(RunPerft, typeOption, depthOption, fenOption);
+            perftCommand.SetHandler(RunPerft, typeOption, depthOption, fenOption, testOption);
             labelCommand.SetHandler(RunLabel, pgnFileOption, dataFileOption, maxPositionsOption);
             learnCommand.SetHandler(RunLearn, dataFileOption, sampleOption, iterOption, preserveOption);
             weightsCommand.SetHandler(RunWeights, immortalOption, displayOption);
@@ -442,7 +449,7 @@ namespace Pedantic
             return (iValue < tokens.Length) ? tokens[iValue] : null;
         }
 
-        private static void RunPerft(PerftRunType runType, int depth, string? fen = null)
+        private static void RunPerft(PerftRunType runType, int depth, string? fen = null, bool test = false)
         {
             Console.WriteLine($@"{APP_NAME_VER}");
             Perft perft = new(fen);
@@ -459,7 +466,29 @@ namespace Pedantic
                 case PerftRunType.Average:
                     RunAveragePerft(perft, depth);
                     break;
+
+                case PerftRunType.Divide:
+                    RunDividePerft(perft, fen, depth, test);
+                    break;
             }
+        }
+
+        private static void RunDividePerft(Perft perft, string? fen, int depth, bool test)
+        {
+            Console.WriteLine($"Calculating Perft({depth})...");
+            ulong nodes = perft.Divide(depth, out Perft.DivideCount[] rootCounts, test);
+            Board board = new(fen ?? Constants.FEN_START_POS);
+
+            foreach (Perft.DivideCount divCnt in rootCounts)
+            {
+                Console.Write($"{Move.ToString(divCnt.Move)} : {divCnt.Count} : ");
+                board.MakeMove(divCnt.Move);
+                Console.WriteLine($"\"{board.ToFenString()}\"");
+                board.UnmakeMove();
+            }
+
+            Console.WriteLine();
+            Console.WriteLine($"Total nodes for depth ({depth}) : {nodes}");
         }
 
         private static void RunNormalPerft(Perft perft, int totalDepth)

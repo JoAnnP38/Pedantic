@@ -145,7 +145,7 @@ namespace Pedantic.Chess
             }
             else if (board.HalfMoveClock > 84)
             {
-                score = (short)((score * Arith.Min(board.HalfMoveClock - 84, 16)) >> 4);
+                score = (short)((score * Math.Min(board.HalfMoveClock - 84, 16)) >> 4);
             }
 
             return (short)score;
@@ -186,8 +186,6 @@ namespace Pedantic.Chess
 
         public void ComputeKingAttacks(Color color, Board board)
         {
-            static int Index(int d, Piece p) => d * Constants.MAX_PIECES + (int)p;
-
             Span<short> mobility = stackalloc short[Constants.MAX_PIECES];
             Span<short> kingAttacks = stackalloc short[3];
             Span<short> centerControl = stackalloc short[2];
@@ -388,10 +386,10 @@ namespace Pedantic.Chess
                 seeValue = board.SideToMove == Color.White ? seeValue : -seeValue;
             }
 
-            if (materialWhite > 0 && materialBlack > 0 && Arith.Abs(materialWhite - materialBlack + seeValue) >= 200)
+            if (materialWhite > 0 && materialBlack > 0 && Math.Abs(materialWhite - materialBlack + seeValue) >= 200)
             {
-                adjust[0] = Arith.Max(Arith.Min((materialBlack << 5) / materialWhite, 32), 31);
-                adjust[1] = Arith.Max(Arith.Min((materialWhite << 5) / materialBlack, 32), 31);
+                adjust[0] = Math.Max(Math.Min((materialBlack << 5) / materialWhite, 32), 31);
+                adjust[1] = Math.Max(Math.Min((materialWhite << 5) / materialBlack, 32), 31);
             }
             else
             {
@@ -414,8 +412,8 @@ namespace Pedantic.Chess
                 phase = GamePhase.EndGame;
 
                 if (useMopUp &&
-                    Arith.Abs(board.MaterialNoKing(Color.White) - board.MaterialNoKing(Color.Black)) >= 400 &&
-                    Arith.Min(board.MaterialNoKing(Color.White), board.MaterialNoKing(Color.Black)) <= 700)
+                    Math.Abs(board.MaterialNoKing(Color.White) - board.MaterialNoKing(Color.Black)) >= 400 &&
+                    Math.Min(board.MaterialNoKing(Color.White), board.MaterialNoKing(Color.Black)) <= 700)
                 {
                     winning = board.MaterialNoKing(Color.White) > board.MaterialNoKing(Color.Black)
                         ? Color.White
@@ -452,7 +450,7 @@ namespace Pedantic.Chess
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsCheckmate(int score)
         {
-            int absScore = Arith.Abs(score);
+            int absScore = Math.Abs(score);
             return absScore is >= Constants.CHECKMATE_SCORE - Constants.MAX_PLY and <= Constants.CHECKMATE_SCORE;
         }
 

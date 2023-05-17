@@ -294,6 +294,8 @@ namespace Pedantic.UnitTests
         [DataRow("2kr1b1r/p1p3pp/Bp3n2/4B3/1q6/2N5/PPP2PbP/R2QK2R b KQ - 0 1", 2)]
         [DataRow("r4rk1/pbp2ppp/1pnq1N2/8/QP1pPP2/3P3P/P2K3P/2RB1R2 b - - 0 1", 3)] /* pawn capture */
         [DataRow("5r2/8/8/2B4k/5pP1/8/5P2/6K1 b - g3 0 1", 6)] /* e.p. */
+        [DataRow("8/8/5q2/4k3/3p1n2/6PN/6K1/2Q5 w - - 0 1", 9)] /* knight check */
+        [DataRow("rnb1kbnr/pp1ppppp/8/q7/2p5/2KP4/PPP1PPPP/RNBQ1BNR w kq - 2 4", 3)] /* king escape */
         public void GenerateEvasionsTest(string fen, int expected)
         {
             Board bd = new (fen);
@@ -340,5 +342,53 @@ namespace Pedantic.UnitTests
 
             Assert.AreEqual(1, legalMoves);
         }
+
+#if false
+        [TestMethod]
+        [DataRow(Constants.FEN_START_POS, 6)]
+        [DataRow("2b5/1r6/2kBp1p1/p2pP1P1/2pP4/1pP3K1/1R3P2/8 b - - 0 1", 7)]
+        public void GenerateEvasions2Test(string fen, int depth)
+        {
+            Board bd = new(fen);
+            SearchForBadState(bd, depth, bd.IsChecked());
+        }
+
+        private void SearchForBadState(Board bd, int depth, bool inCheck)
+        {
+            if (depth <= 0)
+            {
+                return;
+            }
+
+            MoveList list = new();
+            MoveList evasions = new();
+            bd.PushBoardState();
+
+            bd.GenerateMoves(list);
+            if (inCheck)
+            {
+                bd.GenerateEvasions(evasions);
+            }
+
+            for (int n = 0; n < list.Count; n++)
+            {
+                ulong move = list[n];
+                if (!bd.MakeMoveNs(move))
+                {
+                    continue;
+                }
+
+                SearchForBadState(bd, depth - 1, bd.IsChecked());
+                bd.UnmakeMoveNs();
+
+                if (inCheck && evasions.FindIndex(i => Move.Compare(i, move) == 0) == -1)
+                {
+                    Util.WriteLine($"Depth: {depth}, Bad move: {Move.ToString(move)}, FEN: \"{bd.ToFenString()}\"");
+                }
+            }
+
+            bd.PopBoardState();
+        }
+#endif
     }
 }

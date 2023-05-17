@@ -23,7 +23,7 @@ namespace Pedantic.Chess
 {
     public sealed class TimeControl : ICloneable
     {
-        private const int time_margin = 20;
+        private const int time_margin = 50;
         // changed branching factor from 2.5 to 2.125 (17/8) +27 Elo
         private const int branching_factor_estimate = 34; 
         private const int branching_factor_denominator = 4;
@@ -160,7 +160,7 @@ namespace Pedantic.Chess
             {
                 if (increment == 0)
                 {
-                    return Elapsed > TimePerMoveWithMargin;
+                    return Elapsed > Math.Min(TimePerMoveWithMargin << 1, TimeRemainingWithMargin);
                 }
 
                 return Elapsed > (TimeRemainingWithMargin >> 1);

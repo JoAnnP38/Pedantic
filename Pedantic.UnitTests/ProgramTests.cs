@@ -398,5 +398,15 @@ namespace Pedantic.UnitTests
             Program.ParseCommand("go wtime 582209 btime 423666 winc 0 binc 0 movestogo 18");
             Engine.Wait();
         }
+
+        [TestMethod]
+        public void RepeatNotDetectedTest()
+        {
+            //Engine.Infinite = true;
+            Program.ParseCommand("position startpos moves g1f3 d7d5 d2d4 e7e6 c2c4 g8f6 b1c3 c7c6 e2e3 b8d7 f1d3 d5c4 d3c4 b7b5 c4d3 a7a6 a2a4 b5b4 c3e4 c6c5 e4f6 d7f6 e1g1 c5d4 e3d4 f8d6 f3e5 c8b7 c1f4 e8g8 a1c1 d6c7 c1c4 a6a5 d1d2 d8d5 f2f3 c7e5 f4e5 f6d7 f1e1 b7a6 c4c2 d7e5 d3e4 d5a2 d4e5 a8d8 d2e3 a2a4 b2b3 a4a3 c2c1 a3b2 c1c6 a6b5 c6c5 d8b8 e1b1 b2a3 h2h3 f8d8 c5c7 a3a2 b1c1 b5e8");
+            Console.WriteLine(Engine.Board.ToFenString());
+            Program.ParseCommand("go wtime 280953 btime 127595 winc 0 binc 0 movestogo 7");
+            Engine.Wait();
+        }
     }
 }

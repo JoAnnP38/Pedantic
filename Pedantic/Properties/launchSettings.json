@@ -2,7 +2,7 @@
   "profiles": {
     "Pedantic": {
       "commandName": "Project",
-      "commandLineArgs": "learn --data \"e:/pgn files/training_data_ver2.1.csv\" --sample 1000000 --iter 200",
+      "commandLineArgs": "perft --type Divide --depth 6 --fen \"8/p7/8/1P6/K1k3p1/6P1/7P/8 w - - 0 1\" --test",
       "workingDirectory": "e:\\repos\\Pedantic\\Pedantic\\bin\\Release\\net7.0\\publish",
       "nativeDebugging": true
     }

@@ -42,7 +42,7 @@ namespace Pedantic.Chess
                 killers[ply][n] = killers[ply][n - 1];
             }
 
-            killers[ply][0] = move;
+            killers[ply][0] = Move.SetScore(move, Constants.KILLER_SCORE);
         }
 
         public ulong[] GetKillers(int ply)

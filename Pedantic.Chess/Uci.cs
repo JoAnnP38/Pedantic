@@ -116,14 +116,14 @@ namespace Pedantic.Chess
             }
         }
 
-        public static void CurrentMove(int depth, ulong move, int moveNumber)
+        public static void CurrentMove(int depth, ulong move, int moveNumber, long nodes, int hashfull)
         {
-            Console.Out.WriteLineAsync($@"info depth {depth} currmove {Move.ToString(move)} currmovenumber {moveNumber}");
+            Console.Out.WriteLineAsync($@"info depth {depth} currmove {Move.ToString(move)} currmovenumber {moveNumber} nodes {nodes} hashfull {hashfull}");
         }
 
-        public static void Usage(int hashfull, int cpuload)
+        public static void Usage(int cpuload)
         {
-            Console.Out.WriteLineAsync($@"info hashfull {hashfull} cpuload {cpuload}");
+            Console.Out.WriteLineAsync($@"info cpuload {cpuload}");
         }
     }
 }

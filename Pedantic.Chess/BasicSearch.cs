@@ -15,8 +15,6 @@
 // </summary>
 // ***********************************************************************
 
-using System.Diagnostics;
-using System.Text.RegularExpressions;
 using Pedantic.Genetics;
 using Pedantic.Utilities;
 
@@ -56,8 +54,8 @@ namespace Pedantic.Chess
                 Score = Quiesce(-Constants.INFINITE_WINDOW, Constants.INFINITE_WINDOW, 0, inCheck);
                 location = "1";
                 while (++Depth <= maxSearchDepth && time.CanSearchDeeper() && (!IsCheckmate(Score, out int mateIn) ||
-                                                                               (Arith.Abs(mateIn) << 1) +
-                                                                               (Arith.Abs(mateIn) >> 1) + 2 >= Depth))
+                                                                               (Math.Abs(mateIn) << 1) +
+                                                                               (Math.Abs(mateIn) >> 1) + 2 >= Depth))
                 {
                     time.StartInterval();
                     history.Rescale();
@@ -145,7 +143,7 @@ namespace Pedantic.Chess
 
                 if (TryGetCpuLoad(startDateTime, out int cpuLoad))
                 {
-                    Uci.Usage(TtTran.Usage, cpuLoad);
+                    Uci.Usage(cpuLoad);
                 }
 
                 location = "12";
@@ -167,7 +165,7 @@ namespace Pedantic.Chess
         public int SearchRoot(int alpha, int beta, int depth, bool inCheck)
         {
             int originalAlpha = alpha;
-            depth = Arith.Min(depth, 63);
+            depth = Math.Min(depth, 63);
             InitPv(0);
             
             int X = CalcExtension(inCheck);
@@ -185,8 +183,9 @@ namespace Pedantic.Chess
             history.SideToMove = board.SideToMove;
             MoveList moveList = GetMoveList();
             ulong bestMove = 0ul;
+            IEnumerable<ulong> moves = board.Moves(0, killerMoves, history, moveList);
 
-            foreach (ulong move in board.Moves(0, killerMoves, history, moveList))
+            foreach (ulong move in moves)
             {
                 if (!board.MakeMoveNs(move))
                 {
@@ -197,7 +196,7 @@ namespace Pedantic.Chess
                 if (startReporting || (DateTime.Now - startDateTime).TotalMilliseconds >= 1000)
                 {
                     startReporting = true;
-                    Uci.CurrentMove(depth, move, expandedNodes);
+                    Uci.CurrentMove(depth, move, expandedNodes, NodesVisited, TtTran.Usage);
                 }
 
                 bool checkingMove = board.IsChecked();
@@ -208,7 +207,7 @@ namespace Pedantic.Chess
                 int R = 0;
                 if (!interesting && !killerMoves.Exists(0, move))
                 {
-                    R = LMR[Arith.Min(depth, 31)][Arith.Min(expandedNodes - 1, 63)];
+                    R = LMR[Math.Min(depth, 31)][Math.Min(expandedNodes - 1, 63)];
                 }
 
                 if (X > 0 && R > 0)
@@ -225,10 +224,10 @@ namespace Pedantic.Chess
                     }
                     else
                     {
-                        score = -Search(-alpha - 1, -alpha, Arith.Max(depth + X - R - 1, 0), 1, checkingMove, isPv: false);
+                        score = -Search(-alpha - 1, -alpha, Math.Max(depth + X - R - 1, 0), 1, checkingMove, isPv: false);
                         if (score > alpha)
                         {
-                            score = -Search(-beta, -alpha, Arith.Max(depth + X - R - 1, 0), 1, checkingMove, true, R == 0);
+                            score = -Search(-beta, -alpha, Math.Max(depth + X - R - 1, 0), 1, checkingMove, true, R == 0);
                         }
                     }
 
@@ -289,7 +288,7 @@ namespace Pedantic.Chess
         public int Search(int alpha, int beta, int depth, int ply, bool inCheck, bool canNull = true, bool isPv = true)
         {
             int originalAlpha = alpha;
-            depth = Arith.Min(depth, 63);
+            depth = Math.Min(depth, 63);
             InitPv(ply);
 
             if (ply >= Constants.MAX_PLY - 1)
@@ -305,8 +304,8 @@ namespace Pedantic.Chess
 
             // This is a trick from CPW-Engine which I do not understand
             // but I leave the code here anyways.
-            alpha = Arith.Max(alpha, -Constants.CHECKMATE_SCORE + ply - 1);
-            beta = Arith.Min(beta, Constants.CHECKMATE_SCORE - ply);
+            alpha = Math.Max(alpha, -Constants.CHECKMATE_SCORE + ply - 1);
+            beta = Math.Min(beta, Constants.CHECKMATE_SCORE - ply);
 
             if (alpha >= beta)
             {
@@ -325,7 +324,7 @@ namespace Pedantic.Chess
             }
 
             NodesVisited++;
-            seldepth = Arith.Max(seldepth, ply);
+            seldepth = Math.Max(seldepth, ply);
 
             if (MustAbort || wasAborted)
             {
@@ -354,7 +353,7 @@ namespace Pedantic.Chess
                     int R = 2 + NMP[depth];
                     if (board.MakeMove(Move.NullMove))
                     {
-                        score = -Search(-beta, -beta + 1, Arith.Max(depth - R - 1, 0), ply + 1, false, false, false);
+                        score = -Search(-beta, -beta + 1, Math.Max(depth - R - 1, 0), ply + 1, false, false, false);
                         board.UnmakeMove();
                         if (wasAborted)
                         {
@@ -387,10 +386,26 @@ namespace Pedantic.Chess
                 }
             }
 
+            // Internal Iterative Deepening (IID)
+            // This will make sure there is a bestMove in the transposition table
+            // if we find ourselves here and there is none. Should improve worst
+            // case scenario of search blowing up.
+            if (canNull && isPv && depth >= 6 && bestMove == 0)
+            {
+                Search(alpha, beta, depth - 2, ply, inCheck);
+                if (wasAborted)
+                {
+                    return 0;
+                }
+
+                InitPv(ply);
+            }
+
             int expandedNodes = 0;
             history.SideToMove = board.SideToMove;
             MoveList moveList = GetMoveList();
             bestMove = 0ul;
+            IEnumerable<ulong> moves = board.Moves(ply, killerMoves, history, moveList);
 
 #if DEBUG
             if (ply == 0)
@@ -403,7 +418,7 @@ namespace Pedantic.Chess
             string fen = board.ToFenString();
 #endif
 
-            foreach (ulong move in board.Moves(ply, killerMoves, history, moveList))
+            foreach (ulong move in moves)
             {
                 if (!board.MakeMoveNs(move))
                 {
@@ -433,7 +448,7 @@ namespace Pedantic.Chess
                 int R = 0;
                 if (!interesting && !killerMoves.Exists(ply, move))
                 {
-                    R = LMR[Arith.Min(depth, 31)][Arith.Min(expandedNodes - 1, 63)];
+                    R = LMR[Math.Min(depth, 31)][Math.Min(expandedNodes - 1, 63)];
                 }
 
                 if (X > 0 && R > 0)
@@ -449,10 +464,10 @@ namespace Pedantic.Chess
                     }
                     else
                     {
-                        score = -Search(-alpha - 1, -alpha, Arith.Max(depth + X - R - 1, 0), ply + 1, checkingMove, true, false);
+                        score = -Search(-alpha - 1, -alpha, Math.Max(depth + X - R - 1, 0), ply + 1, checkingMove, true, false);
                         if (score > alpha)
                         {
-                            score = -Search(-beta, -alpha, Arith.Max(depth + X - R - 1, 0), ply + 1, checkingMove, true, R == 0);
+                            score = -Search(-beta, -alpha, Math.Max(depth + X - R - 1, 0), ply + 1, checkingMove, true, R == 0);
                         }
                     }
 
@@ -512,7 +527,7 @@ namespace Pedantic.Chess
         public int Quiesce(int alpha, int beta, int ply, bool inCheck, int qsPly = 0)
         {
             NodesVisited++;
-            seldepth = Arith.Max(seldepth, ply);
+            seldepth = Math.Max(seldepth, ply);
 
             if (MustAbort || wasAborted)
             {
@@ -540,7 +555,7 @@ namespace Pedantic.Chess
                     return standPatScore;
                 }
 
-                alpha = Arith.Max(alpha, standPatScore);
+                alpha = Math.Max(alpha, standPatScore);
             }
 
 #if DEBUG
@@ -549,8 +564,9 @@ namespace Pedantic.Chess
 
             int expandedNodes = 0;
             MoveList moveList = GetMoveList();
-            IEnumerable<ulong> moves =
-                inCheck ? board.EvasionMoves(history, moveList) : board.QMoves(ply, qsPly, moveList);
+            IEnumerable<ulong> moves = inCheck ? 
+                board.EvasionMoves(moveList) : 
+                board.QMoves(ply, qsPly, moveList);
 
             foreach (ulong move in moves)
             {
@@ -615,7 +631,7 @@ namespace Pedantic.Chess
         private void ReportSearchResults(ref ulong bestMove, ref ulong? ponderMove)
         {
             PV = GetPv();
-            PV = ExtractPv(Depth);
+            PV = ExtractPv();
 
             if (PV.Length > 0)
             {
@@ -656,11 +672,12 @@ namespace Pedantic.Chess
             }
         }
 
-        private ulong[] ExtractPv(int depth)
+        private ulong[] ExtractPv()
         {
             MoveList result = moveListPool.Get();
             Board bd = board.Clone();
             int d = 0;
+            HashSet<ulong> positions = new(Constants.MAX_PLY);
 
             for (int n = 0; n < PV.Length; n++)
             {
@@ -669,8 +686,10 @@ namespace Pedantic.Chess
                     throw new InvalidOperationException($"Invalid move in PV: {PV[n]}");
                 }
 
+                positions.Add(bd.Hash);
                 d++;
             }
+
             while (d++ < Constants.MAX_PLY && TtTran.TryGetBestMoveWithFlags(bd.Hash, out TtFlag flag, out ulong bestMove))
             {
                 if (flag != TtFlag.Exact || !bd.IsLegalMove(bestMove))
@@ -679,6 +698,12 @@ namespace Pedantic.Chess
                 }
 
                 bd.MakeMove(bestMove);
+                if (positions.Contains(bd.Hash))
+                {
+                    break;
+                }
+
+                positions.Add(bd.Hash);
                 result.Add(bestMove);
             }
 
@@ -714,11 +739,11 @@ namespace Pedantic.Chess
         private static bool IsCheckmate(int score, out int mateIn)
         {
             mateIn = 0;
-            int absScore = Arith.Abs(score);
+            int absScore = Math.Abs(score);
             bool checkMate = absScore is >= Constants.CHECKMATE_SCORE - Constants.MAX_PLY and <= Constants.CHECKMATE_SCORE;
             if (checkMate)
             {
-                mateIn = ((Constants.CHECKMATE_SCORE - absScore + 1) / 2) * Arith.Sign(score);
+                mateIn = ((Constants.CHECKMATE_SCORE - absScore + 1) / 2) * Math.Sign(score);
             }
 
             return checkMate;

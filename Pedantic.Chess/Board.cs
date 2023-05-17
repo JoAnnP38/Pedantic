@@ -360,7 +360,7 @@ namespace Pedantic.Chess
             }
 
             var stackSpan = gameStack.AsSpan();
-            int max = Arith.Max(stackSpan.Length - halfMoveClock, 0);
+            int max = Math.Max(stackSpan.Length - halfMoveClock, 0);
             int start = stackSpan.Length - 2;
 
             fixed (BoardState* pStart = &stackSpan[start], pEnd = &stackSpan[max])
@@ -811,7 +811,7 @@ namespace Pedantic.Chess
 
             for (int n = cIndex - 1; n > 0; n--)
             {
-                captures[n - 1] = -Arith.Max(-captures[n - 1], captures[n]);
+                captures[n - 1] = -Math.Max(-captures[n - 1], captures[n]);
             }
 
             return captures[0];
@@ -1036,11 +1036,25 @@ namespace Pedantic.Chess
             }
         }
 
-        public IEnumerable<ulong> EvasionMoves(IHistory? history, MoveList moveList)
+        public IEnumerable<ulong> EvasionMoves(MoveList moveList)
         {
             moveList.Clear();
-            IHistory hist = history ?? fakeHistory;
-            GenerateEvasions(moveList, hist);
+            GenerateEvasions(moveList);
+
+            for (int n = 0; n < moveList.Count; n++)
+            {
+                moveList.Sort(n);
+                yield return moveList[n];
+            }
+        }
+
+        public IEnumerable<ulong> EvasionMoves2(int ply, KillerMoves killerMoves, IHistory history, MoveList moveList)
+        {
+            TtTran.TryGetBestMove(hash, out ulong bestMove);
+            moveList.Clear();
+            GenerateEvasions(moveList, history);
+            moveList.UpdateScores(bestMove, killerMoves, ply);
+
             for (int n = 0; n < moveList.Count; n++)
             {
                 moveList.Sort(n);
@@ -1543,76 +1557,130 @@ namespace Pedantic.Chess
             }
         }
 
-        public void GenerateEvasions(MoveList moveList, IHistory? history = null)
+        private ulong CheckMask(int square, out int checkCount)
         {
             Color opponent = sideToMove.Other();
-            int kingIndex = BitOps.TzCount(Pieces(sideToMove, Piece.King));
-            ulong attacksFrom = PawnDefends(opponent, kingIndex) & Pieces(opponent, Piece.Pawn);
-            attacksFrom |= knightMoves[kingIndex] & Pieces(opponent, Piece.Knight);
+            ulong checkMask = PawnDefends(opponent, square) & Pieces(opponent, Piece.Pawn);
+            checkMask |= knightMoves[square] & Pieces(opponent, Piece.Knight);
+            checkCount = BitOps.PopCount(checkMask);
 
-            int checkCount = BitOps.PopCount(attacksFrom);
 
-            Ray ray = Vectors[kingIndex];
+            if (checkCount > 1)
+            {
+                return 0;
+            }
+
+            Ray ray = Vectors[square];
+
             ulong bbRayBlockers = ray.NorthEast & all;
             if (bbRayBlockers != 0 && checkCount < 2 && ((1ul << BitOps.TzCount(bbRayBlockers)) & DiagonalSliders(opponent)) != 0)
             {
                 checkCount++;
-                attacksFrom |= BitOps.AndNot(ray.NorthEast, Vectors[BitOps.TzCount(bbRayBlockers)].NorthEast);
+                checkMask |= BitOps.AndNot(ray.NorthEast, Vectors[BitOps.TzCount(bbRayBlockers)].NorthEast);
+
+                if (checkCount > 1)
+                {
+                    return 0;
+                }
             }
 
             bbRayBlockers = ray.NorthWest & all;
             if (bbRayBlockers != 0 && checkCount < 2 && ((1ul << BitOps.TzCount(bbRayBlockers)) & DiagonalSliders(opponent)) != 0)
             {
                 checkCount++;
-                attacksFrom |= BitOps.AndNot(ray.NorthWest, Vectors[BitOps.TzCount(bbRayBlockers)].NorthWest);
+                checkMask |= BitOps.AndNot(ray.NorthWest, Vectors[BitOps.TzCount(bbRayBlockers)].NorthWest);
+
+                if (checkCount > 1)
+                {
+                    return 0;
+                }
             }
 
             bbRayBlockers = ray.SouthEast & all;
             if (bbRayBlockers != 0 && checkCount < 2 && ((1ul << (63 - BitOps.LzCount(bbRayBlockers))) & DiagonalSliders(opponent)) != 0)
             {
                 checkCount++;
-                attacksFrom |= BitOps.AndNot(ray.SouthEast, RevVectors[BitOps.LzCount(bbRayBlockers)].SouthEast);
+                checkMask |= BitOps.AndNot(ray.SouthEast, RevVectors[BitOps.LzCount(bbRayBlockers)].SouthEast);
+
+                if (checkCount > 1)
+                {
+                    return 0;
+                }
             }
 
             bbRayBlockers = ray.SouthWest & all;
             if (bbRayBlockers != 0 && checkCount < 2 && ((1ul << (63 - BitOps.LzCount(bbRayBlockers))) & DiagonalSliders(opponent)) != 0)
             {
                 checkCount++;
-                attacksFrom |= BitOps.AndNot(ray.SouthWest, RevVectors[BitOps.LzCount(bbRayBlockers)].SouthWest);
+                checkMask |= BitOps.AndNot(ray.SouthWest, RevVectors[BitOps.LzCount(bbRayBlockers)].SouthWest);
+
+                if (checkCount > 1)
+                {
+                    return 0;
+                }
             }
 
             bbRayBlockers = ray.North & all;
             if (bbRayBlockers != 0 && checkCount < 2 && ((1ul << BitOps.TzCount(bbRayBlockers)) & OrthogonalSliders(opponent)) != 0)
             {
                 checkCount++;
-                attacksFrom |= BitOps.AndNot(ray.North, Vectors[BitOps.TzCount(bbRayBlockers)].North);
+                checkMask |= BitOps.AndNot(ray.North, Vectors[BitOps.TzCount(bbRayBlockers)].North);
+
+                if (checkCount > 1)
+                {
+                    return 0;
+                }
             }
 
             bbRayBlockers = ray.East & all;
             if (bbRayBlockers != 0 && checkCount < 2 && ((1ul << BitOps.TzCount(bbRayBlockers)) & OrthogonalSliders(opponent)) != 0)
             {
                 checkCount++;
-                attacksFrom |= BitOps.AndNot(ray.East, Vectors[BitOps.TzCount(bbRayBlockers)].East);
+                checkMask |= BitOps.AndNot(ray.East, Vectors[BitOps.TzCount(bbRayBlockers)].East);
+
+                if (checkCount > 1)
+                {
+                    return 0;
+                }
             }
 
             bbRayBlockers = ray.South & all;
             if (bbRayBlockers != 0 && checkCount < 2 && ((1ul << (63 - BitOps.LzCount(bbRayBlockers))) & OrthogonalSliders(opponent)) != 0)
             {
                 checkCount++;
-                attacksFrom |= BitOps.AndNot(ray.South, RevVectors[BitOps.LzCount(bbRayBlockers)].South);
+                checkMask |= BitOps.AndNot(ray.South, RevVectors[BitOps.LzCount(bbRayBlockers)].South);
+
+                if (checkCount > 1)
+                {
+                    return 0;
+                }
             }
 
             bbRayBlockers = ray.West & all;
             if (bbRayBlockers != 0 && checkCount < 2 && ((1ul << (63 - BitOps.LzCount(bbRayBlockers))) & OrthogonalSliders(opponent)) != 0)
             {
                 checkCount++;
-                attacksFrom |= BitOps.AndNot(ray.West, RevVectors[BitOps.LzCount(bbRayBlockers)].West);
+                checkMask |= BitOps.AndNot(ray.West, RevVectors[BitOps.LzCount(bbRayBlockers)].West);
+
+                if (checkCount > 1)
+                {
+                    return 0;
+                }
             }
 
+            return checkMask;
+        }
+
+        public void GenerateEvasions(MoveList moveList, IHistory? history = null)
+        {
+            Color opponent = sideToMove.Other();
+            int kingIndex = BitOps.TzCount(Pieces(sideToMove, Piece.King));
+            ulong attacksFrom = CheckMask(kingIndex, out int checkCount);
+
+            IHistory hist = history ?? fakeHistory;
             ulong validEnemies = Units(opponent) & attacksFrom;
             if (checkCount == 1)
             {
-                IHistory hist = history ?? fakeHistory;
                 ulong pawns = Pieces(sideToMove, Piece.Pawn);
                 GenerateEnPassant(moveList, pawns, attacksFrom);
                 GeneratePawnMoves(moveList, hist, pawns, attacksFrom);
@@ -1627,8 +1695,19 @@ namespace Pedantic.Chess
                         for (ulong bb3 = bb2 & validEnemies; bb3 != 0; bb3 = BitOps.ResetLsb(bb3))
                         {
                             int to = BitOps.TzCount(bb3);
-                            moveList.Add(from, to, MoveType.Capture, (Piece)board[to],
-                                score: CaptureScore((Piece)board[to], piece));
+                            Piece capture = board[to].Piece;
+                            ulong move = Move.PackMove(from, to, MoveType.Capture, capture);
+
+                            if (piece.Value() > capture.Value() && PreMoveStaticExchangeEval(SideToMove, move) < 0)
+                            {
+                                move = Move.SetScore(move, Constants.BAD_CAPTURE);
+                            }
+                            else
+                            {
+                                move = Move.SetScore(move, (short)CaptureScore(capture, piece));
+                            }
+
+                            moveList.Add(move);
                         }
 
                         for (ulong bb3 = BitOps.AndNot(bb2, All); bb3 != 0; bb3 = BitOps.ResetLsb(bb3))
@@ -1643,7 +1722,7 @@ namespace Pedantic.Chess
                 }
             }
 
-            for (ulong bb = kingMoves[kingIndex] & validEnemies; bb != 0; bb = BitOps.ResetLsb(bb))
+            for (ulong bb = kingMoves[kingIndex] & Units(opponent); bb != 0; bb = BitOps.ResetLsb(bb))
             {
                 int to = BitOps.TzCount(bb);
                 moveList.Add(kingIndex, to, MoveType.Capture, board[to].Piece, score: CaptureScore(board[to].Piece, Piece.King));
@@ -1652,13 +1731,14 @@ namespace Pedantic.Chess
             for (ulong bb = kingMoves[kingIndex] & ~all; bb != 0; bb = BitOps.ResetLsb(bb))
             {
                 int to = BitOps.TzCount(bb);
-                moveList.Add(kingIndex, to);
+                moveList.Add(kingIndex, to, score: hist[kingIndex, to]);
             }
         }
 
         public void GenerateRecaptures(MoveList moveList, int captureSquare)
         {
-            ulong captureMask = 1ul << captureSquare;
+            Color opponent = sideToMove.Other();
+            ulong captureMask = (1ul << captureSquare) & Units(opponent);
             ulong pawns = Pieces(sideToMove, Piece.Pawn);
             GeneratePawnCaptures(moveList, pawns, captureMask);
 

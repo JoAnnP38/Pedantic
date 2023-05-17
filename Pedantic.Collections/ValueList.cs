@@ -114,7 +114,7 @@ namespace Pedantic.Collections
 
         public bool IsReadOnly => false;
 
-        private int FindIndex(Predicate<T> predicate)
+        public int FindIndex(Predicate<T> predicate)
         {
             for (int i = 0; i < insertIndex; ++i)
             {

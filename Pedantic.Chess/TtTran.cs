@@ -108,7 +108,7 @@ namespace Pedantic.Chess
 
             if (Evaluation.IsCheckmate(score))
             {
-                score += Arith.Sign(score) * ply;
+                score += Math.Sign(score) * ply;
             }
 
             sbyte itemDepth = (sbyte)depth;
@@ -196,7 +196,7 @@ namespace Pedantic.Chess
 
                 if (Evaluation.IsCheckmate(score))
                 {
-                    score -= Arith.Sign(score) * ply;
+                    score -= Math.Sign(score) * ply;
                 }
 
                 if (item.Flag == TtFlag.Exact)
