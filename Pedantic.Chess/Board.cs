@@ -22,7 +22,6 @@ using System.Runtime.CompilerServices;
 using System.Text;
 
 using Index = Pedantic.Chess.Index;
-using System.ComponentModel;
 
 namespace Pedantic.Chess
 {
@@ -35,7 +34,7 @@ namespace Pedantic.Chess
         public const ulong ALL_SQUARES_MASK = 0xFFFFFFFFFFFFFFFFul;
 
         private readonly Square[] board = new Square[Constants.MAX_SQUARES];
-        private readonly ulong[][] pieces = Mem.Allocate2D<ulong>(Constants.MAX_COLORS, Constants.MAX_PIECES);
+        private readonly Array2D<ulong> pieces = new (Constants.MAX_COLORS, Constants.MAX_PIECES, true);
         private readonly ulong[] units = new ulong[Constants.MAX_COLORS];
         private ulong all = 0ul;
         private readonly short[] material = new short[Constants.MAX_COLORS];
@@ -93,9 +92,9 @@ namespace Pedantic.Chess
                 RevVectors[63 - sq] = Vectors[sq];
             }
 
+            InitFancyMagic();
             InitPext();
             IsPextSupported = PextSupported();
-            InitFancyMagic();
         }
 
         public Board()
@@ -114,7 +113,7 @@ namespace Pedantic.Chess
         private Board(Board other)
         {
             Array.Copy(other.board, board, board.Length);
-            Mem.Copy(other.pieces, pieces);
+            pieces.Copy(other.pieces);
             Array.Copy(other.units, units, units.Length);
             all = other.all;
             sideToMove = other.sideToMove;
@@ -139,7 +138,7 @@ namespace Pedantic.Chess
         public ReadOnlySpan<Square> PieceBoard => board;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ulong Pieces(Color color, Piece piece) => pieces[(int)color][(int)piece];
+        public ulong Pieces(Color color, Piece piece) => pieces[(int)color, (int)piece];
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ulong Units(Color color) => units[(int)color];
@@ -148,11 +147,11 @@ namespace Pedantic.Chess
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ulong DiagonalSliders(Color color) =>
-            pieces[(int)color][(int)Piece.Bishop] | pieces[(int)color][(int)Piece.Queen];
+            pieces[(int)color, (int)Piece.Bishop] | pieces[(int)color, (int)Piece.Queen];
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ulong OrthogonalSliders(Color color) =>
-            pieces[(int)color][(int)Piece.Rook] | pieces[(int)color][(int)Piece.Queen];
+            pieces[(int)color, (int)Piece.Rook] | pieces[(int)color, (int)Piece.Queen];
 
 
         public Color SideToMove => sideToMove;
@@ -229,7 +228,7 @@ namespace Pedantic.Chess
         public void Clear()
         {
             Array.Fill(board, Square.Empty);
-            Mem.Clear(pieces);
+            pieces.Clear();
             Array.Clear(units);
             all = 0;
             sideToMove = Color.None;
@@ -1091,13 +1090,13 @@ namespace Pedantic.Chess
 
                 if (bb1 != 0 && to == pawnPlus[(int)sideToMove, from] && normalRank != Coord.MAX_VALUE)
                 {
-                    validMove = Move.PackMove(from, to, MoveType.PawnMove);
+                    validMove = Move.Pack(from, to, MoveType.PawnMove);
                     return true;
                 }
 
                 if (bb2 != 0 && to == pawnDouble[(int)sideToMove, from])
                 {
-                    validMove = Move.PackMove(from, to, MoveType.DblPawnMove);
+                    validMove = Move.Pack(from, to, MoveType.DblPawnMove);
                     return true;
                 }
             }
@@ -1106,7 +1105,7 @@ namespace Pedantic.Chess
                 ulong bb = BitOps.AndNot(GetPieceMoves(piece, from), All) & (1ul << to);
                 if (bb != 0)
                 {
-                    validMove = Move.PackMove(from, to);
+                    validMove = Move.Pack(from, to);
                     return true;
                 }
             }
@@ -1696,7 +1695,7 @@ namespace Pedantic.Chess
                         {
                             int to = BitOps.TzCount(bb3);
                             Piece capture = board[to].Piece;
-                            ulong move = Move.PackMove(from, to, MoveType.Capture, capture);
+                            ulong move = Move.Pack(from, to, MoveType.Capture, capture);
 
                             if (piece.Value() > capture.Value() && PreMoveStaticExchangeEval(SideToMove, move) < 0)
                             {
@@ -1782,7 +1781,7 @@ namespace Pedantic.Chess
             if (rank == Coord.MIN_VALUE || rank == Coord.MAX_VALUE)
             {
                 flags = flags == MoveType.Capture ? MoveType.PromoteCapture : MoveType.Promote;
-                score = Constants.PROMOTE_SCORE + Piece.Knight.Value();
+                    score = Constants.PROMOTE_SCORE + Piece.Knight.Value();
                 list.Add(from, to, flags, capture, Piece.Knight, score);
                 score = Constants.PROMOTE_SCORE + Piece.Queen.Value();
                 list.Add(from, to, flags, capture, Piece.Queen, score);
@@ -1909,7 +1908,7 @@ namespace Pedantic.Chess
             }
             hash = ZobristHash.HashPiece(hash, color, piece, square);
             board[square] = Square.Create(color, piece);
-            pieces[(int)color][(int)piece] = BitOps.SetBit(Pieces(color, piece), square);
+            pieces[(int)color, (int)piece] = BitOps.SetBit(pieces[(int)color, (int)piece], square);
             units[(int)color] = BitOps.SetBit(units[(int)color], square);
             all = BitOps.SetBit(all, square);
             material[(int)color] += Evaluation.CanonicalPieceValues(piece);
@@ -1935,7 +1934,7 @@ namespace Pedantic.Chess
             }
             hash = ZobristHash.HashPiece(hash, color, piece, square);
             board[square] = Square.Empty;
-            pieces[(int)color][(int)piece] = BitOps.ResetBit(Pieces(color, piece), square);
+            pieces[(int)color, (int)piece] = BitOps.ResetBit(pieces[(int)color, (int)piece], square);
             units[(int)color] = BitOps.ResetBit(Units(color), square);
             all = BitOps.ResetBit(all, square);
             material[(int)color] -= Evaluation.CanonicalPieceValues(piece);

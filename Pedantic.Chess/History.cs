@@ -44,18 +44,19 @@ namespace Pedantic.Chess
             {
                 Rescale();
             }
-        }
+            }
 
         public void Update(int from, int to, int value)
         {
-            Update(SideToMove, from, to, value);
-        }
+                Update(SideToMove, from, to, value);
+            }
 
         public void Clear()
         {
             Array.Clear(history);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private int GetIndex(int from, int to)
         {
             return GetIndex(sideToMove, from, to);

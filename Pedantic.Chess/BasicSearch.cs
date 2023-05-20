@@ -296,8 +296,8 @@ namespace Pedantic.Chess
                 return evaluation.Compute(board, alpha, beta);
             }
 
-            var repeated = board.PositionRepeated();
-            if (repeated.Repeated)
+            (bool repeated, _) = board.PositionRepeated();
+            if (repeated)
             {
                 return Contempt;
             }
@@ -540,13 +540,12 @@ namespace Pedantic.Chess
                 return evaluation.Compute(board, alpha, beta);
             }
 
-            var repeated = board.PositionRepeated();
-            if (repeated.Repeated)
+            (bool repeated, _) = board.PositionRepeated();
+            if (repeated)
             {
                 return Contempt;
             }
 
-            history.SideToMove = board.SideToMove;
             if (!inCheck)
             {
                 int standPatScore = evaluation.Compute(board, alpha, beta);

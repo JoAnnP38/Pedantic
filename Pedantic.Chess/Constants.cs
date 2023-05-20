@@ -34,8 +34,8 @@ namespace Pedantic.Chess
         public const short CAPTURE_SCORE = 10000;
         public const short PROMOTE_SCORE = 9000;
         public const short KILLER_SCORE = 7000;
-        public const short BAD_CAPTURE = 5000;
-        public const short HISTORY_SCORE = 3000;
+        public const short BAD_CAPTURE = 6000;
+        public const short HISTORY_SCORE = 5000;
         public const short INFINITE_WINDOW = short.MaxValue;
         public const ulong LINEUP_K = 0ul;
         public const ulong LINEUP_KQ = 0x0005ul;

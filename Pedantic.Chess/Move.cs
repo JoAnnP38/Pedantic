@@ -22,8 +22,8 @@ namespace Pedantic.Chess
 {
     public static class Move
     {
-        public static readonly ulong NullMove = PackMove(0, 0, MoveType.Null);
-        public static ulong PackMove(int from, int to, MoveType type = MoveType.Normal, Piece capture = Piece.None, 
+        public static readonly ulong NullMove = Pack(0, 0, MoveType.Null);
+        public static ulong Pack(int from, int to, MoveType type = MoveType.Normal, Piece capture = Piece.None, 
             Piece promote = Piece.None, int score = 0)
         {
             Util.Assert(Index.IsValid(from));
@@ -113,7 +113,7 @@ namespace Pedantic.Chess
             return !IsCapture(move) && !IsPromote(move);
         }
 
-        public static void UnpackMove(ulong move, out int from, out int to, out MoveType type, out Piece capture,
+        public static void Unpack(ulong move, out int from, out int to, out MoveType type, out Piece capture,
             out Piece promote, out int score)
         {
             from = GetFrom(move);
@@ -183,7 +183,7 @@ namespace Pedantic.Chess
 
         public static string ToLongString(ulong move)
         {
-            UnpackMove(move, out int from, out int to, out MoveType type, out Piece capture, out Piece promote,
+            Unpack(move, out int from, out int to, out MoveType type, out Piece capture, out Piece promote,
                 out int score);
 
             return
@@ -204,7 +204,7 @@ namespace Pedantic.Chess
             }
 
             StringBuilder sb = new();
-            Move.UnpackMove(move, out int from, out int to, out MoveType type, out Piece capture, out Piece promote, out int _);
+            Move.Unpack(move, out int from, out int to, out MoveType type, out Piece capture, out Piece promote, out int _);
             if (type == MoveType.Castle)
             {
                 if (Index.GetFile(to) == 2)

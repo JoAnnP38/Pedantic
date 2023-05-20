@@ -176,7 +176,7 @@ namespace Pedantic.UnitTests
         public void MakeMoveTest(string fen)
         {
             Board bd = new(fen);
-            ObjectPool<MoveList> moveListPool = new ObjectPool<MoveList>(Constants.MAX_PLY);
+            ObjectPool<MoveList> moveListPool = new (Constants.MAX_PLY);
             MoveList moveList = moveListPool.Get();
             bd.GenerateMoves(moveList);
 
@@ -265,19 +265,19 @@ namespace Pedantic.UnitTests
         public void SEETest(string fen, Color stm, int expected)
         {
             Board bd = new(fen);
-            ulong move = Move.PackMove(Index.D4, Index.E5, MoveType.Capture, Piece.Pawn);
+            ulong move = Move.Pack(Index.D4, Index.E5, MoveType.Capture, Piece.Pawn);
             int seeEval = bd.PreMoveStaticExchangeEval(stm, move);
             Assert.AreEqual(expected, seeEval);
         }
 
         [TestMethod]
-        [DataRow("8/1pp1q1pp/2n2k2/4p2R/3B1b2/2QP1N2/1P2PP2/4K1r1 w - - 0 1", Color.Black, false)]
-        [DataRow("8/1pp1q1pp/2n2k2/4p2R/3B4/2QP1N2/1P2PP1b/4K1r1 w - - 0 1", Color.Black, false)]
-        [DataRow("8/1pp1q1pp/2n2k2/4p2R/3B4/2QP4/1P1NPP1b/4K1rR w - - 0 1", Color.Black, true)]
-        public void SEE0Test(string fen, Color stm, bool safe)
+        [DataRow("8/1pp1q1pp/2n2k2/4p2R/3B1b2/2QP1N2/1P2PP2/4K1r1 w - - 0 1", false)]
+        [DataRow("8/1pp1q1pp/2n2k2/4p2R/3B4/2QP1N2/1P2PP1b/4K1r1 w - - 0 1", false)]
+        [DataRow("8/1pp1q1pp/2n2k2/4p2R/3B4/2QP4/1P1NPP1b/4K1rR w - - 0 1", true)]
+        public void SEE0Test(string fen, bool safe)
         {
             Board bd = new(fen);
-            ulong move = Move.PackMove(Index.G6, Index.G1);
+            ulong move = Move.Pack(Index.G6, Index.G1);
             int seeEval = bd.PostMoveStaticExchangeEval(bd.SideToMove.Other(), move);
             if (safe)
             {
@@ -299,7 +299,7 @@ namespace Pedantic.UnitTests
         public void GenerateEvasionsTest(string fen, int expected)
         {
             Board bd = new (fen);
-            MoveList list = new MoveList();
+            MoveList list = new ();
             bd.GenerateEvasions(list);
             int legalMoves = 0;
             for (int n = 0; n < list.Count; n++)
@@ -323,8 +323,8 @@ namespace Pedantic.UnitTests
         public void GenerateRecapturesTest()
         {
             Board bd = new("Bn2k2r/p5pp/3b2q1/8/4p1n1/8/PP5p/R1BQR2K w - - 0 1");
-            bd.MakeMove(Move.PackMove(Index.E1, Index.E4, MoveType.Capture, Piece.Pawn));
-            MoveList list = new MoveList();
+            bd.MakeMove(Move.Pack(Index.E1, Index.E4, MoveType.Capture, Piece.Pawn));
+            MoveList list = new ();
             bd.GenerateRecaptures(list, Index.E4);
             int legalMoves = 0;
             for (int n = 0; n < list.Count; n++)

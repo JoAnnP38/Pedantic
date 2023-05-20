@@ -77,7 +77,7 @@ namespace Pedantic.Chess
                 return false;
             }
 
-            Stopwatch sw = new Stopwatch();
+            Stopwatch sw = new ();
             sw.Start();
             sw.Stop();
             long fancyElapsed = 0;
@@ -87,9 +87,9 @@ namespace Pedantic.Chess
                 sw.Restart();
                 for (int m = 0; m < 10; m++)
                 {
-                    foreach (var t in pextTests)
+                    foreach ((int sq, ulong blockers) in pextTests)
                     {
-                        GetQueenAttacksFancy(t.sq, t.blockers);
+                        GetQueenAttacksFancy(sq, blockers);
                     }
                 }
 
@@ -99,9 +99,9 @@ namespace Pedantic.Chess
                 sw.Restart();
                 for (int m = 0; m < 10; m++)
                 {
-                    foreach (var t in pextTests)
+                    foreach ((int sq, ulong blockers) in pextTests)
                     {
-                        GetQueenAttacksPext(t.sq, t.blockers);
+                        GetQueenAttacksPext(sq, blockers);
                     }
                 }
 
@@ -138,7 +138,7 @@ namespace Pedantic.Chess
         private static readonly UnsafeArray<ulong> attacks = new(107648);
         private static readonly UnsafeArray<PextEntry> entries = new(Constants.MAX_SQUARES);
 
-        private static (int sq, ulong blockers)[] pextTests =
+        private static readonly (int sq, ulong blockers)[] pextTests =
         {
             (27, 1213162166818714128), (27, 60275846047117904),
             (20, 8057014715858174825), (23, 132231735533429541),

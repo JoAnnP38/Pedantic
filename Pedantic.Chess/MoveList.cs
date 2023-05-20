@@ -47,7 +47,7 @@ namespace Pedantic.Chess
         public void Add(int from, int to, MoveType type = MoveType.Normal, Piece capture = Piece.None,
             Piece promote = Piece.None, int score = 0)
         {
-            Add(Move.PackMove(from, to, type, capture, promote, score));
+            Add(Move.Pack(from, to, type, capture, promote, score));
         }
 
         public ReadOnlySpan<ulong> ToSpan() => new(array, 0, Count);
