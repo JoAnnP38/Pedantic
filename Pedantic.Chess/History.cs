@@ -48,7 +48,7 @@ namespace Pedantic.Chess
 
         public void Update(int from, int to, int value)
         {
-                Update(SideToMove, from, to, value * value);
+            Update(SideToMove, from, to, value * value);
         }
 
         public void Clear()
