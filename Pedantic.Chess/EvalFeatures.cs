@@ -18,6 +18,7 @@
 // ***********************************************************************
 using Pedantic.Collections;
 using Pedantic.Utilities;
+using System.Drawing;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 
@@ -33,65 +34,65 @@ namespace Pedantic.Chess
 
         /*
          * Array/Vector of features (one per game phase)
-         * [0]          # game phase material (not used in dot-product)
-         * [1]          # pawns
-         * [2]          # knights
-         * [3]          # bishops
-         * [4]          # rooks
-         * [5]          # queens
-         * [6]          # kings
-         * [7 - 70]     0-1 pawn on square
-         * [71 - 134]   0-1 knight on square
-         * [135 - 198]  0-1 bishop on square
-         * [199 - 262]  0-1 rook on square
-         * [263 - 326]  0-1 queen on square
-         * [327 - 390]  0-1 king on square
-         * [391]        # knight mobility
-         * [392]        # bishop mobility
-         * [393]        # rook mobility
-         * [394]        # queen mobility
-         * [395 - 397]  # king attack (d0 - d2)
-         * [398 - 400]  # pawn shield (d0 - d2)
-         * [401]        # isolated pawns
-         * [402]        # backward pawns
-         * [403]        # doubled pawns
-         * [404]        # connected/adjacent pawns
-         * [405]        # passed pawns
-         * [406]        # knights on outpost
-         * [407]        # bishops on outpost
-         * [408]        0-1 bishop pair
-         * [409]        # rooks on open file
-         * [410]        # rooks on half-open file
-         * [411]        # rooks behind passed pawn
-         * [412]        # doubled rooks on file
-         * [413]        0-1 king on open file
-         * [414]        # of potential castle moves available
-         * [415]        0-1 side has already castled
-         * [416 - 417]  # center control (d0 - d1)
+         * [0]              # game phase material (not used in dot-product)
+         * [1]              # pawns
+         * [2]              # knights
+         * [3]              # bishops
+         * [4]              # rooks
+         * [5]              # queens
+         * [6]              # kings
+         * [7 - 262]        0-1 pawn on square & king placement
+         * [263 - 518]      0-1 knight on square & king placement
+         * [519 - 774]      0-1 bishop on square & king placement
+         * [775 - 1030]     0-1 rook on square & king placement
+         * [1031 - 1286]    0-1 queen on square & king placement
+         * [1287 - 1542]    0-1 king on square & king placement
+         * [1543]           # knight mobility
+         * [1544]           # bishop mobility
+         * [1545]           # rook mobility
+         * [1546]           # queen mobility
+         * [1547 - 1549]    # king attack (d0 - d2)
+         * [1550 - 1552]    # pawn shield (d0 - d2)
+         * [1553]           # isolated pawns
+         * [1554]           # backward pawns
+         * [1555]           # doubled pawns
+         * [1556]           # connected/adjacent pawns
+         * [1557]           # passed pawns
+         * [1558]           # knights on outpost
+         * [1559]           # bishops on outpost
+         * [1560]           0-1 bishop pair
+         * [1561]           # rooks on open file
+         * [1562]           # rooks on half-open file
+         * [1563]           # rooks behind passed pawn
+         * [1564]           # doubled rooks on file
+         * [1565]           0-1 king on open file
+         * [1566]           # of potential castle moves available
+         * [1567]           0-1 side has already castled
+         * [1568 - 1569]    # center control (d0 - d1)
          */
-        public const int FEATURE_SIZE = 418;
+        public const int FEATURE_SIZE = 1570;
         public const int GAME_PHASE_BOUNDARY = 0;
         public const int MATERIAL = 1;
         public const int PIECE_SQUARE_TABLES = 7;
-        public const int MOBILITY = 391;
-        public const int KING_ATTACK = 395;
-        public const int PAWN_SHIELD = 398;
-        public const int ISOLATED_PAWNS = 401;
-        public const int BACKWARD_PAWNS = 402;
-        public const int DOUBLED_PAWNS = 403;
-        public const int ADJACENT_PAWNS = 404;
-        public const int PASSED_PAWNS = 405;
-        public const int KNIGHTS_ON_OUTPOST = 406;
-        public const int BISHOPS_ON_OUTPOST = 407;
-        public const int BISHOP_PAIR = 408;
-        public const int ROOK_OPEN_FILE = 409;
-        public const int ROOK_HALF_OPEN_FILE = 410;
-        public const int ROOK_BEHIND_PASSED_PAWN = 411;
-        public const int DOUBLED_ROOKS_ON_FILE = 412;
-        public const int KING_ON_OPEN_FILE = 413;
-        public const int CASTLING_AVAILABLE = 414;
-        public const int CASTLING_COMPLETE = 415;
-        public const int CENTER_CONTROL = 416;
+        public const int MOBILITY = 1543;
+        public const int KING_ATTACK = 1547;
+        public const int PAWN_SHIELD = 1550;
+        public const int ISOLATED_PAWNS = 1553;
+        public const int BACKWARD_PAWNS = 1554;
+        public const int DOUBLED_PAWNS = 1555;
+        public const int ADJACENT_PAWNS = 1556;
+        public const int PASSED_PAWNS = 1557;
+        public const int KNIGHTS_ON_OUTPOST = 1558;
+        public const int BISHOPS_ON_OUTPOST = 1559;
+        public const int BISHOP_PAIR = 1560;
+        public const int ROOK_OPEN_FILE = 1561;
+        public const int ROOK_HALF_OPEN_FILE = 1562;
+        public const int ROOK_BEHIND_PASSED_PAWN = 1563;
+        public const int DOUBLED_ROOKS_ON_FILE = 1564;
+        public const int KING_ON_OPEN_FILE = 1565;
+        public const int CASTLING_AVAILABLE = 1566;
+        public const int CASTLING_COMPLETE = 1567;
+        public const int CENTER_CONTROL = 1568;
 
         private readonly SparseArray<short>[] sparse = { new(), new() };
 		private readonly short[][] features = { Array.Empty<short>(), Array.Empty<short>() };
@@ -107,11 +108,17 @@ namespace Pedantic.Chess
 
             totalPawns = (sbyte)BitOps.PopCount(bd.Pieces(Color.White, Piece.Pawn) | bd.Pieces(Color.Black, Piece.Pawn));
             sideToMove = bd.SideToMove;
+            kingIndex[0] = (sbyte)BitOps.TzCount(bd.Pieces(Color.White, Piece.King));
+            kingIndex[1] = (sbyte)BitOps.TzCount(bd.Pieces(Color.Black, Piece.King));
+
 
             for (Color color = Color.White; color <= Color.Black; color++)
             {
                 int c = (int)color;
+                int o = (int)color.Other();
+                KingPlacement kp = Index.GetKingPlacement(kingIndex[c], kingIndex[o]);
                 var v = sparse[c];
+
 
                 for (int index = 0; index < Constants.MAX_SQUARES; index++)
                 {
@@ -120,7 +127,7 @@ namespace Pedantic.Chess
                     if (!square.IsEmpty && square.Color == color)
                     {
                         IncrementPieceCount(v, square.Piece);
-                        SetPieceSquare(v, square.Piece, pstIndex);
+                        SetPieceSquare(v, square.Piece, kp, pstIndex);
                     }
                 }
 
@@ -151,7 +158,6 @@ namespace Pedantic.Chess
                 }
 
                 material[c] = bd.MaterialNoKing(color);
-                kingIndex[c] = (sbyte)BitOps.TzCount(bd.Pieces(color, Piece.King));
                 int ki = kingIndex[c];
                 Color other = (Color)(c ^ 1);
                 ulong pawns = bd.Pieces(color, Piece.Pawn);
@@ -444,9 +450,10 @@ namespace Pedantic.Chess
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static void SetPieceSquare(IDictionary<int, short> v, Piece piece, int square)
+        private static void SetPieceSquare(IDictionary<int, short> v, Piece piece, KingPlacement kp, int square)
         {
-            int index = PIECE_SQUARE_TABLES + ((int)piece << 6) + square;
+            
+            int index = PIECE_SQUARE_TABLES + ((((int)piece << 2) + (int)kp) << 6) + square;
             v[index] = 1;
         }
 

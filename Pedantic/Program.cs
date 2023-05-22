@@ -35,6 +35,7 @@ namespace Pedantic
         public const string PROGRAM_URL = "https://github.com/JoAnnP38/Pedantic";
         public const double CONVERGENCE_TOLERANCE = 0.00000005;
         public const int MAX_CONVERGENCE_FAILURE = 5;
+        public const int MINI_BATCH_COUNT = 16;
 
         private enum PerftRunType
         {
@@ -843,9 +844,15 @@ namespace Pedantic
 
         public static PosRecord[] LoadSample(int sampleSize, StreamReader sr)
         {
+            Stopwatch watch = new();
+            Console.WriteLine("Loading samples...");
             int[] selections = GetSampleSelections(sampleSize, sr);
-            List<PosRecord> posRecordList = new(sampleSize);
+            PosRecord[] posRecords = new PosRecord[sampleSize];
+            int posInsert = 0;
+            Console.ReadLine();
 
+            watch.Start();
+            long currMs = watch.ElapsedMilliseconds;
             int currLine = 0;
             foreach (int selLine in selections)
             {
@@ -853,28 +860,43 @@ namespace Pedantic
                 {
                     if (Console.ReadLine() == null)
                     {
-                        sr.BaseStream.Seek(0L, SeekOrigin.Begin);
-                        return posRecordList.ToArray();
+                        break;
                     }
                 }
 
+                //Console.Write($"Loading line: {currLine}\r");
                 string? str = Console.ReadLine();
                 if (str == null)
                 {
-                    sr.BaseStream.Seek(0L, SeekOrigin.Begin);
-                    return posRecordList.ToArray();
+                    break;
                 }
 
                 string[] fields = str.Split(',');
                 string fen = fields[3];
                 byte hasCastled = byte.Parse(fields[4]);
                 float result = float.Parse(fields[5]);
-                posRecordList.Add(new PosRecord(fen, hasCastled, result));
-            }
+                posRecords[posInsert++] = new PosRecord(fen, hasCastled, result);
 
+                if (watch.ElapsedMilliseconds - currMs > 1000)
+                {
+                    currMs = watch.ElapsedMilliseconds;
+                    Console.Write($"Loading {posInsert} of {sampleSize} ({posInsert * 100 / sampleSize}%)...\r");
+                }
+
+                if (posInsert >= sampleSize)
+                {
+                    break;
+                }
+            }
+            Console.WriteLine($"Loading {posInsert} of {sampleSize} ({posInsert * 100 / sampleSize}%)     ");
             sr.BaseStream.Seek(0L, SeekOrigin.Begin);
-            Random.Shared.Shuffle(posRecordList);
-            return posRecordList.ToArray();
+            if (posInsert < sampleSize)
+            {
+                Array.Resize(ref posRecords, posInsert);
+            }
+            Console.WriteLine("Shuffling samples...");
+            Random.Shared.Shuffle(posRecords);
+            return posRecords;
         }
 
         private static int[] GetSampleSelections(int sampleSize, StreamReader sr)
@@ -981,7 +1003,7 @@ namespace Pedantic
         public static double MiniEvalErrorParallel(short[] weights, List<PosRecord[]> slices, double k, int batch)
         {
             int totalLength = slices.Sum(s => s.Length);
-            int miniBatchSize = totalLength / 8;
+            int miniBatchSize = totalLength / MINI_BATCH_COUNT;
             if (UsableProcessorCount == 1)
             {
                 return EvalErrorParallel(weights, slices, k);
@@ -1007,7 +1029,7 @@ namespace Pedantic
 
         private static double SolveKParallel(short[] weights, List<PosRecord[]> slices, double a = 0.0, double b = 2.0)
         {
-            const double gr = 1.61803399;
+            const double gr = 1.61803399; // golden ratio?
             double k1 = b - (b - a) / gr;
             double k2 = a + (b - a) / gr;
 
@@ -1049,6 +1071,7 @@ namespace Pedantic
         private static void PrintSolutionSection(short[] wts, string sectionTitle, string section)
         {
             string[] pieceNames = { "pawns", "knights", "bishops", "rooks", "queens", "kings" };
+            string[] kpNames = { "KK", "KQ", "QK", "QQ" };
             int centerLength = (60 - sectionTitle.Length) / 2;
             string line = new('-', centerLength - 3);
             WriteLine($"/*{line} {sectionTitle} {line}*/");
@@ -1066,10 +1089,11 @@ namespace Pedantic
             WriteLine();
             WriteLine($"/* {section} piece square values */");
             WriteLine();
-            WriteLine($"#region {section} piece square values */");
+            WriteLine($"#region {section} piece square values");
             WriteLine();
             int table = 0;
-            for (int n = 0; n < 384; n++)
+            int kp = 0;
+            for (int n = 0; n < ChessWeights.PIECE_SQUARE_LENGTH; n++)
             {
                 if (n % 8 == 0)
                 {
@@ -1079,11 +1103,17 @@ namespace Pedantic
                     }
                     if (n % 64 == 0)
                     {
+
+                        if (n % 256 == 0) // 4 * 64 squares for each piece
+                        {
+                            table++;
+                            kp = 0;
+                        }
                         if (n != 0)
                         {
                             WriteLine();
                         }
-                        WriteLine($"/* {pieceNames[table++]} */");
+                        WriteLine($"/* {pieceNames[table - 1]}: {kpNames[kp++]} */");
                     }
                     WriteIndent();
                 }

@@ -76,6 +76,20 @@ namespace Pedantic.Chess
         LowerBound
     }
 
+    [Flags]
+    public enum KingPlacement : byte
+    {
+        OpponentKingSide = 0,
+        FriendlyKingSide = OpponentKingSide,
+        OpponentQueenSide = 1,
+        FriendlyQueenSide = 2,
+
+        KK = FriendlyKingSide | OpponentKingSide,
+        KQ = FriendlyKingSide | OpponentQueenSide,
+        QK = FriendlyQueenSide | OpponentKingSide,
+        QQ = FriendlyQueenSide | OpponentQueenSide
+    }
+
     public static class ChessExtensions
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

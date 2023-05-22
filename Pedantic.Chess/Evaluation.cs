@@ -95,8 +95,10 @@ namespace Pedantic.Chess
             for (Color color = Color.White; color <= Color.Black; color++)
             {
                 int c = (int)color;
-                opScore[c] += (short)(AdjustMaterial(board.OpeningMaterial[c], adjust[c]) + board.OpeningPieceSquare[c]);
-                egScore[c] += (short)(AdjustMaterial(board.EndGameMaterial[c], adjust[c]) + board.EndGamePieceSquare[c]);
+                int o = (int)color.Other();
+                int kp = (int)Index.GetKingPlacement(kingIndex[c], kingIndex[o]);
+                opScore[c] += (short)(AdjustMaterial(board.OpeningMaterial[c], adjust[c]) + board.OpeningPieceSquare[c, kp]);
+                egScore[c] += (short)(AdjustMaterial(board.EndGameMaterial[c], adjust[c]) + board.EndGamePieceSquare[c, kp]);
             }
             int score = (((opScore[0] - opScore[1]) * opWt) >> 7) +
                         (((egScore[0] - egScore[1]) * egWt) >> 7);
@@ -490,15 +492,15 @@ namespace Pedantic.Chess
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static short OpeningPieceSquareTable(Piece piece, int square)
+        public static short OpeningPieceSquareTable(Piece piece, KingPlacement placement, int square)
         {
-            return wt.OpeningPieceSquareTable(piece, square);
+            return wt.OpeningPieceSquareTable(piece, placement, square);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static short EndGamePieceSquareTable(Piece piece, int square)
+        public static short EndGamePieceSquareTable(Piece piece, KingPlacement placement,int square)
         {
-            return wt.EndGamePieceSquareTable(piece, square);
+            return wt.EndGamePieceSquareTable(piece, placement,square);
         }
 
         public static bool IsDoubled(Board bd, ulong piecesOnFile)

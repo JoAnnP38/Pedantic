@@ -32,6 +32,11 @@ namespace Pedantic.UnitTests
             int flipped = Index.Flip(actual);
 
             Assert.AreEqual(Index.A8, flipped);
+
+            actual = Index.C3;
+            flipped = Index.Flip(actual);
+
+            Assert.AreEqual(Index.C6, flipped);
         }
 
         [TestMethod]
@@ -71,6 +76,17 @@ namespace Pedantic.UnitTests
             Assert.IsFalse(Index.IsValid(index1));
             Assert.IsTrue(Index.TryParse("c5", out int index2));
             Assert.AreEqual(Index.C5, index2);
+        }
+
+        [TestMethod]
+        [DataRow(Index.E1, Index.E8, KingPlacement.KK)]
+        [DataRow(Index.G1, Index.C8, KingPlacement.KQ)]
+        [DataRow(Index.C1, Index.G8, KingPlacement.QK)]
+        [DataRow(Index.C1, Index.C8, KingPlacement.QQ)]
+        public void GetKingPlacementTest(int friendlyKing, int opponentKing, KingPlacement expected)
+        {
+            KingPlacement placement = Index.GetKingPlacement(friendlyKing, opponentKing);
+            Assert.AreEqual(expected, placement);
         }
     }
 }
