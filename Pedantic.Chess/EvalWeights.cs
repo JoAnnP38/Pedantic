@@ -46,10 +46,17 @@ namespace Pedantic.Chess
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public short OpeningPieceSquareTable(Piece piece, int square)
+        public short OpeningPieceSquareTable(Piece piece, KingPlacement placement, int square)
         {
-            int offset = (int)piece * 64 + square;
+            int offset = ((((int)piece << 2) + (int)placement) << 6) + square;
             return wt[ChessWeights.PIECE_SQUARE_TABLE + offset];
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public short EndGamePieceSquareTable(Piece piece, KingPlacement placement,int square)
+        {
+            int offset = ((((int)piece << 2) + (int)placement) << 6) + square;
+            return wt[ChessWeights.PIECE_SQUARE_TABLE + ChessWeights.ENDGAME_WEIGHTS + offset];
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -64,13 +71,6 @@ namespace Pedantic.Chess
         {
             const int start = ChessWeights.PIECE_MOBILITY + ChessWeights.ENDGAME_WEIGHTS;
             return wt[start + (int)piece - 1];
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public short EndGamePieceSquareTable(Piece piece, int square)
-        {
-            int offset = (int)piece * 64 + square;
-            return wt[ChessWeights.PIECE_SQUARE_TABLE + ChessWeights.ENDGAME_WEIGHTS + offset];
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

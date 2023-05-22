@@ -23,7 +23,7 @@ namespace Pedantic.UnitTests
 
         [TestMethod]
         [DataRow(Constants.FEN_START_POS, 0)]
-        [DataRow("r6r/pp4kp/3B1p2/3P2p1/B1P1q1n1/2Q3P1/PP6/5RK1 w - - 0 13", -52)]
+        [DataRow("r6r/pp4kp/3B1p2/3P2p1/B1P1q1n1/2Q3P1/PP6/5RK1 w - - 0 13", -69)]
         public void ComputeTest(string fen, int expectedScore)
         {
             Board board = new(fen);
@@ -59,8 +59,8 @@ namespace Pedantic.UnitTests
         }
 
         [TestMethod]
-        [DataRow(Constants.FEN_START_POS, 3995, 3995, 4410, 4410, 3900, 3900)]
-        [DataRow("r2n2k1/3P3p/1R4p1/2B5/4p3/2P1P2P/p4rP1/2KR4 w - - 0 40", 1650, 1540, 2020, 1920, 1800, 1700)]
+        [DataRow(Constants.FEN_START_POS, 4180, 4180, 4445, 4445, 3900, 3900)]
+        [DataRow("r2n2k1/3P3p/1R4p1/2B5/4p3/2P1P2P/p4rP1/2KR4 w - - 0 40", 1740, 1625, 2035, 1935, 1800, 1700)]
         public void CorrectMaterialTest(string fen, int opWhiteMaterial, int opBlackMaterial, int egWhiteMaterial,
             int egBlackMaterial, int whiteMaterial, int blackMaterial)
         {
@@ -74,15 +74,15 @@ namespace Pedantic.UnitTests
         }
 
         [TestMethod]
-        [DataRow(Constants.FEN_START_POS, -216, -216, -170, -170)]
-        [DataRow("r2n2k1/3P3p/1R4p1/2B5/4p3/2P1P2P/p4rP1/2KR4 w - - 0 40", 180, 280, 123, 100)]
+        [DataRow(Constants.FEN_START_POS, -201, -201, -163, -163)]
+        [DataRow("r2n2k1/3P3p/1R4p1/2B5/4p3/2P1P2P/p4rP1/2KR4 w - - 0 40", 241, 380, 109, 139)]
         public void CorrectPcSquareTest(string fen, int opWhite, int opBlack, int egWhite, int egBlack)
         {
             Board board = new(fen);
-            Assert.AreEqual(opWhite, board.OpeningPieceSquare[(int)Color.White]);
-            Assert.AreEqual(opBlack, board.OpeningPieceSquare[(int)Color.Black]);
-            Assert.AreEqual(egWhite, board.EndGamePieceSquare[(int)Color.White]);
-            Assert.AreEqual(egBlack, board.EndGamePieceSquare[(int)Color.Black]);
+            Assert.AreEqual(opWhite, board.OpeningPieceSquare[(int)Color.White, 0]);
+            Assert.AreEqual(opBlack, board.OpeningPieceSquare[(int)Color.Black, 0]);
+            Assert.AreEqual(egWhite, board.EndGamePieceSquare[(int)Color.White, 0]);
+            Assert.AreEqual(egBlack, board.EndGamePieceSquare[(int)Color.Black, 0]);
         }
 
         [TestMethod]
@@ -142,7 +142,7 @@ namespace Pedantic.UnitTests
         }
 
         [TestMethod]
-        [DataRow("1k3r2/1p4p1/p3p1Np/3b1p2/1bq5/2P2P2/PP1Q1PBP/1K1R2R1 w - - 5 27", (short)451)]
+        [DataRow("1k3r2/1p4p1/p3p1Np/3b1p2/1bq5/2P2P2/PP1Q1PBP/1K1R2R1 w - - 5 27", (short)415)]
         public void UnbalancedPosition(string fen, short expected)
         {
             Board bd = new(fen);
