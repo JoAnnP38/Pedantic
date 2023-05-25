@@ -460,7 +460,7 @@ namespace Pedantic.Chess
                 {
                     if (expandedNodes == 1)
                     {
-                        score = -Search(-beta, -alpha, depth + X - 1, ply + 1, checkingMove, true, isPv);
+                            score = -Search(-beta, -alpha, depth + X - 1, ply + 1, checkingMove, true, isPv);
                     }
                     else
                     {

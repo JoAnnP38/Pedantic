@@ -914,6 +914,7 @@ namespace Pedantic.Chess
 
         public IEnumerable<ulong> Moves(int ply, KillerMoves killerMoves, History history, MoveList moveList)
         {
+            int from;
             ulong[] bc = badCaptures[ply];
             int bcIndex = 0;
 
@@ -934,7 +935,7 @@ namespace Pedantic.Chess
                     continue;
                 }
 
-                int from = Move.GetFrom(move);
+                from = Move.GetFrom(move);
                 Piece capture = Move.GetCapture(move);
                 if (bcIndex < 20 && board[from].Piece.Value() > capture.Value() && PreMoveStaticExchangeEval(SideToMove, move) < 0)
                 {
@@ -956,18 +957,25 @@ namespace Pedantic.Chess
                 }
             }
 
-            foreach (ulong move in killerMoves.GetKillers(ply))
+            KillerMoves.KillerMove km = killerMoves.GetKillers(ply);
+            from = Move.GetFrom(km.Killer0);
+            int to = Move.GetTo(km.Killer0);
+            Square square = board[from];
+            moveList.Clear();
+            if (IsValidMove(square, from, to, out ulong validMove) && Move.Compare(validMove, bestMove) != 0)
             {
-                int from = Move.GetFrom(move);
-                int to = Move.GetTo(move);
-                Square square = board[from];
-                moveList.Clear();
-                if (IsValidMove(square, from, to, out ulong validMove) && Move.Compare(validMove, bestMove) != 0)
-                {
-                    yield return validMove;
-                }
+                yield return validMove;
             }
 
+            from = Move.GetFrom(km.Killer1);
+            to = Move.GetTo(km.Killer1);
+            square = board[from];
+            moveList.Clear();
+            if (IsValidMove(square, from, to, out validMove) && Move.Compare(validMove, bestMove) != 0)
+            {
+                yield return validMove;
+            }
+                
             // now return the bad captures deferred from earlier
             for (int n = 0; n < bcIndex; n++)
             {
@@ -1556,6 +1564,24 @@ namespace Pedantic.Chess
             }
         }
 
+
+
+        /// <summary>
+        /// Checks the mask.
+        /// </summary>
+        /// <remarks>
+        /// Generate a mask that includes the positions of all
+        /// checking pieces as well as the squares between a checking slider 
+        /// and the attacked king. This mask will be used to only generate
+        /// check-evasion moves.
+        ///
+        /// This method also returns the check count which indicates how many
+        /// pieces simultaneously attack the king. If more than one, the only
+        /// way to evade the check is to move the king (if legally possible).
+        /// </remarks>
+        /// <param name="square">The square of the king in check</param>
+        /// <param name="checkCount">The check count.</param>
+        /// <returns>ulong.</returns>
         private ulong CheckMask(int square, out int checkCount)
         {
             Color opponent = sideToMove.Other();
@@ -1675,51 +1701,7 @@ namespace Pedantic.Chess
             Color opponent = sideToMove.Other();
             int kingIndex = BitOps.TzCount(Pieces(sideToMove, Piece.King));
             ulong attacksFrom = CheckMask(kingIndex, out int checkCount);
-
             IHistory hist = history ?? fakeHistory;
-            ulong validEnemies = Units(opponent) & attacksFrom;
-            if (checkCount == 1)
-            {
-                ulong pawns = Pieces(sideToMove, Piece.Pawn);
-                GenerateEnPassant(moveList, pawns, attacksFrom);
-                GeneratePawnMoves(moveList, hist, pawns, attacksFrom);
-
-                for (Piece piece = Piece.Knight; piece <= Piece.Queen; ++piece)
-                {
-                    for (ulong bb1 = Pieces(sideToMove, piece); bb1 != 0; bb1 = BitOps.ResetLsb(bb1))
-                    {
-                        int from = BitOps.TzCount(bb1);
-                        ulong bb2 = GetPieceMoves(piece, from);
-
-                        for (ulong bb3 = bb2 & validEnemies; bb3 != 0; bb3 = BitOps.ResetLsb(bb3))
-                        {
-                            int to = BitOps.TzCount(bb3);
-                            Piece capture = board[to].Piece;
-                            ulong move = Move.Pack(from, to, MoveType.Capture, capture);
-
-                            if (piece.Value() > capture.Value() && PreMoveStaticExchangeEval(SideToMove, move) < 0)
-                            {
-                                move = Move.SetScore(move, Constants.BAD_CAPTURE);
-                            }
-                            else
-                            {
-                                move = Move.SetScore(move, (short)CaptureScore(capture, piece));
-                            }
-
-                            moveList.Add(move);
-                        }
-
-                        for (ulong bb3 = BitOps.AndNot(bb2, All); bb3 != 0; bb3 = BitOps.ResetLsb(bb3))
-                        {
-                            int to = BitOps.TzCount(bb3);
-                            if (BitOps.GetBit(attacksFrom, to) != 0)
-                            {
-                                moveList.Add(from, to, score: hist[from, to]);
-                            }
-                        }
-                    }
-                }
-            }
 
             for (ulong bb = kingMoves[kingIndex] & Units(opponent); bb != 0; bb = BitOps.ResetLsb(bb))
             {
@@ -1731,6 +1713,52 @@ namespace Pedantic.Chess
             {
                 int to = BitOps.TzCount(bb);
                 moveList.Add(kingIndex, to, score: hist[kingIndex, to]);
+            }
+
+            if (checkCount > 1)
+            {
+                return;
+            }
+
+            ulong validEnemies = Units(opponent) & attacksFrom;
+            ulong pawns = Pieces(sideToMove, Piece.Pawn);
+            GenerateEnPassant(moveList, pawns, attacksFrom);
+            GeneratePawnMoves(moveList, hist, pawns, attacksFrom);
+
+            for (Piece piece = Piece.Knight; piece <= Piece.Queen; ++piece)
+            {
+                for (ulong bb1 = Pieces(sideToMove, piece); bb1 != 0; bb1 = BitOps.ResetLsb(bb1))
+                {
+                    int from = BitOps.TzCount(bb1);
+                    ulong bb2 = GetPieceMoves(piece, from);
+
+                    for (ulong bb3 = bb2 & validEnemies; bb3 != 0; bb3 = BitOps.ResetLsb(bb3))
+                    {
+                        int to = BitOps.TzCount(bb3);
+                        Piece capture = board[to].Piece;
+                        ulong move = Move.Pack(from, to, MoveType.Capture, capture);
+
+                        if (piece.Value() > capture.Value() && PreMoveStaticExchangeEval(SideToMove, move) < 0)
+                        {
+                            move = Move.SetScore(move, Constants.BAD_CAPTURE);
+                        }
+                        else
+                        {
+                            move = Move.SetScore(move, (short)CaptureScore(capture, piece));
+                        }
+
+                        moveList.Add(move);
+                    }
+
+                    for (ulong bb3 = BitOps.AndNot(bb2, All); bb3 != 0; bb3 = BitOps.ResetLsb(bb3))
+                    {
+                        int to = BitOps.TzCount(bb3);
+                        if (BitOps.GetBit(attacksFrom, to) != 0)
+                        {
+                            moveList.Add(from, to, score: hist[from, to]);
+                        }
+                    }
+                }
             }
         }
 

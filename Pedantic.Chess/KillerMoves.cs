@@ -15,46 +15,63 @@
 //     in the next search branch over.
 // </summary>
 // ***********************************************************************
+
+using System.Runtime.CompilerServices;
 using Pedantic.Utilities;
 
 namespace Pedantic.Chess
 {
     public sealed class KillerMoves
     {
-        public KillerMoves(int killersPerPly = 4)
+        public struct KillerMove
         {
-            killers = Mem.Allocate2D<ulong>(Constants.MAX_PLY, killersPerPly);
+            public ulong Killer0;
+            public ulong Killer1;
+        }
+
+        public KillerMoves()
+        {
+            killers = new KillerMove[Constants.MAX_PLY];
         }
 
         public void Add(ulong move, int ply)
         {
-            int foundAt = 0;
-            for (; foundAt < killers[ply].Length - 1; ++foundAt)
+            ref KillerMove km = ref killers[ply];
+
+            if (MovesEqual(move, km.Killer0))
             {
-                if (Move.Compare(killers[ply][foundAt], move) == 0)
-                {
-                    break; // move already in killers
-                }
+                return;
             }
 
-            for (int n = foundAt; n > 0; --n)
+            if (MovesEqual(move, km.Killer1))
             {
-                killers[ply][n] = killers[ply][n - 1];
+                (km.Killer0, km.Killer1) = (km.Killer1, km.Killer0);
+                return;
             }
 
-            killers[ply][0] = Move.SetScore(move, Constants.KILLER_SCORE);
+            km.Killer1 = km.Killer0;
+            km.Killer0 = Move.SetScore(move, Constants.KILLER_SCORE);
         }
 
-        public ulong[] GetKillers(int ply)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ref KillerMove GetKillers(int ply)
         {
-            return killers[ply];
+            return ref killers[ply];
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool Exists(int ply, ulong move)
         {
-            return Array.Exists(killers[ply], (item) => (item & 0x0fff) == (move & 0x0fff));
+            ref KillerMove km = ref killers[ply];
+            return MovesEqual(km.Killer0, move) || MovesEqual(km.Killer1, move);
         }
 
-        private readonly ulong[][] killers;
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool MovesEqual(ulong move1, ulong move2)
+        {
+            return (move1 & 0x0fff) == (move2 & 0x0fff);
+        }
+
+        private readonly KillerMove[] killers;
     }
 }

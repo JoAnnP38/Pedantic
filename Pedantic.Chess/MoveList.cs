@@ -55,25 +55,31 @@ namespace Pedantic.Chess
         public void UpdateScores(ulong pv, KillerMoves killerMoves, int ply)
         {
             int found = 0;
-            ulong[] killers = killerMoves.GetKillers(ply);
-            for (int n = 0; n < insertIndex && found < killers.Length + 1; ++n)
+            ref KillerMoves.KillerMove km = ref killerMoves.GetKillers(ply);
+
+            for (int n = 0; n < insertIndex && found < 3; ++n)
             {
-                ulong fromto = array[n] & 0x0fff;
-                bool isCapture = Move.GetCapture(array[n]) != Piece.None;
+                ulong move = array[n];
+                ulong fromto = move & 0x0fff;
+                bool isCapture = Move.GetCapture(move) != Piece.None;
 
                 if (fromto == (pv & 0x0fff))
                 {
-                    array[n] = BitOps.BitFieldSet(array[n], Constants.PV_SCORE, 24, 16);
+                    array[n] = BitOps.BitFieldSet(move, Constants.PV_SCORE, 24, 16);
                     found++;
                 }
                 else if (!isCapture)
                 {
-                    for (int m = 0; m < killers.Length; ++m)
+                    if (KillerMoves.MovesEqual(move, km.Killer0))
                     {
-                        if (fromto == (killers[m] & 0x0fff))
-                        {
-                            array[n] = BitOps.BitFieldSet(array[n], Constants.KILLER_SCORE - found++, 24, 16);
-                        }
+                        array[n] = BitOps.BitFieldSet(move, Constants.KILLER_SCORE - 0, 24, 16);
+                        found++;
+                    }
+
+                    if (KillerMoves.MovesEqual(move, km.Killer1))
+                    {
+                        array[n] = BitOps.BitFieldSet(move, Constants.KILLER_SCORE - 1, 24, 16);
+                        found++;
                     }
                 }
             }
