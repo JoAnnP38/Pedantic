@@ -216,28 +216,22 @@ namespace Pedantic.Chess
                 }
 
                 int score;
-                for (;;)
+                if (!raisedAlpha)
                 {
-                    if (!raisedAlpha)
+                    score = -Search(-beta, -alpha, depth + X - 1, 1, checkingMove);
+                }
+                else
+                {
+                    score = -Search(-alpha - 1, -alpha, Math.Max(depth + X - R - 1, 0), 1, checkingMove, isPv: false);
+
+                    if (score > alpha && R > 0)
                     {
-                        score = -Search(-beta, -alpha, depth + X - 1, 1, checkingMove);
-                    }
-                    else
-                    {
-                        score = -Search(-alpha - 1, -alpha, Math.Max(depth + X - R - 1, 0), 1, checkingMove, isPv: false);
-                        if (score > alpha)
-                        {
-                            score = -Search(-beta, -alpha, Math.Max(depth + X - R - 1, 0), 1, checkingMove, true, R == 0);
-                        }
+                        score = -Search(-alpha - 1, -alpha, depth + X - 1, 1, checkingMove, isPv: false);
                     }
 
-                    if (R > 0 && score > alpha)
+                    if (score > alpha)
                     {
-                        R = 0;
-                    }
-                    else
-                    {
-                        break;
+                        score = -Search(-beta, -alpha, depth + X - 1, 1, checkingMove);
                     }
                 }
 
@@ -410,10 +404,9 @@ namespace Pedantic.Chess
 #if DEBUG
             if (ply == 0)
             {
-                foreach (ulong move in killerMoves.GetKillers(ply))
-                {
-                    Util.TraceInfo($"KILLERS: Depth {depth}, Ply {ply}, Move {Move.ToLongString(move)}");
-                }
+                KillerMoves.KillerMove km = killerMoves.GetKillers(ply);
+                Util.TraceInfo($"KILLERS: Depth {depth}, Ply {ply}, Move {Move.ToLongString(km.Killer0)}");
+                Util.TraceInfo($"KILLERS: Depth {depth}, Ply {ply}, Move {Move.ToLongString(km.Killer1)}");
             }
             string fen = board.ToFenString();
 #endif
@@ -456,28 +449,22 @@ namespace Pedantic.Chess
                     R--;
                 }
 
-                for (;;)
+                if (expandedNodes == 1)
                 {
-                    if (expandedNodes == 1)
+                    score = -Search(-beta, -alpha, depth + X - 1, ply + 1, checkingMove, true, isPv);
+                }
+                else
+                {
+                    score = -Search(-alpha - 1, -alpha, Math.Max(depth + X - R - 1, 0), ply + 1, checkingMove, isPv: false);
+
+                    if (score > alpha && R > 0)
                     {
-                            score = -Search(-beta, -alpha, depth + X - 1, ply + 1, checkingMove, true, isPv);
-                    }
-                    else
-                    {
-                        score = -Search(-alpha - 1, -alpha, Math.Max(depth + X - R - 1, 0), ply + 1, checkingMove, true, false);
-                        if (score > alpha)
-                        {
-                            score = -Search(-beta, -alpha, Math.Max(depth + X - R - 1, 0), ply + 1, checkingMove, true, R == 0);
-                        }
+                        score = -Search(-alpha - 1, -alpha, depth + X - 1, ply + 1, checkingMove, isPv: false);
                     }
 
-                    if (R > 0 && score > alpha)
+                    if (score > alpha)
                     {
-                        R = 0;
-                    }
-                    else
-                    {
-                        break;
+                        score = -Search(-beta, -alpha, depth + X - 1, ply + 1, checkingMove);
                     }
                 }
 

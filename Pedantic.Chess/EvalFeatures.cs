@@ -66,11 +66,12 @@ namespace Pedantic.Chess
          * [1563]           # rooks behind passed pawn
          * [1564]           # doubled rooks on file
          * [1565]           0-1 king on open file
-         * [1566]           # of potential castle moves available
-         * [1567]           0-1 side has already castled
-         * [1568 - 1569]    # center control (d0 - d1)
+         * [1566]           0-1 king on half-open file
+         * [1567]           # of potential castle moves available
+         * [1568]           0-1 side has already castled
+         * [1569 - 1570]    # center control (d0 - d1)
          */
-        public const int FEATURE_SIZE = 1570;
+        public const int FEATURE_SIZE = 1571;
         public const int GAME_PHASE_BOUNDARY = 0;
         public const int MATERIAL = 1;
         public const int PIECE_SQUARE_TABLES = 7;
@@ -90,9 +91,10 @@ namespace Pedantic.Chess
         public const int ROOK_BEHIND_PASSED_PAWN = 1563;
         public const int DOUBLED_ROOKS_ON_FILE = 1564;
         public const int KING_ON_OPEN_FILE = 1565;
-        public const int CASTLING_AVAILABLE = 1566;
-        public const int CASTLING_COMPLETE = 1567;
-        public const int CENTER_CONTROL = 1568;
+        public const int KING_ON_HALF_OPEN_FILE = 1566;
+        public const int CASTLING_AVAILABLE = 1567;
+        public const int CASTLING_COMPLETE = 1568;
+        public const int CENTER_CONTROL = 1569;
 
         private readonly SparseArray<short>[] sparse = { new(), new() };
 		private readonly short[][] features = { Array.Empty<short>(), Array.Empty<short>() };
@@ -269,7 +271,7 @@ namespace Pedantic.Chess
                         }
                     }
 
-                    if ((mask & pawns) == 0 && BitOps.PopCount(mask & otherPawns) == 1)
+                    if ((mask & pawns) == 0 && (mask & otherPawns) != 0)
                     {
                         IncrementRookOnHalfOpenFile(v);
 
@@ -281,9 +283,15 @@ namespace Pedantic.Chess
                 }
 
                 int kingFile = Index.GetFile(ki);
-                if ((Board.MaskFile(kingFile) & allPawns) == 0)
+                ulong kingFileMask = Board.MaskFile(kingFile);
+                if ((kingFileMask & allPawns) == 0)
                 {
                     SetKingOnOpenFile(v);
+                }
+
+                if ((kingFileMask & pawns) == 0 && (kingFileMask & otherPawns) != 0)
+                {
+                    SetKingOnHalfOpenFile(v);
                 }
 
                 if (bd.HasCastled[c])
@@ -634,6 +642,12 @@ namespace Pedantic.Chess
         private static void SetKingOnOpenFile(IDictionary<int, short> v)
         {
             v[KING_ON_OPEN_FILE] = 1;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void SetKingOnHalfOpenFile(IDictionary<int, short> v)
+        {
+            v[KING_ON_HALF_OPEN_FILE] = 1;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

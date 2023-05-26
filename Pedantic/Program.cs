@@ -17,7 +17,6 @@ using Pedantic.Chess;
 using Pedantic.Genetics;
 using Pedantic.Utilities;
 using System.CommandLine;
-using System.CommandLine.IO;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -36,6 +35,7 @@ namespace Pedantic
         public const double CONVERGENCE_TOLERANCE = 0.00000005;
         public const int MAX_CONVERGENCE_FAILURE = 5;
         public const int MINI_BATCH_COUNT = 16;
+        public const int MINI_BATCH_SIZE = 1000000;
 
         private enum PerftRunType
         {
@@ -699,7 +699,7 @@ namespace Pedantic
             }
         }
 
-        private static ChessWeights LocalOptimize(ChessWeights guess, short[] weights, List<PosRecord[]> slices, double k, int maxPass, bool preserve = false)
+        private static ChessWeights LocalOptimize(ChessWeights guess, short[] weights, List<Memory<PosRecord>> slices, double k, int maxPass, bool preserve = false)
         {
             DateTime startTime = DateTime.Now;
             bool improved = true;
@@ -849,54 +849,63 @@ namespace Pedantic
             int[] selections = GetSampleSelections(sampleSize, sr);
             PosRecord[] posRecords = new PosRecord[sampleSize];
             int posInsert = 0;
-            Console.ReadLine();
-
-            watch.Start();
-            long currMs = watch.ElapsedMilliseconds;
             int currLine = 0;
-            foreach (int selLine in selections)
+
+            try
             {
-                while (currLine++ < selLine)
+                Console.ReadLine(); // skip over csv header
+                watch.Start();
+                long currMs = watch.ElapsedMilliseconds;
+                foreach (int selLine in selections)
                 {
-                    if (Console.ReadLine() == null)
+                    while (currLine++ < selLine)
+                    {
+                        if (Console.ReadLine() == null)
+                        {
+                            break;
+                        }
+                    }
+
+                    //Console.Write($"Loading line: {currLine}\r");
+                    string? str = Console.ReadLine();
+                    if (str == null)
+                    {
+                        break;
+                    }
+
+                    string[] fields = str.Split(',');
+                    string fen = fields[3];
+                    byte hasCastled = byte.Parse(fields[4]);
+                    float result = float.Parse(fields[5]);
+                    posRecords[posInsert++] = new PosRecord(fen, hasCastled, result);
+
+                    if (watch.ElapsedMilliseconds - currMs > 1000)
+                    {
+                        currMs = watch.ElapsedMilliseconds;
+                        Console.Write($"Loading {posInsert} of {sampleSize} ({posInsert * 100 / sampleSize}%)...\r");
+                    }
+
+                    if (posInsert >= sampleSize)
                     {
                         break;
                     }
                 }
 
-                //Console.Write($"Loading line: {currLine}\r");
-                string? str = Console.ReadLine();
-                if (str == null)
+                Console.WriteLine($"Loading {posInsert} of {sampleSize} ({posInsert * 100 / sampleSize}%)     ");
+                sr.BaseStream.Seek(0L, SeekOrigin.Begin);
+                if (posInsert < sampleSize)
                 {
-                    break;
+                    Array.Resize(ref posRecords, posInsert);
                 }
 
-                string[] fields = str.Split(',');
-                string fen = fields[3];
-                byte hasCastled = byte.Parse(fields[4]);
-                float result = float.Parse(fields[5]);
-                posRecords[posInsert++] = new PosRecord(fen, hasCastled, result);
-
-                if (watch.ElapsedMilliseconds - currMs > 1000)
-                {
-                    currMs = watch.ElapsedMilliseconds;
-                    Console.Write($"Loading {posInsert} of {sampleSize} ({posInsert * 100 / sampleSize}%)...\r");
-                }
-
-                if (posInsert >= sampleSize)
-                {
-                    break;
-                }
+                Console.WriteLine("Shuffling samples...");
+                Random.Shared.Shuffle(posRecords);
+                return posRecords;
             }
-            Console.WriteLine($"Loading {posInsert} of {sampleSize} ({posInsert * 100 / sampleSize}%)     ");
-            sr.BaseStream.Seek(0L, SeekOrigin.Begin);
-            if (posInsert < sampleSize)
+            catch (Exception ex)
             {
-                Array.Resize(ref posRecords, posInsert);
+                throw new Exception($"Unexpected exception occurred at line {currLine}: {ex.Message}", ex);
             }
-            Console.WriteLine("Shuffling samples...");
-            Random.Shared.Shuffle(posRecords);
-            return posRecords;
         }
 
         private static int[] GetSampleSelections(int sampleSize, StreamReader sr)
@@ -930,14 +939,14 @@ namespace Pedantic
         {
             get
             {
-                int processorCount = Math.Max(Environment.ProcessorCount - 6, 1);
+                int processorCount = Math.Max(Environment.ProcessorCount - 2, 1);
                 return processorCount;
             }
         }
 
-        public static List<PosRecord[]> CreateSlices(PosRecord[] records)
+        public static List<Memory<PosRecord>> CreateSlices(PosRecord[] records)
         {
-            List<PosRecord[]> slices = new();
+            List<Memory<PosRecord>> slices = new();
             int sliceCount = UsableProcessorCount;
             int sliceLength = records.Length / sliceCount;
 
@@ -945,8 +954,10 @@ namespace Pedantic
             for (int s = 0; s < sliceCount; s++)
             {
                 int start = s * sliceLength;
-                int end = start + sliceLength;
-                PosRecord[] slice = s == sliceCount - 1 ? records[start..] : records[start..end];
+                Memory<PosRecord> slice = s == sliceCount - 1 ? 
+                    new Memory<PosRecord>(records, start, records.Length - start) : 
+                    new Memory<PosRecord>(records, start, sliceLength);
+
                 slices.Add(slice);
             }
 
@@ -967,29 +978,29 @@ namespace Pedantic
             return result * result;
         }
 
-        private static double EvalErrorSlice(short[] weights, ReadOnlySpan<PosRecord> slice, double k, double divisor)
+        private static double EvalErrorSlice(short[] weights, ReadOnlyMemory<PosRecord> slice, double k, double divisor)
         {
             const int vecSize = EvalFeatures.FEATURE_SIZE;
             var opWeights = new ReadOnlySpan<short>(weights, 0, vecSize);
             var egWeights = new ReadOnlySpan<short>(weights, vecSize, vecSize);
 
             double result = 0.0;
-            foreach (PosRecord rec in slice)
+            for (int n = 0; n < slice.Length; n++)
             {
-                result += ErrorSquared(opWeights, egWeights, rec, k);
+                result += ErrorSquared(opWeights, egWeights, slice.Span[n], k);
             }
 
             return divisor * result;
         }
 
-        public static double EvalErrorParallel(short[] weights, List<PosRecord[]> slices, double k)
+        public static double EvalErrorParallel(short[] weights, List<Memory<PosRecord>> slices, double k)
         {
             int totalLength = slices.Sum(s => s.Length);
             double divisor = 1.0 / totalLength;
             Task<double>[] sliceTasks = new Task<double>[slices.Count];
             for (int n = 0; n < slices.Count; n++)
             {
-                PosRecord[] slice = slices[n];
+                Memory<PosRecord> slice = slices[n];
                 sliceTasks[n] = Task<double>.Factory.StartNew(() => EvalErrorSlice(weights, slice, k, divisor));
             }
 
@@ -1000,10 +1011,10 @@ namespace Pedantic
             return result;
         }
 
-        public static double MiniEvalErrorParallel(short[] weights, List<PosRecord[]> slices, double k, int batch)
+        public static double MiniEvalErrorParallel(short[] weights, List<Memory<PosRecord>> slices, double k, int batch)
         {
             int totalLength = slices.Sum(s => s.Length);
-            int miniBatchSize = totalLength / MINI_BATCH_COUNT;
+            int miniBatchSize = MINI_BATCH_SIZE; // totalLength / MINI_BATCH_COUNT;
             if (UsableProcessorCount == 1)
             {
                 return EvalErrorParallel(weights, slices, k);
@@ -1013,12 +1024,13 @@ namespace Pedantic
             int batchLen = miniBatchSize / UsableProcessorCount;
             int totalBatches = sliceLen / batchLen;
             int start = (batch % totalBatches) * batchLen;
+            int end = start + batchLen;
             double divisor = 1.0 / (batchLen * UsableProcessorCount);
             Task<double>[] tasks = new Task<double>[slices.Count];
             for (int n = 0; n < slices.Count; n++)
             {
-                PosRecord[] slice = slices[n];
-                tasks[n] = Task<double>.Factory.StartNew(() => EvalErrorSlice(weights, slice.AsSpan(start, batchLen), k, divisor));
+                Memory<PosRecord> slice = slices[n];
+                tasks[n] = Task<double>.Factory.StartNew(() => EvalErrorSlice(weights, slice[start..end], k, divisor));
             }
 
             Task.WaitAll(tasks);
@@ -1027,7 +1039,7 @@ namespace Pedantic
             return result;
         }
 
-        private static double SolveKParallel(short[] weights, List<PosRecord[]> slices, double a = 0.0, double b = 2.0)
+        private static double SolveKParallel(short[] weights, List<Memory<PosRecord>> slices, double a = 0.0, double b = 2.0)
         {
             const double gr = 1.61803399; // golden ratio?
             double k1 = b - (b - a) / gr;
@@ -1180,6 +1192,9 @@ namespace Pedantic
             WriteLine();
             WriteLine($"/* {section} king on open file */");
             WriteLine($"{wts[ChessWeights.KING_ON_OPEN_FILE]},");
+            WriteLine();
+            WriteLine($"/* {section} king on half-open file */");
+            WriteLine($"{wts[ChessWeights.KING_ON_HALF_OPEN_FILE]},");
             WriteLine();
             WriteLine($"/* {section} castling rights available */");
             WriteLine($"{wts[ChessWeights.CASTLING_AVAILABLE]},");

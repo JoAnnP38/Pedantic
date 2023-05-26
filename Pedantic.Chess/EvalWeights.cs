@@ -127,6 +127,8 @@ namespace Pedantic.Chess
         public short EndGameDoubledRooks => wt[ChessWeights.DOUBLED_ROOKS_ON_FILE + ChessWeights.ENDGAME_WEIGHTS];
         public short OpeningKingOnOpenFile => wt[ChessWeights.KING_ON_OPEN_FILE];
         public short EndGameKingOnOpenFile => wt[ChessWeights.KING_ON_OPEN_FILE + ChessWeights.ENDGAME_WEIGHTS];
+        public short OpeningKingOnHalfOpenFile => wt[ChessWeights.KING_ON_HALF_OPEN_FILE];
+        public short EndGameKingOnHalfOpenFile => wt[ChessWeights.KING_ON_HALF_OPEN_FILE + ChessWeights.ENDGAME_WEIGHTS];
         public short OpeningCastlingAvailable => wt[ChessWeights.CASTLING_AVAILABLE];
         public short EndGameCastlingAvailable => wt[ChessWeights.CASTLING_AVAILABLE + ChessWeights.ENDGAME_WEIGHTS];
         public short OpeningCastlingComplete => wt[ChessWeights.CASTLING_COMPLETE];
