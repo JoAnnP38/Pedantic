@@ -21,7 +21,7 @@ namespace Pedantic.Chess
 {
     public static class Engine
     {
-        private static readonly TimeControl time = new();
+        private static readonly GameClock time = new();
         private static int searchThreads = 1;
         private static Thread? searchThread;
         private static PolyglotEntry[]? bookEntries;
@@ -121,11 +121,11 @@ namespace Pedantic.Chess
             StartSearch(maxDepth, maxNodes);
         }
 
-        public static void Go(int maxTime, int increment, int movesToGo, int maxDepth, long maxNodes, bool ponder = false)
+        public static void Go(int maxTime, int opponentTime, int increment, int movesToGo, int maxDepth, long maxNodes, bool ponder = false)
         {
             Stop();
             IsPondering = ponder;
-            time.Go(maxTime, increment, movesToGo, ponder || Infinite);
+            time.Go(maxTime, opponentTime, increment, movesToGo, MovesOutOfBook, ponder || Infinite);
             StartSearch(maxDepth, maxNodes);
         }
 
@@ -138,6 +138,7 @@ namespace Pedantic.Chess
 
         public static void SetupNewGame()
         {
+            Stop();
             ClearHashTable();
             MovesOutOfBook = 0;
         }

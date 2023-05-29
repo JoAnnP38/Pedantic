@@ -401,18 +401,21 @@ namespace Pedantic
             TryParse(tokens, "depth", out int maxDepth, Constants.MAX_PLY);
             TryParse(tokens, "movetime", out int maxTime, int.MaxValue);
             TryParse(tokens, "nodes", out long maxNodes, long.MaxValue);
-            TryParse(tokens, "movestogo", out int movesToGo, 40);
+            TryParse(tokens, "movestogo", out int movesToGo, -1);
             bool ponder = Array.Exists(tokens, item => item.Equals("ponder"));
 
-            if (Engine.SideToMove == Color.White && TryParse(tokens, "wtime", out int whiteTime))
+            int whiteTime, blackTime;
+            if (Engine.SideToMove == Color.White && TryParse(tokens, "wtime", out whiteTime))
             {
                 TryParse(tokens, "winc", out int whiteIncrement);
-                Engine.Go(whiteTime, whiteIncrement, movesToGo, maxDepth, maxNodes, ponder);
+                TryParse(tokens, "btime", out blackTime, whiteTime);
+                Engine.Go(whiteTime, blackTime, whiteIncrement, movesToGo, maxDepth, maxNodes, ponder);
             }
-            else if (Engine.SideToMove == Color.Black && TryParse(tokens, "btime", out int blackTime))
+            else if (Engine.SideToMove == Color.Black && TryParse(tokens, "btime", out blackTime))
             {
                 TryParse(tokens, "binc", out int blackIncrement);
-                Engine.Go(blackTime, blackIncrement, movesToGo, maxDepth, maxNodes, ponder);
+                TryParse(tokens, "wtime", out whiteTime, blackTime);
+                Engine.Go(blackTime, whiteTime, blackIncrement, movesToGo, maxDepth, maxNodes, ponder);
             }
             else
             {

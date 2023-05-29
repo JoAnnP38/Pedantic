@@ -82,7 +82,7 @@ namespace Pedantic
 
         public IEnumerable<Position> Positions(TextReader reader)
         {
-            TimeControl tc = new()
+            GameClock tc = new()
             {
                 Infinite = true
             };
