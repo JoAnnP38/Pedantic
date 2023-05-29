@@ -15,6 +15,7 @@
 // </summary>
 // ***********************************************************************
 
+using System.Runtime.InteropServices;
 using Pedantic.Genetics;
 using Pedantic.Utilities;
 
@@ -24,7 +25,7 @@ namespace Pedantic.Chess
     {
         public const int CHECK_TC_NODES_MASK = 127;
         internal const int WAIT_TIME = 50;
-        public BasicSearch(Board board, TimeControl time, int maxSearchDepth, long maxNodes = long.MaxValue - 100, bool randomSearch = false) 
+        public BasicSearch(Board board, GameClock time, int maxSearchDepth, long maxNodes = long.MaxValue - 100, bool randomSearch = false) 
         {
             this.board = board;
             this.time = time;
@@ -48,14 +49,13 @@ namespace Pedantic.Chess
                 Depth = 0;
                 long startNodes = 0;
                 ulong? ponderMove = null;
-                bool oneLegalMove = board.OneLegalMove(out ulong bestMove);
+                oneLegalMove = board.OneLegalMove(out ulong bestMove);
                 Eval.CalcMaterialAdjustment(board);
                 bool inCheck = board.IsChecked();
                 Score = Quiesce(-Constants.INFINITE_WINDOW, Constants.INFINITE_WINDOW, 0, inCheck);
                 location = "1";
                 while (++Depth <= maxSearchDepth && time.CanSearchDeeper() && (!IsCheckmate(Score, out int mateIn) ||
-                                                                               (Math.Abs(mateIn) << 1) +
-                                                                               (Math.Abs(mateIn) >> 1) + 2 >= Depth))
+                                                                               (Math.Abs(mateIn) << 2) >= Depth))
                 {
                     time.StartInterval();
                     history.Rescale();
@@ -616,12 +616,19 @@ namespace Pedantic.Chess
 
         private void ReportSearchResults(ref ulong bestMove, ref ulong? ponderMove)
         {
+            bool bestMoveChanged = false;
+            ulong oldBestMove = bestMove;
             PV = GetPv();
             PV = ExtractPv();
 
             if (PV.Length > 0)
             {
                 bestMove = PV[0];
+                if (Move.Compare(bestMove, oldBestMove) != 0)
+                {
+                    bestMoveChanged = true;
+                }
+
                 if (PV.Length > 1)
                 {
                     ponderMove = PV[1];
@@ -646,6 +653,11 @@ namespace Pedantic.Chess
 
                     board.UnmakeMove();
                 }
+            }
+
+            if (Depth > 4)
+            {
+                time.AdjustTime(oneLegalMove, bestMoveChanged, ++rootChanges);
             }
 
             if (IsCheckmate(Score, out int mateIn))
@@ -854,13 +866,15 @@ namespace Pedantic.Chess
 
 
         private readonly Board board;
-        private readonly TimeControl time;
+        private readonly GameClock time;
         private Evaluation evaluation;
         private readonly int maxSearchDepth;
         private readonly long maxNodes;
         private readonly History history = new();
         private readonly KillerMoves killerMoves = new();
         private bool wasAborted = false;
+        private bool oneLegalMove = false;
+        private int rootChanges = 0;
         private readonly ObjectPool<MoveList> moveListPool = new(Constants.MAX_PLY);
         private readonly List<ChessStats> stats = new();
         private readonly CpuStats cpuStats = new();

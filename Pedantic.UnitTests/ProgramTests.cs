@@ -29,8 +29,6 @@ namespace Pedantic.UnitTests
         [TestMethod]
         public void GoBookMoveTest()
         {
-            TimeControl time = new();
-            time.Reset();
             Engine.UseOwnBook = true;
             Program.ParseCommand(@"position startpos moves e2e4");
             Console.WriteLine(Engine.Board.ToString());
@@ -416,6 +414,24 @@ namespace Pedantic.UnitTests
             Program.ParseCommand("position startpos moves b1c3 c7c5 e2e4 b8c6 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 f1c4 d8b6 d4b3 b6d8 e1g1 g7g6 c3d5 f8g7 d5f6 g7f6 c2c3 h7h5 c1e3 c6e5 c4e2 d8c7 e3d4 c8e6 f2f4 e5d7 d4f2 e6c4 e2c4 c7c4 d1d5 c4d5 e4d5 h5h4 f1d1 d7b6 f2b6 a7b6 b3d4 a8a4 b2b4 h8h5 d4e2 a4a3 d1d3 e8d7 g2g3 h4g3 h2g3 g6g5 g1f2 g5f4 g3f4 f6h8 f2g3 f7f5 g3g2 h5h4 d3e3 b6b5 g2g1 h8f6 e3d3 h4h8 g1f2 h8h2 f2e3 b7b6 a1f1 a3a2 f1f2 h2h1 f2f3 h1e1 d3d2 a2a3 e3f2 e1h1 f2g2 h1h8 f3e3 h8c8 g2f2 f6h4 f2g2 c8g8 g2h2 h4f6 d2c2 g8c8 e3g3 a3a1 c2d2 c8h8 h2g2 h8a8 g3h3 a1b1 h3h5 a8a3 h5h3 b1b3 d2c2 a3a1 h3h5 a1a7 h5h1 a7c7 h1c1 c7c8 g2f2 c8c4 f2g2 b3a3 g2f2 e7e6 d5e6 d7e6 f2e1 d6d5 e1d2 c4e4 c1e1 e6f7 e1h1 d5d4 c3d4 f6d4 c2c7 f7g6 c7c6 d4f6 h1c1 a3a2 c1c2 a2c2 c6c2 e4c4 c2c1 f6b2 c1c2 c4b4 c2c6 g6f7 c6b6 b2d4 e2d4 b4d4 d2e3 d4d5 e3f3 f7e7 f3e3 e7d7 b6g6 d7c7 g6a6 d5d6 a6a1 c7b6 a1b1 d6e6 e3f3 e6c6 f3e3 c6c4 b1d1 b5b4 d1d8 b6b5 e3d3 c4f4 d3c2 f4c4 c2b2 f5f4 d8d3 b5c5 d3f3 c5d5 f3f1 c4d4 b2b3 d5e5 b3a4 e5f5 a4b5 d4e4 b5c5 f5e5 f1f3 e4e3 f3f2 b4b3 f2h2 f4f3 c5c4 e3e2 h2h5 e5e4 h5h4 e4e3 c4b3 f3f2 h4h3 e3d4 h3h4 e2e4 h4h1 e4e1 h1h4 d4e5 h4h5 e5e4 h5h4 e4d5 h4f4 f2f1q f4f1 e1f1 b3c3 d5c5 c3d3 f1f6 d3e4 c5d6 e4d4 f6f3 d4e4 f3a3 e4d4 d6d7 d4e5 a3a4 e5d5 d7c8 d5c5 a4f4 c5d5 f4g4 d5c6 g4e4 c6d5 e4e2 d5d4 c8b7 d4d5 b7a6 d5d4 a6b5 d4d5 e2e3 d5d4 e3e8 d4d5 e8f8 d5d6 f8f5 d6e6 f5f4 e6e5 f4a4 e5d5 b5b6 d5e6 a4f4 e6e5 f4h4 e5d5");
             Console.WriteLine(Engine.Board.ToFenString());
             Program.ParseCommand("go wtime 14864 btime 135206 winc 6000 binc 6000");
+            Engine.Wait();
+        }
+
+        [TestMethod]
+        public void MateDetectedWhenDoesNotExistTest()
+        {
+            //Engine.Infinite = true;
+            Program.ParseCommand("position startpos moves e2e4 e7e6 d2d4 d7d5 b1c3 d5e4 c3e4 b8d7 g1f3 g8f6 c1g5 h7h6 e4f6 d7f6 g5h4 c7c5 d4c5 d8a5 c2c3 a5c5 d1b3 f8d6 f1b5 c8d7 b5d7 f6d7 e1g1 d7b6 h4g3 d6g3 h2g3 e8g8 a1c1 f8d8 f1d1 a8c8 d1d8 c8d8 c1d1 d8d6 d1d6 c5d6 f3d4 g7g6 b3b5 a7a6 b5b3 h6h5 d4f3 d6c5 c3c4 a6a5 b3b5 c5b5 c4b5 g8f8 f3e5 g6g5 e5d3 b6d7 f2f4 f7f6 g1f2 f8e7 f4g5 f6g5 f2e3 e7d6 d3f2 d6d5 f2e4 d7b6 b2b3 g5g4 e3f4 d5d4 e4d6 e6e5 f4g5 e5e4 d6f5 d4d3 g5h5 b6d5 h5g5 e4e3 f5e3 d5e3 g5f4 d3e2 f4g5 e2f2 g5f4 f2g2 a2a3 g2h3 f4e3 h3g3 e3d4 g3f2 d4c5 g4g3 c5b6 g3g2 b6b7 g2g1q b5b6 g1g3 b7a8 a5a4 b3a4 g3a3 b6b7 a3a4 a8b8 f2e2 b8c7 a4a5 c7c8 a5c5 c8d8 c5b6 d8c8 b6c6 c8b8 e2d2 b8a7 c6c7 a7a8 c7a5 a8b8 d2e3 b8c8 a5c5 c8d7 c5d5 d7c7 d5f7 c7c8 f7g8 c8c7 g8g2 b7b8q g2c2 c7d7 c2d3 b8d6 d3b5 d7c7 b5c4 c7d8 c4g8 d8d7 g8g4 d7c6 g4e4 c6c5 e4f5 c5b6 f5b1 b6c7 b1c2 c7d7 c2a4 d7e7 a4h4 e7e6 h4g4 e6f7");
+            Console.WriteLine(Engine.Board.ToFenString());
+            Program.ParseCommand("go wtime 13180 btime 5141 winc 1000 binc 1000");
+            Engine.Wait();
+        }
+
+        [TestMethod]
+        public void PawnOnSeventhIgnoredTest()
+        {
+            Program.ParseCommand("position fen 8/1P1K4/8/3q4/8/4k3/8/8 w - - 22 69");
+            Program.ParseCommand("go wtime 13180 btime 5141 winc 1000 binc 1000");
             Engine.Wait();
         }
     }
