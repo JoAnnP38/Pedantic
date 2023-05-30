@@ -88,5 +88,32 @@ namespace Pedantic.UnitTests
             KingPlacement placement = Index.GetKingPlacement(friendlyKing, opponentKing);
             Assert.AreEqual(expected, placement);
         }
+
+        [TestMethod]
+        [DataRow(Index.C1, 4)]
+        [DataRow(Index.H4, 3)]
+        public void CenterManhattanDistanceTest(int index, int expected)
+        {
+            int actual = Index.CenterManhattanDistance(index);
+            Assert.AreEqual(expected, actual);
+        }
+
+        [TestMethod]
+        [DataRow(Index.B3, Index.H7, 10)]
+        [DataRow(Index.G2, Index.C5, 7)]
+        public void ManhattanDistanceTest(int index1, int index2, int expected)
+        {
+            int actual = Index.ManhattanDistance(index1, index2);
+            Assert.AreEqual(expected, actual);
+        }
+
+        [TestMethod]
+        [DataRow(Index.B3, 2)]
+        [DataRow(Index.H2, 3)]
+        public void CenterDistanceTest(int index, int expected)
+        {
+            int actual = Index.CenterDistance(index);
+            Assert.AreEqual(expected, actual);
+        }
     }
 }

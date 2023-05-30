@@ -110,6 +110,14 @@ namespace Pedantic.Chess
             return Math.Max(Math.Abs(coord1.File - coord2.File), Math.Abs(coord1.Rank - coord2.Rank));
         }
 
+        public static int CenterDistance(int index)
+        {
+            ToCoords(index, out int file, out int rank);
+            int cFile = (file >> 2) + 3;
+            int cRank = (rank >> 2) + 3;
+            return Distance(index, ToIndex(cFile, cRank));
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int ManhattanDistance(int index1, int index2)
         {
