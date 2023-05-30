@@ -54,7 +54,7 @@ namespace Pedantic.Chess
             Reset();
             if (movesToGo <= 0)
             {
-                movesToGo = ponder ? 40 : 30;
+                movesToGo = ponder ? 35 : 25;
             }
 
             remaining = time;
@@ -86,7 +86,7 @@ namespace Pedantic.Chess
             Infinite = ponder;
         }
 
-        public void AdjustTime(bool oneLegalMove, bool bestMoveChanged, int changes)
+        public void AdjustTime(bool oneLegalMove, bool mateDetected, bool bestMoveChanged, int changes)
         {
             if (timeBudget == 0)
             {
@@ -98,7 +98,7 @@ namespace Pedantic.Chess
             {
                 difficulty = 10;
             }
-            else if (bestMoveChanged)
+            else if (bestMoveChanged || mateDetected)
             {
                 if (difficulty < 100)
                 {

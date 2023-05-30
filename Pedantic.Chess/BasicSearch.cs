@@ -110,6 +110,7 @@ namespace Pedantic.Chess
                     location = "7";
                     startNodes = NodesVisited;
                     Score = result;
+                    mateDetected = IsCheckmate(Score, out int _);
                     ReportSearchResults(ref bestMove, ref ponderMove);
                     location = "8";
                     if (Depth == 5 && oneLegalMove)
@@ -655,9 +656,14 @@ namespace Pedantic.Chess
                 }
             }
 
+            if (bestMoveChanged)
+            {
+                ++rootChanges;
+            }
+
             if (Depth > 4)
             {
-                time.AdjustTime(oneLegalMove, bestMoveChanged, ++rootChanges);
+                time.AdjustTime(oneLegalMove, mateDetected, bestMoveChanged, rootChanges);
             }
 
             if (IsCheckmate(Score, out int mateIn))
@@ -875,6 +881,7 @@ namespace Pedantic.Chess
         private bool wasAborted = false;
         private bool oneLegalMove = false;
         private int rootChanges = 0;
+        private bool mateDetected = false;
         private readonly ObjectPool<MoveList> moveListPool = new(Constants.MAX_PLY);
         private readonly List<ChessStats> stats = new();
         private readonly CpuStats cpuStats = new();

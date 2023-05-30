@@ -62,12 +62,19 @@ namespace Pedantic.Chess
             {
                 int c = (int)color;
                 int o = c ^ 1;
-                egScore[c] += AdjustMaterial(board.EndGameMaterial[c], adjust[c]);
-                egScore[c] += mopupKingTable[kingIndex[c]];
+                egScore[c] += board.EndGameMaterial[c];
 
                 if (color == winning)
                 {
-                    egScore[c] -= (short)Index.Distance(kingIndex[c], kingIndex[o]);
+                    short mopup = (short)(Index.CenterManhattanDistance(kingIndex[o]) * 10); 
+                    mopup += (short)(14 - Index.ManhattanDistance(kingIndex[c], kingIndex[o]));
+
+                    for (ulong bb = board.Pieces(winning, Piece.Knight); bb != 0; bb = BitOps.ResetLsb(bb))
+                    {
+                        int index = BitOps.TzCount(bb);
+                        mopup += (short)(14 - Index.ManhattanDistance(index, kingIndex[o]));
+                    }
+                    egScore[c] += mopup;
                 }
             }
 
@@ -420,12 +427,16 @@ namespace Pedantic.Chess
                         ? Color.White
                         : Color.Black;
 
-                    if (BitOps.PopCount(board.Pieces(winning, Piece.Queen) | board.Pieces(winning, Piece.Rook)) >= 1 &&
-                        BitOps.PopCount(board.Pieces(winning, Piece.Pawn) | board.Pieces(winning.Other(), Piece.Pawn)) == 0)
+                    int numKnights = BitOps.PopCount(board.Pieces(winning, Piece.Knight));
+                    int numBishops = BitOps.PopCount(board.Pieces(winning, Piece.Bishop));
+                    bool case1 = BitOps.PopCount(board.Pieces(winning, Piece.Queen) | board.Pieces(winning, Piece.Rook)) >= 1;
+                    bool case2 = board.Pieces(winning, Piece.Pawn) == 0;
+                    bool case3 = (numKnights >= 1 && numBishops >= 1) || numBishops >= 2 || numKnights >= 3;
+
+                    if (case1 || (case2 && case3))
                     {
                         phase = GamePhase.EndGameMopup;
                     }
-
                 }
             }
             else if (totalMaterial < wt.OpeningPhaseMaterial && totalMaterial >= wt.EndGamePhaseMaterial)

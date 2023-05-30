@@ -107,8 +107,24 @@ namespace Pedantic.Chess
         {
             (int File, int Rank) coord1 = (GetFile(index1), GetRank(index1));
             (int File, int Rank) coord2 = (GetFile(index2), GetRank(index2));
-
             return Math.Max(Math.Abs(coord1.File - coord2.File), Math.Abs(coord1.Rank - coord2.Rank));
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int ManhattanDistance(int index1, int index2)
+        {
+            ToCoords(index1, out int file1, out int rank1);
+            ToCoords(index2, out int file2, out int rank2);
+            return Math.Abs(file1 - file2) + Math.Abs(rank1 - rank2);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int CenterManhattanDistance(int index)
+        {
+            ToCoords(index, out int file, out int rank);
+            int fileDist = Math.Max(3 - file, file - 4);
+            int rankDist = Math.Max(3 - rank, rank - 4);
+            return fileDist + rankDist;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
