@@ -54,14 +54,14 @@ namespace Pedantic.Chess
             Reset();
             if (movesToGo <= 0)
             {
-                movesToGo = ponder ? 40 : 30;
+                movesToGo = ponder ? default_movestogo_ponder : default_movestogo;
             }
 
             remaining = time;
             timeBudget = (time + movesToGo * increment) / movesToGo;
 
             int timeImbalance = 0;
-            // if opponent is using significant less time that we are then reduce time budget
+            // if opponent is using significant less time (less than 50%) than we are then reduce time budget
             if ((opponentTime - time) * 10 / time >= 5)
             {
                 // reduce time budget by 20%
@@ -82,11 +82,11 @@ namespace Pedantic.Chess
 
             // set the final move time limits
             timeLimit = Math.Max(adjustedBudget - time_margin, time_margin); 
-            absoluteLimit = Math.Max(Math.Min(adjustedBudget * 4, remaining / 2) - time_margin, time_margin);
+            absoluteLimit = Math.Max(Math.Min(adjustedBudget * absolute_limit_factor, remaining / 2) - time_margin, time_margin);
             Infinite = ponder;
         }
 
-        public void AdjustTime(bool oneLegalMove, bool bestMoveChanged, int changes)
+        public void AdjustTime(bool oneLegalMove, bool mateDetected, bool bestMoveChanged, int changes)
         {
             if (timeBudget == 0)
             {
@@ -98,7 +98,7 @@ namespace Pedantic.Chess
             {
                 difficulty = 10;
             }
-            else if (bestMoveChanged)
+            else if (bestMoveChanged || mateDetected)
             {
                 if (difficulty < 100)
                 {
@@ -110,19 +110,19 @@ namespace Pedantic.Chess
                     difficulty = (difficulty * 80) / 100 + changes * 20;
                 }
 
-                difficulty = Math.Min(difficulty, 200);
+                difficulty = Math.Min(difficulty, difficulty_max_limit);
             }
             else
             {
                 difficulty = (difficulty * 9) / 10;
-                difficulty = Math.Max(difficulty, 60);
+                difficulty = Math.Max(difficulty, difficulty_min_limit);
             }
 
             int budget = (adjustedBudget * difficulty) / 100;
 
             // update time limits
             timeLimit = Math.Max(budget - time_margin, time_margin);
-            absoluteLimit = Math.Max(Math.Min(budget * 4, remaining / 2) - time_margin, time_margin);
+            absoluteLimit = Math.Max(Math.Min(budget * absolute_limit_factor, remaining / 2) - time_margin, time_margin);
         }
 
         public bool CanSearchDeeper()
@@ -163,6 +163,11 @@ namespace Pedantic.Chess
         private const int branch_factor_multiplier = 34;
         private const int branch_factor_divisor = 16;
         private const int max_time_remaining = int.MaxValue / 3;
+        private const int default_movestogo = 30;
+        private const int default_movestogo_ponder = 40;
+        private const int absolute_limit_factor = 4;
+        private const int difficulty_max_limit = 200;
+        private const int difficulty_min_limit = 60;
 
         private long t0;
         private long tN;

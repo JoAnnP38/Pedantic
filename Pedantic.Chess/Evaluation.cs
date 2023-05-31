@@ -61,13 +61,37 @@ namespace Pedantic.Chess
             for (Color color = Color.White; color <= Color.Black; color++)
             {
                 int c = (int)color;
-                int o = c ^ 1;
-                egScore[c] += AdjustMaterial(board.EndGameMaterial[c], adjust[c]);
-                egScore[c] += mopupKingTable[kingIndex[c]];
+                Color other = color.Other();
+                int o = (int)other;
+                egScore[c] += board.EndGameMaterial[c];
 
                 if (color == winning)
                 {
-                    egScore[c] -= (short)Index.Distance(kingIndex[c], kingIndex[o]);
+                    short[] mate = mopupMate;
+                    /*if ((board.Units(other) ^ board.Pieces(other, Piece.King)) == 0 &&
+                        BitOps.PopCount(board.Pieces(color, Piece.Bishop)) == 1 &&
+                        BitOps.PopCount(board.Pieces(color, Piece.Knight)) == 1 &&
+                        (board.Pieces(color, Piece.Rook) | board.Pieces(color, Piece.Queen)) == 0)
+                    {
+                        int bishopIndex = BitOps.TzCount(board.Pieces(color, Piece.Bishop));
+                        if (Index.IsDark(bishopIndex))
+                        {
+                            mate = mopupMateNBDark;
+                        }
+                        else
+                        {
+                            mate = mopupMateNBLight;
+                        }
+                    }*/
+                    short mopup = mate[kingIndex[o]];
+                    mopup += (short)((14 - Index.ManhattanDistance(kingIndex[c], kingIndex[o])) * 10);
+
+                    for (ulong bb = board.Pieces(winning, Piece.Knight); bb != 0; bb = BitOps.ResetLsb(bb))
+                    {
+                        int index = BitOps.TzCount(bb);
+                        mopup += (short)((14 - Index.ManhattanDistance(index, kingIndex[o])) * 10);
+                    }
+                    egScore[c] += mopup;
                 }
             }
 
@@ -420,16 +444,21 @@ namespace Pedantic.Chess
                         ? Color.White
                         : Color.Black;
 
-                    if (BitOps.PopCount(board.Pieces(winning, Piece.Queen) | board.Pieces(winning, Piece.Rook)) >= 1 &&
-                        BitOps.PopCount(board.Pieces(winning, Piece.Pawn) | board.Pieces(winning.Other(), Piece.Pawn)) == 0)
+                    int numKnights = BitOps.PopCount(board.Pieces(winning, Piece.Knight));
+                    int numBishops = BitOps.PopCount(board.Pieces(winning, Piece.Bishop));
+                    bool case1 = BitOps.PopCount(board.Pieces(winning, Piece.Queen) | board.Pieces(winning, Piece.Rook)) >= 1;
+                    bool case2 = board.Pieces(winning, Piece.Pawn) == 0;
+                    bool case3 = (numKnights >= 1 && numBishops >= 1) || numBishops >= 2 || numKnights >= 3;
+
+                    if (case1 || (case2 && case3))
                     {
                         phase = GamePhase.EndGameMopup;
                     }
-
                 }
             }
             else if (totalMaterial < wt.OpeningPhaseMaterial && totalMaterial >= wt.EndGamePhaseMaterial)
             {
+                /* taper values from opening to end game */
                 phase = GamePhase.MidGame;
                 int rngMaterial = wt.OpeningPhaseMaterial - wt.EndGamePhaseMaterial;
                 int curMaterial = totalMaterial - wt.EndGamePhaseMaterial;
@@ -741,16 +770,40 @@ namespace Pedantic.Chess
             #endregion AdjacentPawnMasks data
         };
 
-        public static readonly sbyte[] mopupKingTable =
+        public static readonly short[] mopupMate =
         {
-            -7, -6, -5, -4, -4, -5, -6, -7,
-            -6, -5, -3, -2, -2, -3, -5, -6,
-            -5, -3,  0,  0,  0,  0, -3, -5,
-            -4, -2,  0,  0,  0,  0, -2, -4,
-            -4, -2,  0,  0,  0,  0, -2, -4,
-            -5, -3,  0,  0,  0,  0, -3, -5,
-            -6, -5, -3, -2, -2, -3, -5, -6,
-            -7, -6, -5, -4, -4, -5, -6, -7
+            140, 120, 100,  80,  80, 100, 120, 140,
+            120, 100,  60,  40,  40,  60, 100, 120,
+            100,  60,  20,   0,   0,  20,  60, 100,
+             80,  40,   0,   0,   0,   0,  40,  80,
+             80,  40,   0,   0,   0,   0,  40,  80,
+            100,  60,  20,   0,   0,  20,  60, 100,
+            120, 100,  60,  40,  40,  60, 100, 120,
+            140, 120, 100,  80,  80, 100, 120, 140
+        };
+
+        public static readonly short[] mopupMateNBLight =
+        {
+             40,  40,  60,  80,  80, 100, 120, 140,
+             40,  20,  20,  40,  40,  60, 100, 120,
+             60,  20,   0,   0,   0,  20,  60, 100,
+             80,  40,   0,   0,   0,   0,  40,  80,
+             80,  40,   0,   0,   0,   0,  40,  80,
+            100,  60,  20,   0,   0,   0,  40,  60,
+            120, 100,  60,  40,  40,  20,  20,  40,
+            140, 120, 100,  80,  80,  60,  40,  40
+        };
+
+        public static readonly short[] mopupMateNBDark =
+        {
+            140, 120, 100,  80,  80,  60,  40,  40,
+            120, 100,  60,  40,  40,  20,  20,  40,
+            100,  60,  20,   0,   0,   0,  20,  60,
+             80,  40,   0,   0,   0,   0,  40,  80,
+             80,  40,   0,   0,   0,   0,  40,  80,
+             60,  40,   0,   0,   0,  20,  60, 100,
+             40,  20,  20,  40,  40,  60, 100, 120,
+             40,  40,  60,  80,  80, 100, 120, 140
         };
     }
 }
