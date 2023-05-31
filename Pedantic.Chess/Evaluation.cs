@@ -68,7 +68,7 @@ namespace Pedantic.Chess
                 if (color == winning)
                 {
                     short[] mate = mopupMate;
-                    if ((board.Units(other) ^ board.Pieces(other, Piece.King)) == 0 &&
+                    /*if ((board.Units(other) ^ board.Pieces(other, Piece.King)) == 0 &&
                         BitOps.PopCount(board.Pieces(color, Piece.Bishop)) == 1 &&
                         BitOps.PopCount(board.Pieces(color, Piece.Knight)) == 1 &&
                         (board.Pieces(color, Piece.Rook) | board.Pieces(color, Piece.Queen)) == 0)
@@ -82,7 +82,7 @@ namespace Pedantic.Chess
                         {
                             mate = mopupMateNBLight;
                         }
-                    }
+                    }*/
                     short mopup = mate[kingIndex[o]];
                     mopup += (short)((14 - Index.ManhattanDistance(kingIndex[c], kingIndex[o])) * 10);
 
@@ -458,6 +458,7 @@ namespace Pedantic.Chess
             }
             else if (totalMaterial < wt.OpeningPhaseMaterial && totalMaterial >= wt.EndGamePhaseMaterial)
             {
+                /* taper values from opening to end game */
                 phase = GamePhase.MidGame;
                 int rngMaterial = wt.OpeningPhaseMaterial - wt.EndGamePhaseMaterial;
                 int curMaterial = totalMaterial - wt.EndGamePhaseMaterial;

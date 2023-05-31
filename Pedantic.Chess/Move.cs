@@ -113,6 +113,13 @@ namespace Pedantic.Chess
             return !IsCapture(move) && !IsPromote(move);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool IsBadCapture(ulong move)
+        {
+            int score = GetScore(move);
+            return score is >= Constants.BAD_CAPTURE and < Constants.KILLER_SCORE;
+        }
+
         public static void Unpack(ulong move, out int from, out int to, out MoveType type, out Piece capture,
             out Piece promote, out int score)
         {

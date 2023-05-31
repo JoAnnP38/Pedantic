@@ -15,6 +15,7 @@
 // </summary>
 // ***********************************************************************
 
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Pedantic.Genetics;
 using Pedantic.Utilities;
@@ -25,6 +26,18 @@ namespace Pedantic.Chess
     {
         public const int CHECK_TC_NODES_MASK = 127;
         internal const int WAIT_TIME = 50;
+        internal const int ONE_MOVE_MAX_DEPTH = 5;
+        internal const int LMR_DEPTH_LIMIT = 31;
+        internal const int LMR_MOVE_LIMIT = 63;
+        internal const int STATIC_NULL_MOVE_MAX_DEPTH = 6; /* A: 4, B: 5, C: 6 */
+        internal const int STATIC_NULL_MOVE_MARGIN = 75; 
+        internal const int NMP_MIN_DEPTH = 3;
+        internal const int NMP_BASE_REDUCTION = 2;
+        internal const int NMP_INC_DIVISOR = 6;
+        internal const int RAZOR_MAX_DEPTH = 3;
+        internal const int IID_MIN_DEPTH = 6;
+        internal const int LMP_MAX_HISTORY = 32;
+
         public BasicSearch(Board board, GameClock time, int maxSearchDepth, long maxNodes = long.MaxValue - 100, bool randomSearch = false) 
         {
             this.board = board;
@@ -113,7 +126,7 @@ namespace Pedantic.Chess
                     mateDetected = IsCheckmate(Score, out int _);
                     ReportSearchResults(ref bestMove, ref ponderMove);
                     location = "8";
-                    if (Depth == 5 && oneLegalMove)
+                    if (Depth == ONE_MOVE_MAX_DEPTH && oneLegalMove)
                     {
                         break;
                     }
@@ -166,7 +179,7 @@ namespace Pedantic.Chess
         public int SearchRoot(int alpha, int beta, int depth, bool inCheck)
         {
             int originalAlpha = alpha;
-            depth = Math.Min(depth, 63);
+            depth = Math.Min(depth, Constants.MAX_PLY - 1);
             InitPv(0);
             
             int X = CalcExtension(inCheck);
@@ -208,7 +221,7 @@ namespace Pedantic.Chess
                 int R = 0;
                 if (!interesting && !killerMoves.Exists(0, move))
                 {
-                    R = LMR[Math.Min(depth, 31)][Math.Min(expandedNodes - 1, 63)];
+                    R = LMR[Math.Min(depth, LMR_DEPTH_LIMIT)][Math.Min(expandedNodes - 1, LMR_MOVE_LIMIT)];
                 }
 
                 if (X > 0 && R > 0)
@@ -283,7 +296,7 @@ namespace Pedantic.Chess
         public int Search(int alpha, int beta, int depth, int ply, bool inCheck, bool canNull = true, bool isPv = true)
         {
             int originalAlpha = alpha;
-            depth = Math.Min(depth, 63);
+            depth = Math.Min(depth, Constants.MAX_PLY - 1);
             InitPv(ply);
 
             if (ply >= Constants.MAX_PLY - 1)
@@ -332,20 +345,17 @@ namespace Pedantic.Chess
 
             if (!inCheck && !isPv)
             {
-                // static null move pruning
-                if (depth <= 2)
+                // static null move pruning (reverse futility pruning)
+                if (depth <= STATIC_NULL_MOVE_MAX_DEPTH && eval >= beta + depth * STATIC_NULL_MOVE_MARGIN)
                 {
-                    int evalWithMargin = eval - depth * Constants.STATIC_NULL_MOVE_MARGIN;
-                    if (evalWithMargin >= beta)
-                    {
-                        return evalWithMargin;
-                    }
+                    return eval;
                 }
 
                 // null move pruning
-                if (canNull && depth >= 3 && eval >= beta && board.PieceCount(board.OpponentColor) > 1)
+                if (canNull && depth >= NMP_MIN_DEPTH && eval >= beta && board.PieceCount(board.OpponentColor) > 1)
                 {
-                    int R = 2 + NMP[depth];
+                    int R = NMP_BASE_REDUCTION + NMP[depth];
+                    //int R = NmpReduction(depth);
                     if (board.MakeMove(Move.NullMove))
                     {
                         score = -Search(-beta, -beta + 1, Math.Max(depth - R - 1, 0), ply + 1, false, false, false);
@@ -364,7 +374,7 @@ namespace Pedantic.Chess
                 }
 
                 // razoring
-                if (canNull && depth <= 3)
+                if (canNull && depth <= RAZOR_MAX_DEPTH)
                 {
                     int threshold = alpha - FutilityMargin[depth];
                     if (eval <= threshold)
@@ -385,7 +395,7 @@ namespace Pedantic.Chess
             // This will make sure there is a bestMove in the transposition table
             // if we find ourselves here and there is none. Should improve worst
             // case scenario of search blowing up.
-            if (canNull && isPv && depth >= 6 && bestMove == 0)
+            if (canNull && isPv && depth >= IID_MIN_DEPTH && bestMove == 0)
             {
                 Search(alpha, beta, depth - 2, ply, inCheck);
                 if (wasAborted)
@@ -423,10 +433,11 @@ namespace Pedantic.Chess
 
                 bool checkingMove = board.IsChecked();
                 bool isQuiet = Move.IsQuiet(move);
-                bool badCapture = Move.IsCapture(move) && Move.GetScore(move) == Constants.BAD_CAPTURE;
-                bool interesting = inCheck || checkingMove || (!isQuiet && !badCapture) || expandedNodes == 1;
+                bool isKiller = isQuiet && killerMoves.Exists(ply, move);
+                bool badCapture = Move.IsCapture(move) && Move.GetScore(move) == Constants.BAD_CAPTURE /* Move.IsBadCapture(move) */;
+                bool interesting = inCheck || checkingMove || (!isQuiet && !badCapture) || isKiller || expandedNodes == 1;
 
-                if (canPrune && !interesting && expandedNodes > LMP[depth])
+                if (canPrune && !interesting && expandedNodes > LMP[depth]/* && Move.GetScore(move) < LMP_MAX_HISTORY*/)
                 {
                     board.UnmakeMoveNs();
                     continue;
@@ -440,9 +451,9 @@ namespace Pedantic.Chess
 #endif
 
                 int R = 0;
-                if (!interesting && !killerMoves.Exists(ply, move))
+                if (!interesting)
                 {
-                    R = LMR[Math.Min(depth, 31)][Math.Min(expandedNodes - 1, 63)];
+                    R = LMR[Math.Min(depth, LMR_DEPTH_LIMIT)][Math.Min(expandedNodes - 1, LMR_MOVE_LIMIT)];
                 }
 
                 if (X > 0 && R > 0)
@@ -869,7 +880,11 @@ namespace Pedantic.Chess
             set => evaluation = value;
         }
 
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static int NmpReduction(int depth)
+        {
+            return NMP_BASE_REDUCTION + Math.Max(depth - 3, 0) / NMP_INC_DIVISOR + 1;
+        }
 
         private readonly Board board;
         private readonly GameClock time;
@@ -895,227 +910,227 @@ namespace Pedantic.Chess
         internal static readonly int[] Window = { 25, 100, Constants.INFINITE_WINDOW };
         internal static readonly int[] FutilityMargin = { 0, 200, 400, 600, 800 };
 
-        internal static readonly int[][] LMR =
+        internal static readonly sbyte[][] LMR =
         {
             #region lmr data
-            new []
+            new sbyte[]
             {
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
             },
-            new []
+            new sbyte[]
             {
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
             },
-            new []
+            new sbyte[]
             {
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
             },
-            new []
+            new sbyte[]
             {
                 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
                 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
                 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
                 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
             },
-            new []
+            new sbyte[]
             {
                 0, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
                 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
                 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
                 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2
             },
-            new []
+            new sbyte[]
             {
                 0, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3,
                 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
                 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
                 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3
             },
-            new []
+            new sbyte[]
             {
                 0, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3,
                 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
                 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
                 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4
             },
-            new []
+            new sbyte[]
             {
                 0, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3,
                 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
                 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
                 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5
             },
-            new []
+            new sbyte[]
             {
                 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 4, 4,
                 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5,
                 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
                 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6
             },
-            new []
+            new sbyte[]
             {
                 0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4,
                 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5,
                 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
                 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6
             },
-            new []
+            new sbyte[]
             {
                 0, 1, 1, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4,
                 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5,
                 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6,
                 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6
             },
-            new []
+            new sbyte[]
             {
                 0, 1, 1, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4,
                 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
                 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6,
                 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6
             },
-            new []
+            new sbyte[]
             {
                 0, 1, 1, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4,
                 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
                 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
                 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6
             },
-            new []
+            new sbyte[]
             {
                 0, 1, 1, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4,
                 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
                 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
                 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7
             },
-            new []
+            new sbyte[]
             {
                 0, 1, 1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4,
                 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6,
                 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
                 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7
             },
-            new []
+            new sbyte[]
             {
                 0, 1, 1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4,
                 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6,
                 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
                 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7
             },
-            new []
+            new sbyte[]
             {
                 0, 1, 1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 5,
                 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6,
                 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
                 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7
             },
-            new []
+            new sbyte[]
             {
                 0, 1, 1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 4, 5, 5,
                 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6,
                 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7,
                 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7
             },
-            new []
+            new sbyte[]
             {
                 0, 1, 1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 4, 5, 5,
                 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6,
                 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7,
                 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7
             },
-            new []
+            new sbyte[]
             {
                 0, 1, 1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5,
                 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6,
                 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7,
                 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7
             },
-            new []
+            new sbyte[]
             {
                 0, 1, 1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5,
                 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
                 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
                 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7
             },
-            new []
+            new sbyte[]
             {
                 0, 1, 1, 2, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5,
                 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
                 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
                 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8
             },
-            new []
+            new sbyte[]
             {
                 0, 1, 1, 2, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5,
                 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
                 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
                 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8
             },
-            new []
+            new sbyte[]
             {
                 0, 1, 1, 2, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5,
                 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
                 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
                 7, 7, 7, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 8, 8
             },
-            new []
+            new sbyte[]
             {
                 0, 1, 1, 2, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5,
                 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
                 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
                 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8
             },
-            new []
+            new sbyte[]
             {
                 0, 1, 1, 2, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5,
                 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7,
                 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
                 7, 7, 7, 7, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8
             },
-            new []
+            new sbyte[]
             {
                 0, 1, 1, 2, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5,
                 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7,
                 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
                 7, 7, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8
             },
-            new []
+            new sbyte[]
             {
                 0, 1, 1, 2, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5,
                 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7,
                 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
                 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8
             },
-            new []
+            new sbyte[]
             {
                 0, 1, 1, 2, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5,
                 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7,
                 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8, 8,
                 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8
             },
-            new []
+            new sbyte[]
             {
                 0, 1, 1, 2, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5,
                 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7,
                 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8, 8, 8,
                 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8
             },
-            new []
+            new sbyte[]
             {
                 0, 1, 1, 2, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5,
                 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7,
                 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8,
                 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8
             },
-            new []
+            new sbyte[]
             {
                 0, 1, 1, 2, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5,
                 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7,
@@ -1125,10 +1140,10 @@ namespace Pedantic.Chess
             #endregion lmr data
         };
 
-        internal static readonly int[] LMP = { 0, 6, 12, 18, 24 };
+        internal static readonly sbyte[] LMP = { 0, 6, 12, 18, 24 };
                                                
 
-        internal static readonly int[] NMP =
+        internal static readonly sbyte[] NMP =
         {
             #region nmp data
             0, 0, 0, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 

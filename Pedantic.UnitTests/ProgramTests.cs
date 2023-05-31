@@ -434,5 +434,18 @@ namespace Pedantic.UnitTests
             Program.ParseCommand("go wtime 13180 btime 5141 winc 1000 binc 1000");
             Engine.Wait();
         }
+
+        [TestMethod]
+        public void AlwaysMateTest()
+        {
+            //Engine.Infinite = true;
+            Engine.SearchThreads = 1;
+            Program.ParseCommand("setoption name Hash value 128");
+            Program.ParseCommand("position startpos moves b1c3 c7c5 e2e4 d7d6 g1f3 g8f6 d2d4 c5d4 f3d4 a7a6 c1e3 f6g4 e3g5 h7h6 g5h4 g7g5 h4g3 f8g7 f1e2 h6h5 h2h4 g5h4 g3h4 b8c6 d4f3 d8a5 e1g1 g7c3 b2c3 a5c3 d1d3 c3d3 c2d3 g4e5 f3e5 d6e5 f1c1 c8e6 a2a3 e8d7 a3a4 c6d4 e2d1 b7b5 c1b1 d7d6 a1a3 h8c8 a3a1 f7f6 b1b2 e6d7 h4g3 c8c3 a4b5 d7b5 d1h5 b5d3 a1d1 d6c6 d1e1 a6a5 b2a2 a5a4 a2a4 d4e2 h5e2 a8a4 e2h5 a4a2 h5f7 d3c4 f7g6 c4b3 e1b1 c6c5 g6f5 a2c2 g1h2 c2c1 b1c1 c3c1 f2f3 c1c2 g3e1 b3c4 e1a5 c4f1 f5h3 c2a2 a5c3 f1c4 h2g1 a2c2 c3a5 c4b3 h3f5 c2a2 a5e1 a2a6 e1d2 b3e6 f5g6 a6a2 d2h6 e6b3 h6g7 a2a1 g1f2 a1a8 g7h6 a8a2 f2g1 c5d6 h6e3 b3d1 e3f2 a2a1 g1h2 a1a8 g6f5 d1b3 h2g1 b3e6 f5g6 a8a1 g1h2 e6c4 f2e3 a1a3 e3d2 a3a2 d2b4 d6d7 h2g1 d7e6 g6f5 e6f7 f5g4 c4a6 g4h5 f7f8 b4c5 a2c2 c5b4 a6b5 b4a3 b5c4 a3b4 c2b2 b4c5 b2a2 c5b6 a2c2 b6a5 c2b2 a5c7 b2b1 g1h2 f8g7 c7a5 b1b8 h5g4 b8h8 h2g3 g7f7 g4d7 e7e6 a5b4 h8b8 b4c5 b8b2 d7c6 c4f1 c5f2 f6f5 e4f5 e6f5 f2e1");
+            Console.WriteLine(Engine.Board.ToString());
+            Console.WriteLine(Engine.Board.ToFenString());
+            Program.ParseCommand("go wtime 6771 btime 17257 winc 1400 binc 1400");
+            Engine.Wait();
+        }
     }
 }
