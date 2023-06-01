@@ -10,6 +10,12 @@ namespace Pedantic.UnitTests
     [TestClass]
     public class ProgramTests
     {
+        [TestInitialize]
+        public void InitTest()
+        {
+            Engine.Infinite = false;
+        }
+
         [TestMethod]
         public void ParseCommandTest()
         {
@@ -446,6 +452,20 @@ namespace Pedantic.UnitTests
             Console.WriteLine(Engine.Board.ToFenString());
             Program.ParseCommand("go wtime 6771 btime 17257 winc 1400 binc 1400");
             Engine.Wait();
+        }
+
+        [TestMethod]
+        public void StrangeMateTest()
+        {
+            //Engine.Infinite = true;
+            Engine.SearchThreads = 1;
+            Program.ParseCommand("setoption name Hash value 128");
+            Program.ParseCommand("position fen 8/8/6p1/8/3k1P1p/5KpP/8/8 w - - 4 49");
+            Console.WriteLine(Engine.Board.ToString());
+            Console.WriteLine(Engine.Board.ToFenString());
+            Program.ParseCommand("go depth 23");
+            Engine.Wait();
+
         }
     }
 }

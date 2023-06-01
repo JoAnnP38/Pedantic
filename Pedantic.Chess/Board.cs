@@ -496,8 +496,8 @@ namespace Pedantic.Chess
             int from = Move.GetFrom(move);
             int to = Move.GetTo(move);
             MoveType type = Move.GetMoveType(move);
-            Square capture = new(OpponentColor, Move.GetCapture(move));
-            Square promote = new(sideToMove, Move.GetPromote(move));
+            Square capture = Square.Create(OpponentColor, Move.GetCapture(move));
+            Square promote = Square.Create(sideToMove, Move.GetPromote(move));
 
             switch (type)
             {

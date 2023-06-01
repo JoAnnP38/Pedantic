@@ -104,7 +104,6 @@ namespace Pedantic.Chess
             searchThread.Join();
             searchThread = null;
             search = null;
-            //ClearHashTable();
         }
 
         public static void Quit()
@@ -134,6 +133,7 @@ namespace Pedantic.Chess
             TtTran.Clear();
             TtEval.Clear();
             TtPawnEval.Clear();
+            GC.Collect();
         }
 
         public static void SetupNewGame()
@@ -418,13 +418,12 @@ namespace Pedantic.Chess
                 CanPonder = CanPonder,
                 CollectStats = CollectStats
             };
-            searchThread = new Thread(search.Search)
+            searchThread = new Thread(() => search.Search((++searchCounter % 10) == 0))
             {
                 Priority = ThreadPriority.Highest
             };
             IsRunning = true;
             searchThread.Start();
-            searchCounter++;
         }
     }
 }

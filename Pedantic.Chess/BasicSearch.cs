@@ -16,7 +16,6 @@
 // ***********************************************************************
 
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using Pedantic.Genetics;
 using Pedantic.Utilities;
 
@@ -29,13 +28,13 @@ namespace Pedantic.Chess
         internal const int ONE_MOVE_MAX_DEPTH = 5;
         internal const int LMR_DEPTH_LIMIT = 31;
         internal const int LMR_MOVE_LIMIT = 63;
-        internal const int STATIC_NULL_MOVE_MAX_DEPTH = 6; /* A: 4, B: 5, C: 6 */
+        internal const int STATIC_NULL_MOVE_MAX_DEPTH = 6;
         internal const int STATIC_NULL_MOVE_MARGIN = 75; 
         internal const int NMP_MIN_DEPTH = 3;
         internal const int NMP_BASE_REDUCTION = 2;
-        internal const int NMP_INC_DIVISOR = 6;
+        internal const int NMP_INC_DIVISOR = 4; /* A: 4, B: 5, C: 6 */
         internal const int RAZOR_MAX_DEPTH = 3;
-        internal const int IID_MIN_DEPTH = 6;
+        internal const int IID_MIN_DEPTH = 5;
         internal const int LMP_MAX_HISTORY = 32;
 
         public BasicSearch(Board board, GameClock time, int maxSearchDepth, long maxNodes = long.MaxValue - 100, bool randomSearch = false) 
@@ -52,7 +51,7 @@ namespace Pedantic.Chess
             startDateTime = DateTime.Now;
         }
 
-        public void Search()
+        public void Search(bool collectMemory)
         {
             string location = "0";
             string position = board.ToFenString();
@@ -67,8 +66,7 @@ namespace Pedantic.Chess
                 bool inCheck = board.IsChecked();
                 Score = Quiesce(-Constants.INFINITE_WINDOW, Constants.INFINITE_WINDOW, 0, inCheck);
                 location = "1";
-                while (++Depth <= maxSearchDepth && time.CanSearchDeeper() && (!IsCheckmate(Score, out int mateIn) ||
-                                                                               (Math.Abs(mateIn) << 2) >= Depth))
+                while (++Depth <= maxSearchDepth && time.CanSearchDeeper())
                 {
                     time.StartInterval();
                     history.Rescale();
@@ -123,8 +121,16 @@ namespace Pedantic.Chess
                     location = "7";
                     startNodes = NodesVisited;
                     Score = result;
-                    mateDetected = IsCheckmate(Score, out int _);
+                    mateDetected = IsCheckmate(Score, out int mateIn);
                     ReportSearchResults(ref bestMove, ref ponderMove);
+
+                    if (Math.Abs(mateIn) > 0 && Math.Abs(mateIn) * 2 > seldepth + 1)
+                    {
+                        GamePhase phase = evaluation.GetGamePhase(board, out int opWt, out int egWt);
+                        Uci.Debug($"Phase: {phase}, opWt: {opWt}, egWt: {egWt}");
+                        Uci.Log("Clearing cache due to stale TT value.");
+                        TtTran.IncrementVersion();
+                    }
                     location = "8";
                     if (Depth == ONE_MOVE_MAX_DEPTH && oneLegalMove)
                     {
@@ -163,6 +169,10 @@ namespace Pedantic.Chess
                 location = "12";
                 Uci.BestMove(bestMove, CanPonder ? ponderMove : null);
                 location = "13";
+                if (collectMemory)
+                {
+                    GC.Collect();
+                }
             }
             catch (Exception ex)
             {
@@ -352,9 +362,9 @@ namespace Pedantic.Chess
                 }
 
                 // null move pruning
-                if (canNull && depth >= NMP_MIN_DEPTH && eval >= beta && board.PieceCount(board.OpponentColor) > 1)
+                if (canNull && depth >= NMP_MIN_DEPTH && eval >= beta && board.PieceCount(board.SideToMove) > 1)
                 {
-                    int R = NMP_BASE_REDUCTION + NMP[depth];
+                    int R = NMP[depth];
                     //int R = NmpReduction(depth);
                     if (board.MakeMove(Move.NullMove))
                     {
@@ -601,28 +611,13 @@ namespace Pedantic.Chess
                 }
             }
 
+            ReturnMoveList(moveList);
+
             if (wasAborted)
             {
-                ReturnMoveList(moveList);
                 return 0;
             }
 
-            if (expandedNodes == 0)
-            {
-                if (inCheck)
-                {
-                    ReturnMoveList(moveList);
-                    return -Constants.CHECKMATE_SCORE + ply;
-                }
-
-                if (!board.HasLegalMoves(moveList))
-                {
-                    ReturnMoveList(moveList);
-                    return Contempt;
-                }
-            }
-
-            ReturnMoveList(moveList);
             return alpha;
         }
 
@@ -692,7 +687,7 @@ namespace Pedantic.Chess
             MoveList result = moveListPool.Get();
             Board bd = board.Clone();
             int d = 0;
-            HashSet<ulong> positions = new(Constants.MAX_PLY);
+            positions.Clear();
 
             for (int n = 0; n < PV.Length; n++)
             {
@@ -897,6 +892,7 @@ namespace Pedantic.Chess
         private bool oneLegalMove = false;
         private int rootChanges = 0;
         private bool mateDetected = false;
+        private readonly HashSet<ulong> positions = new(Constants.MAX_PLY);
         private readonly ObjectPool<MoveList> moveListPool = new(Constants.MAX_PLY);
         private readonly List<ChessStats> stats = new();
         private readonly CpuStats cpuStats = new();
@@ -1146,8 +1142,9 @@ namespace Pedantic.Chess
         internal static readonly sbyte[] NMP =
         {
             #region nmp data
-            0, 0, 0, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 
-            5, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 8, 9, 9, 9, 9, 9, 9, 10, 10, 10, 10, 10, 10, 10
+            0, 0, 0, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 7, 7, 7, 7, 8, 8, 8, 8, 9, 9, 9, 9, 10, 
+            10, 10, 10, 11, 11, 11, 11, 12, 12, 12, 12, 13, 13, 13, 13, 14, 14, 14, 14, 15, 15, 15, 15, 16, 16, 16, 16, 
+            17, 17, 17, 17, 18
             #endregion nmp data
         };
 

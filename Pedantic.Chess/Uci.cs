@@ -46,6 +46,14 @@ namespace Pedantic.Chess
             Console.Out.WriteLineAsync($@"info string {message}");
         }
 
+        public static void Debug(string message)
+        {
+            if (Engine.Debug)
+            {
+                Console.Out.WriteLineAsync($"info string {message}");
+            }
+        }
+
         public static void Info(int depth, int seldepth, int score, long nodes, long timeMs, ulong[] pv, int hashfull)
         {
             StringBuilder sb = new();

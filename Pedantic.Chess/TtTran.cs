@@ -38,7 +38,8 @@ namespace Pedantic.Chess
                        (((ulong)ttFlag & 0x03ul) << 40) |
                        (((byte)depth & 0x0fful) << 42) |
                        (((byte)age & 0x0fful) << 50) |
-                       (1ul << 58);
+                       (1ul << 58) |
+                       (((byte)version & 0x01ful) << 59);
 
                 this.hash = hash ^ data;
             }
@@ -55,12 +56,18 @@ namespace Pedantic.Chess
                 set => BitOps.BitFieldSet(data, value, 50, 8);
             }
 
-            public bool InUse => (bool)(BitOps.GetBit(data, 58) == 1);
+            public byte Version
+            {
+                get => (byte) BitOps.BitFieldExtract(data, 59, 5);
+                set => BitOps.BitFieldSet(data, value, 59, 5);
+            }
+
+            public bool InUse => BitOps.GetBit(data, 58) == 1 && Version == version;
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public bool IsValid(ulong hash)
             {
-                return (this.hash ^ data)  == hash;
+                return (this.hash ^ data)  == hash && Version == version;
             }
 
             public static void SetValue(ref TtTranItem item, ulong hash, short score, sbyte depth, byte age, 
@@ -71,7 +78,8 @@ namespace Pedantic.Chess
                             (((ulong)flag & 0x03ul) << 40) |
                             (((byte)depth & 0x0fful) << 42) |
                             (((byte)age & 0x0fful) << 50) |
-                            (1ul << 58);
+                            (1ul << 58) |
+                            (((byte)version & 0x01ful) << 59);
                 item.hash = hash ^ item.data;
             }
         }
@@ -81,6 +89,7 @@ namespace Pedantic.Chess
         private static int capacity;
         private static int used;
         private static uint mask;
+        private static byte version;
 
         static TtTran()
         {
@@ -89,6 +98,8 @@ namespace Pedantic.Chess
             table = new TtTranItem[capacity];
             mask = (uint)(capacity - 1);
         }
+
+        public static void IncrementVersion() { version++; used = 0; }
 
         public static void Add(ulong hash, int depth, int ply, int alpha, int beta, int score, ulong move)
         {
