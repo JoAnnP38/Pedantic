@@ -122,7 +122,7 @@ namespace Pedantic.Chess
                     location = "7";
                     startNodes = NodesVisited;
                     Score = result;
-                    mateDetected = IsCheckmate(Score, out int mateIn);
+                    mateDetected = IsCheckmate(Score, out mateIn);
                     ReportSearchResults(ref bestMove, ref ponderMove);
 
                     location = "8";
