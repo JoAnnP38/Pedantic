@@ -158,7 +158,7 @@ namespace Pedantic.Chess
             }
             else if (board.HalfMoveClock > 84)
             {
-                score = (short)((score * Math.Min(board.HalfMoveClock - 84, 16)) >> 4);
+                score = (short)((score * Math.Min(100 - Math.Min(board.HalfMoveClock, 100), 16)) >> 4);
             }
 
             return (short)score;

@@ -66,7 +66,8 @@ namespace Pedantic.Chess
                 bool inCheck = board.IsChecked();
                 Score = Quiesce(-Constants.INFINITE_WINDOW, Constants.INFINITE_WINDOW, 0, inCheck);
                 location = "1";
-                while (++Depth <= maxSearchDepth && time.CanSearchDeeper())
+                while (++Depth <= maxSearchDepth && time.CanSearchDeeper()  && (!IsCheckmate(Score, out int mateIn) ||
+                                                                               (Math.Abs(mateIn) * 2 + 4) < Depth))
                 {
                     time.StartInterval();
                     history.Rescale();
@@ -124,13 +125,6 @@ namespace Pedantic.Chess
                     mateDetected = IsCheckmate(Score, out int mateIn);
                     ReportSearchResults(ref bestMove, ref ponderMove);
 
-                    if (Math.Abs(mateIn) > 0 && Math.Abs(mateIn) * 2 > seldepth + 1)
-                    {
-                        GamePhase phase = evaluation.GetGamePhase(board, out int opWt, out int egWt);
-                        Uci.Debug($"Phase: {phase}, opWt: {opWt}, egWt: {egWt}");
-                        Uci.Log("Clearing cache due to stale TT value.");
-                        TtTran.IncrementVersion();
-                    }
                     location = "8";
                     if (Depth == ONE_MOVE_MAX_DEPTH && oneLegalMove)
                     {
