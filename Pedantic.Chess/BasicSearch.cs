@@ -66,8 +66,7 @@ namespace Pedantic.Chess
                 bool inCheck = board.IsChecked();
                 Score = Quiesce(-Constants.INFINITE_WINDOW, Constants.INFINITE_WINDOW, 0, inCheck);
                 location = "1";
-                while (++Depth <= maxSearchDepth && time.CanSearchDeeper()  && (!IsCheckmate(Score, out int mateIn) ||
-                                                                               (Math.Abs(mateIn) * 2 + 4) < Depth))
+                while (++Depth <= maxSearchDepth && time.CanSearchDeeper())
                 {
                     time.StartInterval();
                     history.Rescale();
@@ -122,7 +121,6 @@ namespace Pedantic.Chess
                     location = "7";
                     startNodes = NodesVisited;
                     Score = result;
-                    mateDetected = IsCheckmate(Score, out mateIn);
                     ReportSearchResults(ref bestMove, ref ponderMove);
 
                     location = "8";
@@ -347,7 +345,7 @@ namespace Pedantic.Chess
             int eval = evaluation.Compute(board, alpha, beta);
             bool canPrune = false;
 
-            if (!inCheck && !isPv)
+            if (!inCheck && !isPv && board.Phase != GamePhase.EndGame)
             {
                 // static null move pruning (reverse futility pruning)
                 if (depth <= STATIC_NULL_MOVE_MAX_DEPTH && eval >= beta + depth * STATIC_NULL_MOVE_MARGIN)
@@ -663,7 +661,7 @@ namespace Pedantic.Chess
 
             if (Depth > 4)
             {
-                time.AdjustTime(oneLegalMove, mateDetected, bestMoveChanged, rootChanges);
+                time.AdjustTime(oneLegalMove, bestMoveChanged, rootChanges);
             }
 
             if (IsCheckmate(Score, out int mateIn))
@@ -885,7 +883,6 @@ namespace Pedantic.Chess
         private bool wasAborted = false;
         private bool oneLegalMove = false;
         private int rootChanges = 0;
-        private bool mateDetected = false;
         private readonly HashSet<ulong> positions = new(Constants.MAX_PLY);
         private readonly ObjectPool<MoveList> moveListPool = new(Constants.MAX_PLY);
         private readonly List<ChessStats> stats = new();

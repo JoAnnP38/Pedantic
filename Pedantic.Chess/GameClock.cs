@@ -86,7 +86,7 @@ namespace Pedantic.Chess
             Infinite = ponder;
         }
 
-        public void AdjustTime(bool oneLegalMove, bool mateDetected, bool bestMoveChanged, int changes)
+        public void AdjustTime(bool oneLegalMove, bool bestMoveChanged, int changes)
         {
             if (timeBudget == 0)
             {
@@ -98,7 +98,7 @@ namespace Pedantic.Chess
             {
                 difficulty = 10;
             }
-            else if (bestMoveChanged || mateDetected)
+            else if (bestMoveChanged)
             {
                 if (difficulty < 100)
                 {
@@ -164,7 +164,7 @@ namespace Pedantic.Chess
         private const int branch_factor_divisor = 16;
         private const int max_time_remaining = int.MaxValue / 3;
         private const int default_movestogo = 30;
-        private const int default_movestogo_ponder = 40;
+        private const int default_movestogo_ponder = 25;
         private const int absolute_limit_factor = 4;
         private const int difficulty_max_limit = 200;
         private const int difficulty_min_limit = 60;
