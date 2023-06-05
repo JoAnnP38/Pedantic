@@ -72,6 +72,11 @@ namespace Pedantic.Chess
 
         public static bool PextSupported()
         {
+            if (GlobalOptions.DisablePextBitboards)
+            {
+                return false;
+            }
+
             if (!Bmi2.IsSupported)
             {
                 return false;

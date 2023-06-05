@@ -29,7 +29,7 @@ namespace Pedantic
     {
         public const string APP_NAME = "Pedantic";
         public const string APP_VERSION = "0.3.0";
-        public const string APP_NAME_VER = APP_NAME + " v" + APP_VERSION;
+        public const string APP_NAME_VER = APP_NAME + " " + APP_VERSION;
         public const string AUTHOR = "JoAnn D. Peeler";
         public const string PROGRAM_URL = "https://github.com/JoAnnP38/Pedantic";
         public const double CONVERGENCE_TOLERANCE = 0.00000005;
@@ -111,13 +111,18 @@ namespace Pedantic
                 name: "--stats",
                 description: "Collect search statistics",
                 getDefaultValue: () => false);
+            var magicOption = new Option<bool>(
+                name: "--force_magic",
+                description: "Force the use of magic bitboards.",
+                getDefaultValue: () => false);
 
             var uciCommand = new Command("uci", "Start the pedantic application in UCI mode (default).")
             {
                 commandFileOption,
                 errorFileOption,
                 randomSearchOption,
-                statsOption
+                statsOption,
+                magicOption
             };
 
             var perftCommand = new Command("perft", "Run a standard Perft test.")
@@ -125,7 +130,8 @@ namespace Pedantic
                 typeOption,
                 depthOption,
                 fenOption,
-                testOption
+                testOption,
+                magicOption
             };
 
             var labelCommand = new Command("label", "Pre-process and label PGN data.")
@@ -196,7 +202,7 @@ namespace Pedantic
                 while (Engine.IsRunning)
                 {
                     string? input = await Task.Run(Console.ReadLine);
-                    if (input != null)
+                    if (input != null && !string.IsNullOrWhiteSpace(input))
                     {
                         ParseCommand(input);
                     }

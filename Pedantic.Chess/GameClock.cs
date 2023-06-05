@@ -52,9 +52,13 @@ namespace Pedantic.Chess
         public void Go(int time, int opponentTime, int increment = 0, int movesToGo = -1, int movesOutOfBook = 10, bool ponder = false)
         {
             Reset();
-            if (movesToGo <= 0)
+            if (movesToGo <= 0 && increment > 0)
             {
                 movesToGo = ponder ? default_movestogo_ponder : default_movestogo;
+            }
+            else
+            {
+                movesToGo = default_movestogo_sudden_death;
             }
 
             remaining = time;
@@ -165,6 +169,7 @@ namespace Pedantic.Chess
         private const int max_time_remaining = int.MaxValue / 3;
         private const int default_movestogo = 30;
         private const int default_movestogo_ponder = 25;
+        private const int default_movestogo_sudden_death = 40;
         private const int absolute_limit_factor = 4;
         private const int difficulty_max_limit = 200;
         private const int difficulty_min_limit = 60;

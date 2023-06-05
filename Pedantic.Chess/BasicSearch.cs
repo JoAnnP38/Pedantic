@@ -161,6 +161,12 @@ namespace Pedantic.Chess
                 location = "12";
                 Uci.BestMove(bestMove, CanPonder ? ponderMove : null);
                 location = "13";
+                
+                if (board.TotalMaterialNoKings < Evaluation.EndGamePhaseMaterial + Piece.Knight.Value())
+                {
+                    TtTran.IncrementVersion();
+                }
+
                 if (collectMemory)
                 {
                     GC.Collect();
@@ -345,7 +351,7 @@ namespace Pedantic.Chess
             int eval = evaluation.Compute(board, alpha, beta);
             bool canPrune = false;
 
-            if (!inCheck && !isPv && board.Phase != GamePhase.EndGame)
+            if (!inCheck && !isPv)
             {
                 // static null move pruning (reverse futility pruning)
                 if (depth <= STATIC_NULL_MOVE_MAX_DEPTH && eval >= beta + depth * STATIC_NULL_MOVE_MARGIN)
