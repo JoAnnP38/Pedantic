@@ -11,7 +11,7 @@ Pedantic is my first step in advancing my knowledge of computer chess to the poi
 #### Environment
 * Windows 11
 * Microsoft Visual Studio Community 2022
-* C# / .NET 7.0 (and soon to be released .NET 8.0
+* C# / .NET 7.0
 * JSON files for Storing Trained Weights
 #### Structure
 * Multi-threaded, command-line, console application (single-threaded search)
