@@ -2,7 +2,7 @@
   "profiles": {
     "Pedantic": {
       "commandName": "Project",
-      "commandLineArgs": "label --pgn \"e:/pgn files/engines-clean.pgn\" --data \"e:/pgn files/training_data_engines.csv\"",
+      "commandLineArgs": "perft --type Normal --depth 6 --force_magic",
       "workingDirectory": "e:\\repos\\Pedantic\\Pedantic\\bin\\Release\\net7.0\\publish",
       "nativeDebugging": true
     }

@@ -49,7 +49,7 @@ namespace Pedantic.UnitTests
         {
             Perft perft = new();
             perft.Initialize(position);
-            ulong actual = perft.Execute(depth, true);
+            ulong actual = perft.Execute(depth);
             Assert.AreEqual(expectedNodes, actual);
         }
     }

@@ -150,7 +150,7 @@ namespace Pedantic.UnitTests
             //Engine.Infinite = true;
             Engine.UseOwnBook = true;
             Program.ParseCommand(@$"position fen {fen}");
-            Program.ParseCommand("go wtime 300000 btime 300000 winc 0 binc 0");
+            Program.ParseCommand("go depth 2");
             Engine.Wait();
         }
 
@@ -163,7 +163,7 @@ namespace Pedantic.UnitTests
             //Engine.Infinite = true;
             Engine.UseOwnBook = true;
             Program.ParseCommand(@$"position fen {fen}");
-            Program.ParseCommand("go wtime 300000 btime 300000 winc 0 binc 0");
+            Program.ParseCommand("go depth 13");
             Engine.Wait();
         }
 
@@ -174,7 +174,7 @@ namespace Pedantic.UnitTests
             //Engine.Infinite = true;
             Engine.UseOwnBook = true;
             Program.ParseCommand(@$"position fen {fen}");
-            Program.ParseCommand("go wtime 300000 btime 300000 winc 0 binc 0");
+            Program.ParseCommand("go depth 8");
             Engine.Wait();
         }
 
@@ -184,7 +184,7 @@ namespace Pedantic.UnitTests
             //Engine.Infinite = true;
             Program.ParseCommand(
                 "position startpos moves e2e4 c7c5 g1f3 e7e6 d2d4 c5d4 f3d4 a7a6 f1d3 b8c6 d4c6 d7c6 b1c3 d8c7 c1e3 g8f6 c3a4 c6c5 c2c4 f8d6 d1b3 f6d7 h2h3 e8g8 e1g1 b7b6 f2f4 c8b7");
-            Program.ParseCommand("go wtime 120152 btime 150887 winc 6000 binc 6000");
+            Program.ParseCommand("go depth 12");
             Engine.Wait();
         }
 
@@ -193,7 +193,7 @@ namespace Pedantic.UnitTests
         {
             Program.ParseCommand(
                 "position startpos moves d2d4 g8f6 c2c4 g7g6 b1c3 f8g7 e2e4 d7d6 f1e2 e8g8 c1g5 a7a6 g1f3 c7c6 h2h3 b7b5 a2a3 b5c4 e4e5 d6e5 d4e5 f6d5 e2c4 c8e6 d1d2 b8d7 c3d5 c6d5");
-            Program.ParseCommand("go wtime 129205 btime 145079 winc 6000 binc 6000");
+            Program.ParseCommand("go depth 20");
             Engine.Wait();
         }
 
@@ -215,7 +215,7 @@ namespace Pedantic.UnitTests
             Program.ParseCommand("setoption name Hash value 128");
             Program.ParseCommand(
                 "position startpos moves e2e4 e7e5 b1c3 g8f6 f1c4 b8c6 d2d3 c6a5 g1e2 c7c6 c4f7 e8f7 c1e3 d7d5 e4d5 c6d5");
-            Program.ParseCommand("go wtime 141982 btime 83680 winc 6000 binc 6000");
+            Program.ParseCommand("go depth 18");
             Engine.Wait();
 
         }
@@ -255,7 +255,7 @@ namespace Pedantic.UnitTests
             Program.ParseCommand("position startpos moves d2d4 d7d6 e2e4 g8f6 b1c3 g7g6 h2h3 f8g7 c1e3 e8g8 f2f4 d6d5 e4e5 f6e4 c3e4 d5e4 f1c4 c7c6 g1e2 a7a5 e2g3 b7b5 c4b3 a5a4 e1g1 a4b3 c2b3 f7f5");
             Console.WriteLine(Engine.Board.ToString());
             Console.WriteLine(Engine.Board.ToFenString());
-            Program.ParseCommand("go wtime 119768 btime 125570 winc 6000 binc 6000");
+            Program.ParseCommand("go depth 15");
             Engine.Wait();
         }
 
@@ -270,18 +270,18 @@ namespace Pedantic.UnitTests
                 "position startpos moves d2d4 g8f6 c2c4 e7e6 g1f3 c7c5 d4d5 d7d6 b1c3 e6d5 c4d5 g7g6 c1f4 a7a6 a2a4 f8g7 h2h3 e8g8 e2e3 f6h5 f4h2 g7c3 b2c3 h5f6 d1b3 b7b6 e1c1 f6e4 b3c2 f7f5 f1d3 d8f6 d3e4 f5e4 f3d2 f6f2 h2d6 f8e8 d2c4 f2c2 c1c2 b8d7 d1b1 b6b5 c4a5 b5a4 a5c6 a6a5 c6e7 g8h8 e7c8 a8c8 b1b5 a4a3 h1a1 d7e5 d6c5 e5d3 c5d4 h8g8 b5b7 d3e5 a1a3 c8a8 a3a1 a5a4 d5d6 e5f7 d6d7 e8f8 a1d1 f7d8 b7b6 f8f2 c2c1 a4a3 d4c5 a3a2");
             Console.WriteLine(Engine.Board.ToString());
             Console.WriteLine(Engine.Board.ToFenString());
-            Program.ParseCommand("go wtime 89698 btime 86829 winc 6000 binc 6000");
+            Program.ParseCommand("go depth 14");
             Engine.Wait();
 
             ulong move = Move.Pack(Index.B6, Index.B1);
             //Engine.Infinite = true;
             Engine.Board.MakeMove(move);
-            Program.ParseCommand("go wtime 89698 btime 86829 winc 6000 binc 6000");
+            Program.ParseCommand("go depth 14");
             Engine.Wait();
             
             move = Move.Pack(Index.A2, Index.A1, MoveType.Promote, promote: Piece.Queen);
             Engine.Board.MakeMove(move);
-            Program.ParseCommand("go wtime 89698 btime 86829 winc 6000 binc 6000");
+            Program.ParseCommand("go depth 14");
 
             Engine.Wait();
         }
@@ -304,7 +304,7 @@ namespace Pedantic.UnitTests
         {
             Program.ParseCommand("setoption name Hash value 128");
             Program.ParseCommand("position startpos moves e2e4 g7g6 d2d4 d7d6 c2c4 g8f6 b1c3 f8g7 g1f3 e8g8 f1e2 e7e5 d4e5 d6e5 d1d8 f8d8 c1g5 c8g4 c3d5 b8d7 d5c7 a8b8 c7d5 h7h6 g5h4 g6g5 f3g5 h6g5 h4g5 g4e2 e1e2 d8e8 e2f3 b8c8 h1c1 a7a5 g5d2 d7c5 d5f6 g7f6 d2a5 g8g7 h2h3 e8h8 a5b6 c5a4 b6e3 a4b2 a1b1 b2c4 b1b7 c4e3 c1c8 h8c8 f2e3 c8a8 b7b2 a8a3 b2e2 f6e7 e2c2 e7g5 c2e2 g7g6 f3f2 g5f6 g2g4 f6g5 f2f3 g6g7 f3f2 g7f6 f2f3 f6e7 f3f2 e7d7 f2f3 d7c6");
-            Program.ParseCommand("go ponder wtime 123099 btime 42017 winc 6000 binc 6000");
+            Program.ParseCommand("go depth 18");
             Thread.Sleep(5000);
             Program.ParseCommand("ponderhit");
             Engine.Wait();
@@ -315,7 +315,7 @@ namespace Pedantic.UnitTests
         {
             Program.ParseCommand("setoption name Hash value 128");
             Program.ParseCommand("position startpos moves c2c4 g8f6 g1f3 c7c5 b1c3 d7d5 c4d5 f6d5 d2d4 e7e6 g2g3 b8c6 f1g2 c5d4 f3d4 d5c3 b2c3 c6d4 d1d4 d8d4 c3d4 f8b4 c1d2 b4d6 h1g1 e8g8 d2e3 a8b8 e1d2 a7a5 a1b1 f8d8 g2e4 a5a4 g1c1 b7b5 e3g5 f7f6 g5e3 b5b4 c1c6 a4a3 h2h3 h7h6 e4d3 g7g5");
-            Program.ParseCommand("go wtime 145759 btime 81533 winc 6000 binc 6000");
+            Program.ParseCommand("go depth 19");
             Engine.Wait();
 
             Engine.Debug = true;
@@ -366,7 +366,7 @@ namespace Pedantic.UnitTests
         {
             Engine.MovesOutOfBook = 11;
             Program.ParseCommand("position startpos moves g2g3 h7h5 d2d4 h5h4 g3h4 g8f6 c1g5 d7d5 e2e3 g7g6 g5f6 e7f6 g1f3 c7c6 b1d2 a7a5 f1g2 a5a4 c2c3 a4a3 b2b4 c8e6 a1b1");
-            Program.ParseCommand("go wtime 117306 btime 81754 winc 6000 binc 6000");
+            Program.ParseCommand("go wtime 11730 btime 8175 winc 6000 binc 6000");
             Engine.Wait();
         }
 
@@ -399,7 +399,7 @@ namespace Pedantic.UnitTests
             //Engine.Infinite = true;
             Program.ParseCommand("position startpos moves g1f3 c7c5 c2c4 g8f6 b1c3 e7e6 e2e4 b8c6 f1e2 d7d5 e4d5 e6d5 d2d4 c8e6 c4d5 f6d5 c3e4 c5d4 e1g1 d5c7 e2d3 f8e7 c1g5 f7f6 g5f4 e8g8 a1c1 c7d5 f4g3 d5b4 d3b1 f6f5 e4c5 e7c5 c1c5 d8b6 f3d4 f8d8 d4e6 d8d1 f1d1 c6d8 d1d6 b4c6");
             Console.WriteLine(Engine.Board.ToFenString());
-            Program.ParseCommand("go wtime 582209 btime 423666 winc 0 binc 0 movestogo 18");
+            Program.ParseCommand("go wtime 58220 btime 42366 winc 0 binc 0 movestogo 18");
             Engine.Wait();
         }
 
@@ -409,7 +409,7 @@ namespace Pedantic.UnitTests
             //Engine.Infinite = true;
             Program.ParseCommand("position startpos moves g1f3 d7d5 d2d4 e7e6 c2c4 g8f6 b1c3 c7c6 e2e3 b8d7 f1d3 d5c4 d3c4 b7b5 c4d3 a7a6 a2a4 b5b4 c3e4 c6c5 e4f6 d7f6 e1g1 c5d4 e3d4 f8d6 f3e5 c8b7 c1f4 e8g8 a1c1 d6c7 c1c4 a6a5 d1d2 d8d5 f2f3 c7e5 f4e5 f6d7 f1e1 b7a6 c4c2 d7e5 d3e4 d5a2 d4e5 a8d8 d2e3 a2a4 b2b3 a4a3 c2c1 a3b2 c1c6 a6b5 c6c5 d8b8 e1b1 b2a3 h2h3 f8d8 c5c7 a3a2 b1c1 b5e8");
             Console.WriteLine(Engine.Board.ToFenString());
-            Program.ParseCommand("go wtime 280953 btime 127595 winc 0 binc 0 movestogo 7");
+            Program.ParseCommand("go depth 19");
             Engine.Wait();
         }
 
@@ -419,7 +419,7 @@ namespace Pedantic.UnitTests
             //Engine.Infinite = true;
             Program.ParseCommand("position startpos moves b1c3 c7c5 e2e4 b8c6 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 f1c4 d8b6 d4b3 b6d8 e1g1 g7g6 c3d5 f8g7 d5f6 g7f6 c2c3 h7h5 c1e3 c6e5 c4e2 d8c7 e3d4 c8e6 f2f4 e5d7 d4f2 e6c4 e2c4 c7c4 d1d5 c4d5 e4d5 h5h4 f1d1 d7b6 f2b6 a7b6 b3d4 a8a4 b2b4 h8h5 d4e2 a4a3 d1d3 e8d7 g2g3 h4g3 h2g3 g6g5 g1f2 g5f4 g3f4 f6h8 f2g3 f7f5 g3g2 h5h4 d3e3 b6b5 g2g1 h8f6 e3d3 h4h8 g1f2 h8h2 f2e3 b7b6 a1f1 a3a2 f1f2 h2h1 f2f3 h1e1 d3d2 a2a3 e3f2 e1h1 f2g2 h1h8 f3e3 h8c8 g2f2 f6h4 f2g2 c8g8 g2h2 h4f6 d2c2 g8c8 e3g3 a3a1 c2d2 c8h8 h2g2 h8a8 g3h3 a1b1 h3h5 a8a3 h5h3 b1b3 d2c2 a3a1 h3h5 a1a7 h5h1 a7c7 h1c1 c7c8 g2f2 c8c4 f2g2 b3a3 g2f2 e7e6 d5e6 d7e6 f2e1 d6d5 e1d2 c4e4 c1e1 e6f7 e1h1 d5d4 c3d4 f6d4 c2c7 f7g6 c7c6 d4f6 h1c1 a3a2 c1c2 a2c2 c6c2 e4c4 c2c1 f6b2 c1c2 c4b4 c2c6 g6f7 c6b6 b2d4 e2d4 b4d4 d2e3 d4d5 e3f3 f7e7 f3e3 e7d7 b6g6 d7c7 g6a6 d5d6 a6a1 c7b6 a1b1 d6e6 e3f3 e6c6 f3e3 c6c4 b1d1 b5b4 d1d8 b6b5 e3d3 c4f4 d3c2 f4c4 c2b2 f5f4 d8d3 b5c5 d3f3 c5d5 f3f1 c4d4 b2b3 d5e5 b3a4 e5f5 a4b5 d4e4 b5c5 f5e5 f1f3 e4e3 f3f2 b4b3 f2h2 f4f3 c5c4 e3e2 h2h5 e5e4 h5h4 e4e3 c4b3 f3f2 h4h3 e3d4 h3h4 e2e4 h4h1 e4e1 h1h4 d4e5 h4h5 e5e4 h5h4 e4d5 h4f4 f2f1q f4f1 e1f1 b3c3 d5c5 c3d3 f1f6 d3e4 c5d6 e4d4 f6f3 d4e4 f3a3 e4d4 d6d7 d4e5 a3a4 e5d5 d7c8 d5c5 a4f4 c5d5 f4g4 d5c6 g4e4 c6d5 e4e2 d5d4 c8b7 d4d5 b7a6 d5d4 a6b5 d4d5 e2e3 d5d4 e3e8 d4d5 e8f8 d5d6 f8f5 d6e6 f5f4 e6e5 f4a4 e5d5 b5b6 d5e6 a4f4 e6e5 f4h4 e5d5");
             Console.WriteLine(Engine.Board.ToFenString());
-            Program.ParseCommand("go wtime 14864 btime 135206 winc 6000 binc 6000");
+            Program.ParseCommand("go depth 20");
             Engine.Wait();
         }
 

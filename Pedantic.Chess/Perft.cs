@@ -91,7 +91,7 @@ namespace Pedantic.Chess
             board.LoadFenPosition(fen);
         }
 
-        public ulong Divide(int depth, out DivideCount[] counts, bool test = false)
+        public ulong Divide(int depth, out DivideCount[] counts)
         {
             counts = Array.Empty<DivideCount>();
 
@@ -104,12 +104,13 @@ namespace Pedantic.Chess
 
             ulong nodes = 0;
             MoveList moveList = moveListPool.Get();
+            board.PushBoardState();
             board.GenerateMoves(moveList);
             ReadOnlySpan<ulong> moves = moveList.ToSpan();
             for (int n = 0; n < moves.Length; ++n)
             {
                 ulong move = moves[n];
-                if (!board.MakeMove(move))
+                if (!board.MakeMoveNs(move))
                 {
                     continue;
                 }
@@ -122,41 +123,33 @@ namespace Pedantic.Chess
                 }
                 else
                 {
-                    ulong result = Execute(depth - 1, test);
+                    ulong result = Execute(depth - 1);
                     nodes += result;
                     divCnt.Sum(result);
                 }
 
                 divCounts.Add(divCnt);
 
-                board.UnmakeMove();
+                board.UnmakeMoveNs();
             }
 
             moveListPool.Return(moveList);
+            board.PopBoardState();
             counts = divCounts.ToArray();
             return nodes;
         }
 
-        public ulong Execute(int depth, bool test = false)
+        public ulong Execute(int depth)
         {
             if (depth == 0)
             {
                 return 1;
             }
 
-            bool inCheck = board.IsChecked();
             ulong nodes = 0;
             MoveList moveList = moveListPool.Get();
             board.PushBoardState();
-
-            if (inCheck && test)
-            {
-                board.GenerateEvasions(moveList);
-            }
-            else
-            {
-                board.GenerateMoves(moveList);
-            }
+            board.GenerateMoves(moveList);
 
             ReadOnlySpan<ulong> moves = moveList.ToSpan();
             for (int n = 0; n < moves.Length; ++n)
@@ -193,21 +186,23 @@ namespace Pedantic.Chess
             }
 
             MoveList moveList = moveListPool.Get();
+            board.PushBoardState();
             board.GenerateMoves(moveList);
             var moves = moveList.ToSpan();
 
             for (int n = 0; n < moves.Length; ++n)
             {
-                if (!board.MakeMove(moves[n]))
+                if (!board.MakeMoveNs(moves[n]))
                 {
                     continue;
                 }
 
                 counts += ExecuteWithDetails(depth - 1);
-                board.UnmakeMove();
+                board.UnmakeMoveNs();
             }
 
             moveListPool.Return(moveList);
+            board.PopBoardState();
             return counts;
         }
 
@@ -222,22 +217,24 @@ namespace Pedantic.Chess
                 counts.Checks = 1;
                 mate = true;
                 MoveList moveList = moveListPool.Get();
+                board.PushBoardState();
                 board.GenerateMoves(moveList);
                 var moves = moveList.ToSpan();
 
                 for (int n = 0; n < moves.Length; ++n)
                 {
-                    if (!board.MakeMove(moves[n]))
+                    if (!board.MakeMoveNs(moves[n]))
                     {
                         continue;
                     }
 
-                    board.UnmakeMove();
+                    board.UnmakeMoveNs();
                     mate = false;
                     break;
                 }
 
                 moveListPool.Return(moveList);
+                board.PopBoardState();
             }
 
             if (mate && inCheck)

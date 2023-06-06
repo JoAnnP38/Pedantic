@@ -59,10 +59,6 @@ namespace Pedantic
                 name: "--fen",
                 description: "Specifies the starting position if other than the default.",
                 getDefaultValue: () => null);
-            var testOption = new Option<bool>(
-                name: "--test",
-                description: "Execute test version.",
-                getDefaultValue: () => false) { IsHidden = true };
             var commandFileOption = new Option<string?>(
                 name: "--input",
                 description: "Specify a file read UCI commands from.",
@@ -130,7 +126,6 @@ namespace Pedantic
                 typeOption,
                 depthOption,
                 fenOption,
-                testOption,
                 magicOption
             };
 
@@ -164,18 +159,20 @@ namespace Pedantic
                 weightsCommand
             };
 
-            uciCommand.SetHandler(async (inFile, errFile, random, stats) => await RunUci(inFile, errFile, random, stats), commandFileOption, errorFileOption, randomSearchOption, statsOption);
-            perftCommand.SetHandler(RunPerft, typeOption, depthOption, fenOption, testOption);
+            uciCommand.SetHandler(RunUci, commandFileOption, errorFileOption, randomSearchOption, statsOption, magicOption);
+            perftCommand.SetHandler(RunPerft, typeOption, depthOption, fenOption, magicOption);
             labelCommand.SetHandler(RunLabel, pgnFileOption, dataFileOption, maxPositionsOption);
             learnCommand.SetHandler(RunLearn, dataFileOption, sampleOption, iterOption, preserveOption);
             weightsCommand.SetHandler(RunWeights, immortalOption, displayOption);
-            rootCommand.SetHandler(async () => await RunUci(null, null, false, false));
+            rootCommand.SetHandler(async () => await RunUci(null, null, false, false, false));
 
             return rootCommand.InvokeAsync(args).Result;
         }
 
-        private static async Task RunUci(string? inFile, string? errFile, bool random, bool stats)
+        private static async Task RunUci(string? inFile, string? errFile, bool random, bool stats, bool forceMagic)
         {
+            GlobalOptions.DisablePextBitboards = forceMagic;
+
             TextReader? stdin = null;
             TextWriter? stderr = null;
 
@@ -459,8 +456,10 @@ namespace Pedantic
             return (iValue < tokens.Length) ? tokens[iValue] : null;
         }
 
-        private static void RunPerft(PerftRunType runType, int depth, string? fen = null, bool test = false)
+        private static void RunPerft(PerftRunType runType, int depth, string? fen = null, bool forceMagic = false)
         {
+            GlobalOptions.DisablePextBitboards = forceMagic;
+
             Console.WriteLine($@"{APP_NAME_VER}");
             Perft perft = new(fen);
             switch (runType)
@@ -478,15 +477,15 @@ namespace Pedantic
                     break;
 
                 case PerftRunType.Divide:
-                    RunDividePerft(perft, fen, depth, test);
+                    RunDividePerft(perft, fen, depth);
                     break;
             }
         }
 
-        private static void RunDividePerft(Perft perft, string? fen, int depth, bool test)
+        private static void RunDividePerft(Perft perft, string? fen, int depth)
         {
             Console.WriteLine($"Calculating Perft({depth})...");
-            ulong nodes = perft.Divide(depth, out Perft.DivideCount[] rootCounts, test);
+            ulong nodes = perft.Divide(depth, out Perft.DivideCount[] rootCounts);
             Board board = new(fen ?? Constants.FEN_START_POS);
 
             foreach (Perft.DivideCount divCnt in rootCounts)

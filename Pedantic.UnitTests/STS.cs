@@ -14,7 +14,7 @@ namespace Pedantic.UnitTests
             //Engine.Infinite = true;
             Program.ParseCommand("setoption name Hash value 128");
             Program.ParseCommand($"position fen {fen}");
-            Program.ParseCommand("go movetime 6000");
+            Program.ParseCommand("go depth 18");
             Engine.Wait();
         }
     }
