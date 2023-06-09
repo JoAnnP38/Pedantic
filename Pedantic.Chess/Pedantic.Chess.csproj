@@ -4,7 +4,7 @@
     <TargetFramework>net7.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <Platforms>AnyCPU</Platforms>
+    <Platforms>AnyCPU;x64</Platforms>
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
     <Configurations>Debug;Release</Configurations>
   </PropertyGroup>
@@ -13,7 +13,16 @@
     <DebugType>full</DebugType>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <DebugType>full</DebugType>
+  </PropertyGroup>
+
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <Optimize>True</Optimize>
+    <DebugType>full</DebugType>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Optimize>True</Optimize>
     <DebugType>full</DebugType>
   </PropertyGroup>
@@ -41,6 +50,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Pedantic.Collections\Pedantic.Collections.csproj" />
     <ProjectReference Include="..\Pedantic.Genetics\Pedantic.Genetics.csproj" />
+    <ProjectReference Include="..\Pedantic.Tablebase\Pedantic.Tablebase.vcxproj" />
     <ProjectReference Include="..\Pedantic.Utilities\Pedantic.Utilities.csproj" />
   </ItemGroup>
 

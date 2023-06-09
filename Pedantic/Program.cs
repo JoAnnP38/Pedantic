@@ -16,6 +16,7 @@
 using Pedantic.Chess;
 using Pedantic.Genetics;
 using Pedantic.Utilities;
+using Pedantic.Tablebase;
 using System.CommandLine;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
@@ -241,15 +242,16 @@ namespace Pedantic
                 case "uci":
                     Console.WriteLine($@"id name {APP_NAME_VER}");
                     Console.WriteLine($@"id author {AUTHOR}");
+                    Console.WriteLine(@"option name Clear Hash type button");
+                    Console.WriteLine(@"option name Collect_Stats type check default false");
+                    Console.WriteLine(@"option name Evaluation_ID type string default <empty>");
+                    Console.WriteLine($@"option name Hash type spin default {TtTran.DEFAULT_SIZE_MB} min 1 max {TtTran.MAX_SIZE_MB}");
+                    //Console.WriteLine($@"option name Threads type spin default 1 min 1 max {Math.Max(Environment.ProcessorCount - 2, 1)}");
                     Console.WriteLine(@"option name OwnBook type check default true");
                     Console.WriteLine(@"option name Ponder type check default true");
-                    Console.WriteLine($@"option name Hash type spin default {TtTran.DEFAULT_SIZE_MB} min 1 max {TtTran.MAX_SIZE_MB}");
-                    Console.WriteLine(@"option name Clear Hash type button");
-                    //Console.WriteLine($@"option name MaxThreads type spin default 1 min 1 max {Math.Max(Environment.ProcessorCount - 2, 1)}");
-                    Console.WriteLine($@"option name UCI_EngineAbout type string default {APP_NAME_VER} by {AUTHOR}, see {PROGRAM_URL}");
-                    Console.WriteLine(@"option name Evaluation_ID type string default <empty>");
                     Console.WriteLine(@"option name Random_Search type check default false");
-                    Console.WriteLine(@"option name Collect_Stats type check default false");
+                    Console.WriteLine(@"option name SyzygyPath type string default <empty>");
+                    Console.WriteLine($@"option name UCI_EngineAbout type string default {APP_NAME_VER} by {AUTHOR}, see {PROGRAM_URL}");
                     Console.WriteLine(@"uciok");
                     break;
 
@@ -394,6 +396,21 @@ namespace Pedantic
                             Engine.CollectStats = collectStats;
                         }
 
+                        break;
+
+                    case "SyzygyPath":
+                        if (tokens[3] == "value")
+                        {
+                            if (tokens.Length >= 5 && !Path.Exists(tokens[4]))
+                            {
+                                Uci.Log($"Ignoring specified SyzygyPath: '{tokens[4]}'. Path doesn't exist.");
+                            }
+                            bool result = Syzygy.Initialize(tokens[4]);
+                            if (!result)
+                            {
+                                Uci.Log($"Could not locate valid Syzygy tablebase files at '{tokens[4]}'.");
+                            }
+                        }
                         break;
                 }
             }

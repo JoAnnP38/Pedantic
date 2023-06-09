@@ -158,6 +158,7 @@ namespace Pedantic.Chess
         public Color OpponentColor => sideToMove.Other();
         public CastlingRights Castling => castling;
         public int EnPassant => enPassant;
+        public int EnPassantValidated => enPassantValidated;
         public int HalfMoveClock => halfMoveClock;
         public int FullMoveCounter => fullMoveCounter;
         public ulong Hash => hash;

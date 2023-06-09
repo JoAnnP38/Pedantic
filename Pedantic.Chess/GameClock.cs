@@ -167,8 +167,8 @@ namespace Pedantic.Chess
         private const int branch_factor_multiplier = 30; /* A: 28, B: 30, C: 32 */
         private const int branch_factor_divisor = 16;
         private const int max_time_remaining = int.MaxValue / 3;
-        private const int default_movestogo = 30;
-        private const int default_movestogo_ponder = 25;
+        private const int default_movestogo = 25;
+        private const int default_movestogo_ponder = 30;
         private const int default_movestogo_sudden_death = 40;
         private const int absolute_limit_factor = 4;
         private const int difficulty_max_limit = 200;

@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Pedantic.UnitTests": {
+      "commandName": "Project",
+      "nativeDebugging": true
+    }
+  }
+}

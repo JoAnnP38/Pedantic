@@ -467,5 +467,17 @@ namespace Pedantic.UnitTests
             Engine.Wait();
 
         }
+
+        [TestMethod]
+        public void EngineStopsRepondingTest()
+        {
+            Engine.SearchThreads = 1;
+            Program.ParseCommand("setoption name Hash value 128");
+            Program.ParseCommand("position fen 7k/6p1/8/8/8/8/1K6/R7 w - - 0 18");
+            Console.WriteLine(Engine.Board.ToString());
+            Console.WriteLine(Engine.Board.ToFenString());
+            Program.ParseCommand("go depth 28");
+            Engine.Wait();        
+        }
     }
 }

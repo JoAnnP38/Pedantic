@@ -17,6 +17,7 @@
 
 using System.Runtime.CompilerServices;
 using Pedantic.Genetics;
+using Pedantic.Tablebase;
 using Pedantic.Utilities;
 
 namespace Pedantic.Chess
@@ -333,6 +334,12 @@ namespace Pedantic.Chess
                 return score;
             }
 
+            if (ProbeTb(depth, ply, alpha, beta, out score))
+            {
+                ++tbHits;
+                return score;
+            }
+
             int X = CalcExtension(inCheck);
             if (depth + X <= 0)
             {
@@ -619,6 +626,44 @@ namespace Pedantic.Chess
             return alpha;
         }
 
+        private bool ProbeTb(int depth, int ply, int alpha, int beta, out int score)
+        {
+            score = 0;
+            if (depth > 6 && board.HalfMoveClock == 0 && board.Castling == CastlingRights.None && BitOps.PopCount(board.All) <= Syzygy.TbLargest)
+            {
+                TbResult result = Syzygy.ProbeWdl(board.Units(Color.White), board.Units(Color.Black), 
+                    board.Pieces(Color.White, Piece.King)   | board.Pieces(Color.Black, Piece.King),
+                    board.Pieces(Color.White, Piece.Queen)  | board.Pieces(Color.Black, Piece.Queen),
+                    board.Pieces(Color.White, Piece.Rook)   | board.Pieces(Color.Black, Piece.Rook),
+                    board.Pieces(Color.White, Piece.Bishop) | board.Pieces(Color.Black, Piece.Bishop),
+                    board.Pieces(Color.White, Piece.Knight) | board.Pieces(Color.Black, Piece.Knight),
+                    board.Pieces(Color.White, Piece.Pawn)   | board.Pieces(Color.Black, Piece.Pawn),
+                    (uint)board.HalfMoveClock, (uint)board.Castling, 
+                    (uint)(board.EnPassantValidated != Index.NONE ? board.EnPassantValidated : 0), 
+                    board.SideToMove == Color.White);
+
+                if (result == TbResult.TbWin)
+                {
+                    score = Constants.CHECKMATE_BASE - (Constants.MAX_PLY + ply);
+                }
+                else if (result == TbResult.TbLoss)
+                {
+                    score = -Constants.CHECKMATE_BASE + (Constants.MAX_PLY + ply);
+                }
+                else
+                {
+                    score = (int)result.Wdl;
+                }
+
+                if (score < beta)
+                {
+                    TtTran.Add(board.Hash, Constants.MAX_PLY, ply, alpha, beta, score, 0ul);
+                    return true;
+                }
+            }
+            return false;
+        }
+
         private void ReportSearchResults(ref ulong bestMove, ref ulong? ponderMove)
         {
             bool bestMoveChanged = false;
@@ -896,6 +941,7 @@ namespace Pedantic.Chess
         private readonly DateTime startDateTime;
         private bool startReporting = false;
         private int seldepth;
+        private long tbHits = 0;
         private readonly ulong[][] pvTable = Mem.Allocate2D<ulong>(Constants.MAX_PLY, Constants.MAX_PLY);
         private readonly int[] pvLength = new int[Constants.MAX_PLY];
 

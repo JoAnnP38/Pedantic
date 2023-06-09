@@ -6,18 +6,18 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
-    <Platforms>AnyCPU</Platforms>
+    <Platforms>x64</Platforms>
     <StartupObject>Pedantic.Program</StartupObject>
     <Configurations>Debug;Release</Configurations>
-    <Version>0.3.0</Version>
+    <Version>0.4.0</Version>
     <TieredPGO>true</TieredPGO>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <DebugType>full</DebugType>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Optimize>True</Optimize>
     <DebugType>full</DebugType>
   </PropertyGroup>
@@ -30,6 +30,7 @@
     <ProjectReference Include="..\Pedantic.Chess\Pedantic.Chess.csproj" />
     <ProjectReference Include="..\Pedantic.Collections\Pedantic.Collections.csproj" />
     <ProjectReference Include="..\Pedantic.Genetics\Pedantic.Genetics.csproj" />
+    <ProjectReference Include="..\Pedantic.Tablebase\Pedantic.Tablebase.vcxproj" />
     <ProjectReference Include="..\Pedantic.Utilities\Pedantic.Utilities.csproj" />
   </ItemGroup>
 
