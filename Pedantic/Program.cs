@@ -28,7 +28,7 @@ namespace Pedantic
     public static class Program
     {
         public const string APP_NAME = "Pedantic";
-        public const string APP_VERSION = "0.3.0";
+        public const string APP_VERSION = "0.4.0";
         public const string APP_NAME_VER = APP_NAME + " " + APP_VERSION;
         public const string AUTHOR = "JoAnn D. Peeler";
         public const string PROGRAM_URL = "https://github.com/JoAnnP38/Pedantic";

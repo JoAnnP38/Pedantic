@@ -164,6 +164,7 @@ namespace Pedantic.Chess
                 
                 if (board.TotalMaterialNoKings < Evaluation.EndGamePhaseMaterial + Piece.Knight.Value())
                 {
+                    Uci.Log("Incrementing cache version.");
                     TtTran.IncrementVersion();
                 }
 
