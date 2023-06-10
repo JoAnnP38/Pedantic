@@ -9,7 +9,7 @@
     <Platforms>x64</Platforms>
     <StartupObject>Pedantic.Program</StartupObject>
     <Configurations>Debug;Release</Configurations>
-    <Version>0.4.0</Version>
+    <Version>0.3.1</Version>
     <TieredPGO>true</TieredPGO>
   </PropertyGroup>
 
