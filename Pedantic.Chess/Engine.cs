@@ -140,6 +140,7 @@ namespace Pedantic.Chess
             Stop();
             ClearHashTable();
             MovesOutOfBook = 0;
+            searchCounter = 0;
         }
 
         public static void ResizeHashTable(int sizeMb)

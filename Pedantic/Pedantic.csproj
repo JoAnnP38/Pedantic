@@ -2,14 +2,14 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net7.0</TargetFramework>
+    <TargetFramework>net7.0-windows8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
     <Platforms>AnyCPU;x64</Platforms>
     <StartupObject>Pedantic.Program</StartupObject>
     <Configurations>Debug;Release</Configurations>
-    <Version>0.3.1</Version>
+    <Version>0.4.0</Version>
     <TieredPGO>true</TieredPGO>
   </PropertyGroup>
 
@@ -39,6 +39,7 @@
     <ProjectReference Include="..\Pedantic.Chess\Pedantic.Chess.csproj" />
     <ProjectReference Include="..\Pedantic.Collections\Pedantic.Collections.csproj" />
     <ProjectReference Include="..\Pedantic.Genetics\Pedantic.Genetics.csproj" />
+    <ProjectReference Include="..\Pedantic.Tablebase\Pedantic.Tablebase.vcxproj" />
     <ProjectReference Include="..\Pedantic.Utilities\Pedantic.Utilities.csproj" />
   </ItemGroup>
 

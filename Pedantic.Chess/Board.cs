@@ -158,6 +158,7 @@ namespace Pedantic.Chess
         public Color OpponentColor => sideToMove.Other();
         public CastlingRights Castling => castling;
         public int EnPassant => enPassant;
+        public int EnPassantValidated => enPassantValidated;
         public int HalfMoveClock => halfMoveClock;
         public int FullMoveCounter => fullMoveCounter;
         public ulong Hash => hash;
@@ -1128,11 +1129,11 @@ namespace Pedantic.Chess
             return list.Count == 0;
         }
 
-        public bool OneLegalMove(out ulong legalMove)
+        public bool OneLegalMove(MoveList moveList, out ulong legalMove)
         {
             int legalCount = 0;
             legalMove = 0;
-            MoveList moveList = new();
+            moveList.Clear();
             GenerateMoves(moveList);
             for (int n = 0; n < moveList.Count && legalCount <= 1; n++)
             {

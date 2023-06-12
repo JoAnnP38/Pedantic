@@ -17,6 +17,7 @@
 
 using System.Runtime.CompilerServices;
 using Pedantic.Genetics;
+using Pedantic.Tablebase;
 using Pedantic.Utilities;
 
 namespace Pedantic.Chess
@@ -62,7 +63,14 @@ namespace Pedantic.Chess
                 Depth = 0;
                 long startNodes = 0;
                 ulong? ponderMove = null;
-                oneLegalMove = board.OneLegalMove(out ulong bestMove);
+                MoveList moveList = new();
+                oneLegalMove = board.OneLegalMove(moveList, out ulong bestMove);
+                if (ProbeRootTb(moveList, out ulong tbMove))
+                {
+                    Uci.BestMove(tbMove, null);
+                    return;
+                }
+
                 Eval.CalcMaterialAdjustment(board);
                 bool inCheck = board.IsChecked();
                 Score = Quiesce(-Constants.INFINITE_WINDOW, Constants.INFINITE_WINDOW, 0, inCheck);
@@ -339,6 +347,14 @@ namespace Pedantic.Chess
             { 
                 return score;
             }
+
+            /*
+            if (ProbeTb(depth, ply, alpha, beta, out score))
+            {
+                ++tbHits;
+                return score;
+            }
+            */
 
             int X = CalcExtension(inCheck);
             if (depth + X <= 0)
@@ -632,6 +648,83 @@ namespace Pedantic.Chess
             return alpha;
         }
 
+        private bool ProbeTb(int depth, int ply, int alpha, int beta, out int score)
+        {
+            score = 0;
+            if (Syzygy.IsInitialized && depth > 6 && board.HalfMoveClock == 0 && board.Castling == CastlingRights.None && 
+                BitOps.PopCount(board.All) <= Syzygy.TbLargest)
+            {
+                TbResult result = Syzygy.ProbeWdl(board.Units(Color.White), board.Units(Color.Black), 
+                    board.Pieces(Color.White, Piece.King)   | board.Pieces(Color.Black, Piece.King),
+                    board.Pieces(Color.White, Piece.Queen)  | board.Pieces(Color.Black, Piece.Queen),
+                    board.Pieces(Color.White, Piece.Rook)   | board.Pieces(Color.Black, Piece.Rook),
+                    board.Pieces(Color.White, Piece.Bishop) | board.Pieces(Color.Black, Piece.Bishop),
+                    board.Pieces(Color.White, Piece.Knight) | board.Pieces(Color.Black, Piece.Knight),
+                    board.Pieces(Color.White, Piece.Pawn)   | board.Pieces(Color.Black, Piece.Pawn),
+                    (uint)board.HalfMoveClock, (uint)board.Castling, 
+                    (uint)(board.EnPassantValidated != Index.NONE ? board.EnPassantValidated : 0), 
+                    board.SideToMove == Color.White);
+
+                if (result.Wdl == TbGameResult.Win)
+                {
+                    score = Constants.CHECKMATE_BASE - (Constants.MAX_PLY + ply);
+                }
+                else if (result.Wdl == TbGameResult.Loss)
+                {
+                    score = -Constants.CHECKMATE_BASE + (Constants.MAX_PLY + ply);
+                }
+                else
+                {
+                    score = (int)result.Wdl;
+                }
+
+                if (score > alpha && score < beta)
+                {
+                    TtTran.Add(board.Hash, Constants.MAX_PLY, ply, alpha, beta, score, 0ul);
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private bool ProbeRootTb(MoveList moveList, out ulong move)
+        {
+            move = 0;
+            if (Syzygy.IsInitialized && BitOps.PopCount(board.All) <= Syzygy.TbLargest)
+            {
+                TbResult result = Syzygy.ProbeRoot(board.Units(Color.White), board.Units(Color.Black), 
+                    board.Pieces(Color.White, Piece.King)   | board.Pieces(Color.Black, Piece.King),
+                    board.Pieces(Color.White, Piece.Queen)  | board.Pieces(Color.Black, Piece.Queen),
+                    board.Pieces(Color.White, Piece.Rook)   | board.Pieces(Color.Black, Piece.Rook),
+                    board.Pieces(Color.White, Piece.Bishop) | board.Pieces(Color.Black, Piece.Bishop),
+                    board.Pieces(Color.White, Piece.Knight) | board.Pieces(Color.Black, Piece.Knight),
+                    board.Pieces(Color.White, Piece.Pawn)   | board.Pieces(Color.Black, Piece.Pawn),
+                    (uint)board.HalfMoveClock, (uint)board.Castling, 
+                    (uint)(board.EnPassantValidated != Index.NONE ? board.EnPassantValidated : 0), 
+                    board.SideToMove == Color.White, null);
+
+                int from = (int)result.From;
+                int to = (int)result.To;
+                uint tbPromotes = result.Promotes;
+                Piece promote = (Piece)(5 - tbPromotes);
+                promote = promote == Piece.King ? Piece.None : promote;
+
+                for (int n = 0; n < moveList.Count; n++)
+                {
+                    move = moveList[n];
+                    if (Move.GetFrom(move) == from && Move.GetTo(move) == to && Move.GetPromote(move) == promote)
+                    {
+                        if (board.MakeMove(move))
+                        {
+                            board.UnmakeMove();
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
         private void ReportSearchResults(ref ulong bestMove, ref ulong? ponderMove)
         {
             bool bestMoveChanged = false;
@@ -909,6 +1002,7 @@ namespace Pedantic.Chess
         private readonly DateTime startDateTime;
         private bool startReporting = false;
         private int seldepth;
+        private long tbHits = 0;
         private readonly ulong[][] pvTable = Mem.Allocate2D<ulong>(Constants.MAX_PLY, Constants.MAX_PLY);
         private readonly int[] pvLength = new int[Constants.MAX_PLY];
 
