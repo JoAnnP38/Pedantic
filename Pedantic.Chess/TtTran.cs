@@ -141,6 +141,7 @@ namespace Pedantic.Chess
         {
             Array.Clear(table, 0, table.Length);
             used = 0;
+            version = 0;
         }
 
         public static void Resize(int sizeMb)

@@ -16,17 +16,17 @@ namespace Pedantic.UnitTests
         private static TestContext? context = null;
         private static bool syzygyInitialized = false;
 
-        [ClassInitialize]
-        public static void ClassInitialize(TestContext testContext)        
+        [TestInitialize]
+        public void TestInitialize()        
         {
-            context = testContext;
+            //context = testContext;
             syzygyInitialized = Syzygy.Initialize("e:/tablebases/syzygy/3-4-5");
         }
 
-        [ClassCleanup]
-        public static void ClassCleanup()
+        [TestCleanup]
+        public void ClassCleanup()
         {
-            Syzygy.Uninitialize();
+            //Syzygy.Uninitialize();
             syzygyInitialized = false;
         }
 
