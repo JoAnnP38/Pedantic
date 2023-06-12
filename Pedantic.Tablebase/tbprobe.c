@@ -24,6 +24,8 @@ SOFTWARE.
 
 #include "pch.h"
 
+#pragma unmanaged
+
 #define TB_PIECES 7
 #define TB_HASHBITS  (TB_PIECES < 7 ?  11 : 12)
 #define TB_MAX_PIECE (TB_PIECES < 7 ? 254 : 650)

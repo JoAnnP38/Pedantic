@@ -1129,11 +1129,11 @@ namespace Pedantic.Chess
             return list.Count == 0;
         }
 
-        public bool OneLegalMove(out ulong legalMove)
+        public bool OneLegalMove(MoveList moveList, out ulong legalMove)
         {
             int legalCount = 0;
             legalMove = 0;
-            MoveList moveList = new();
+            moveList.Clear();
             GenerateMoves(moveList);
             for (int n = 0; n < moveList.Count && legalCount <= 1; n++)
             {

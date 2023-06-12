@@ -29,7 +29,7 @@ namespace Pedantic
     public static class Program
     {
         public const string APP_NAME = "Pedantic";
-        public const string APP_VERSION = "0.3.0";
+        public const string APP_VERSION = "0.4.0";
         public const string APP_NAME_VER = APP_NAME + " " + APP_VERSION;
         public const string AUTHOR = "JoAnn D. Peeler";
         public const string PROGRAM_URL = "https://github.com/JoAnnP38/Pedantic";
@@ -401,14 +401,20 @@ namespace Pedantic
                     case "SyzygyPath":
                         if (tokens[3] == "value")
                         {
-                            if (tokens.Length >= 5 && !Path.Exists(tokens[4]))
+                            if (tokens.Length >= 5)
                             {
-                                Uci.Log($"Ignoring specified SyzygyPath: '{tokens[4]}'. Path doesn't exist.");
-                            }
-                            bool result = Syzygy.Initialize(tokens[4]);
-                            if (!result)
-                            {
-                                Uci.Log($"Could not locate valid Syzygy tablebase files at '{tokens[4]}'.");
+                                if (tokens[4] != "<empty>")
+                                {
+                                    if (!Path.Exists(tokens[4]))
+                                    {
+                                        Uci.Log($"Ignoring specified SyzygyPath: '{tokens[4]}'. Path doesn't exist.");
+                                    }
+                                    bool result = Syzygy.Initialize(tokens[4]);
+                                    if (!result)
+                                    {
+                                        Uci.Log($"Could not locate valid Syzygy tablebase files at '{tokens[4]}'.");
+                                    }
+                                }
                             }
                         }
                         break;

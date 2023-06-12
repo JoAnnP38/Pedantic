@@ -25,9 +25,8 @@ namespace Pedantic
         public:
             static TbResult()
             {
-                TbWin.result = TB_SET_WDL(0, static_cast<unsigned int>(TbGameResult::Win));
-                TbDraw.result = TB_SET_WDL(0, static_cast<unsigned int>(TbGameResult::Draw));
-                TbLoss.result = TB_SET_WDL(0, static_cast<unsigned int>(TbGameResult::Loss));
+                TbCheckmate.result = TB_SET_WDL(0, static_cast<unsigned int>(TbGameResult::Win));
+                TbStalemate.result = TB_SET_WDL(0, static_cast<unsigned int>(TbGameResult::Draw));
                 TbFailure.result = TB_RESULT_FAILED;
             }
 
@@ -106,9 +105,8 @@ namespace Pedantic
                     TB_SET_DTZ(result, dtz);
                 }
             }
-            initonly static TbResult TbWin;
-            initonly static TbResult TbDraw;
-            initonly static TbResult TbLoss;
+            initonly static TbResult TbCheckmate;
+            initonly static TbResult TbStalemate;
             initonly static TbResult TbFailure;
         };
 
@@ -166,6 +164,11 @@ namespace Pedantic
 	    {
         public:
 
+            static Syzygy()
+            {
+                _initialized = false;
+            }
+
             /// <summary>
             /// Initialize the tablebase.
             /// </summary>
@@ -179,9 +182,9 @@ namespace Pedantic
             {
                 IntPtr p = System::Runtime::InteropServices::Marshal::StringToHGlobalAnsi(path);
                 char *pPath = static_cast<char*>(p.ToPointer());
-                bool result = ::tb_init(pPath);
-                System::Runtime::InteropServices::Marshal::FreeHGlobal(p);            
-                return result;
+                _initialized = ::tb_init(pPath);
+                System::Runtime::InteropServices::Marshal::FreeHGlobal(p); 
+                return _initialized;
             }
             
             /// <summary>
@@ -503,6 +506,17 @@ namespace Pedantic
                     return TB_LARGEST;
                 }
             }
+
+            static property bool IsInitialized
+            {
+                bool get()
+                {
+                    return _initialized;
+                }
+            }
+
+        private:
+            static bool _initialized;
 	    };
     }
 }

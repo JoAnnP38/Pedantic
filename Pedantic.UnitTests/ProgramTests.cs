@@ -4,6 +4,7 @@ using System.Transactions;
 using Pedantic.Chess;
 using Pedantic.Utilities;
 using Index = Pedantic.Chess.Index;
+using Pedantic.Tablebase;
 
 namespace Pedantic.UnitTests
 {
@@ -477,6 +478,17 @@ namespace Pedantic.UnitTests
             Console.WriteLine(Engine.Board.ToString());
             Console.WriteLine(Engine.Board.ToFenString());
             Program.ParseCommand("go depth 28");
+            Engine.Wait();        
+        }
+
+        [TestMethod]
+        public void SyzygyRootProbeTest()
+        {
+            Syzygy.Initialize("e:/tablebases/syzygy/3-4-5");
+            Program.ParseCommand("position fen 7k/6p1/8/8/8/8/1K6/R7 w - - 0 18");
+            Console.WriteLine(Engine.Board.ToString());
+            Console.WriteLine(Engine.Board.ToFenString());
+            Program.ParseCommand("go depth 1");
             Engine.Wait();        
         }
     }
