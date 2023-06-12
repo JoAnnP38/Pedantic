@@ -18,6 +18,7 @@ namespace Pedantic.Chess
         public long Now => Stopwatch.GetTimestamp();
         public int Elapsed => Milliseconds(Now - t0);
         public int ElapsedInterval => Milliseconds(Now - tN);
+        public int TimeLimit => timeLimit;
 
         public void Reset()
         {
@@ -52,13 +53,17 @@ namespace Pedantic.Chess
         public void Go(int time, int opponentTime, int increment = 0, int movesToGo = -1, int movesOutOfBook = 10, bool ponder = false)
         {
             Reset();
-            if (movesToGo <= 0 && increment > 0)
+
+            if (movesToGo <= 0)
             {
-                movesToGo = ponder ? default_movestogo_ponder : default_movestogo;
-            }
-            else
-            {
-                movesToGo = default_movestogo_sudden_death;
+                if (increment <= 0)
+                {
+                    movesToGo = default_movestogo_sudden_death;
+                }
+                else
+                {
+                    movesToGo = ponder ? default_movestogo_ponder : default_movestogo;
+                }
             }
 
             remaining = time;
@@ -88,6 +93,7 @@ namespace Pedantic.Chess
             timeLimit = Math.Max(adjustedBudget - time_margin, time_margin); 
             absoluteLimit = Math.Max(Math.Min(adjustedBudget * absolute_limit_factor, remaining / 2) - time_margin, time_margin);
             Infinite = ponder;
+            Uci.Debug($"Starting TimeLimit: {timeLimit}, AbsoluteLimit: {absoluteLimit}");
         }
 
         public void AdjustTime(bool oneLegalMove, bool bestMoveChanged, int changes)
@@ -127,6 +133,7 @@ namespace Pedantic.Chess
             // update time limits
             timeLimit = Math.Max(budget - time_margin, time_margin);
             absoluteLimit = Math.Max(Math.Min(budget * absolute_limit_factor, remaining / 2) - time_margin, time_margin);
+            Uci.Debug($"Difficulty: {difficulty}, Adjusted TimeLimit: {timeLimit}, AbsoluteLimit: {absoluteLimit}");
         }
 
         public bool CanSearchDeeper()
@@ -143,6 +150,8 @@ namespace Pedantic.Chess
             }
 
             int estimate = (ElapsedInterval * branch_factor_multiplier) / branch_factor_divisor;
+
+            Uci.Debug($"CanSearchDeeper Elapsed: {elapsed}, Estimate: {estimate}, TimeLimit: {timeLimit}");
             if (elapsed + estimate <= timeLimit)
             {
                 return true;
@@ -167,8 +176,8 @@ namespace Pedantic.Chess
         private const int branch_factor_multiplier = 30; /* A: 28, B: 30, C: 32 */
         private const int branch_factor_divisor = 16;
         private const int max_time_remaining = int.MaxValue / 3;
-        private const int default_movestogo = 25;
-        private const int default_movestogo_ponder = 30;
+        private const int default_movestogo = 35;
+        private const int default_movestogo_ponder = 40;
         private const int default_movestogo_sudden_death = 40;
         private const int absolute_limit_factor = 4;
         private const int difficulty_max_limit = 200;
@@ -182,6 +191,5 @@ namespace Pedantic.Chess
         private int absoluteLimit;      // time limit that represents the absolute limit on search time
         private int difficulty;         // a quantity that reflects difficulty of position
         private int remaining;
-
     }
 }

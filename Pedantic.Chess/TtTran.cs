@@ -38,8 +38,7 @@ namespace Pedantic.Chess
                        (((ulong)ttFlag & 0x03ul) << 40) |
                        (((byte)depth & 0x0fful) << 42) |
                        (((byte)age & 0x0fful) << 50) |
-                       (1ul << 58) |
-                       (((byte)version & 0x01ful) << 59);
+                       (((byte)version & 0x02ful) << 58);
 
                 this.hash = hash ^ data;
             }
@@ -58,11 +57,11 @@ namespace Pedantic.Chess
 
             public byte Version
             {
-                get => (byte) BitOps.BitFieldExtract(data, 59, 5);
-                set => BitOps.BitFieldSet(data, value, 59, 5);
+                get => (byte) BitOps.BitFieldExtract(data, 58, 6);
+                set => BitOps.BitFieldSet(data, value, 58, 6);
             }
 
-            public bool InUse => BitOps.GetBit(data, 58) == 1 && Version == version;
+            public bool InUse => Version == version;
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public bool IsValid(ulong hash)
@@ -78,8 +77,7 @@ namespace Pedantic.Chess
                             (((ulong)flag & 0x03ul) << 40) |
                             (((byte)depth & 0x0fful) << 42) |
                             (((byte)age & 0x0fful) << 50) |
-                            (1ul << 58) |
-                            (((byte)version & 0x01ful) << 59);
+                            (((byte)version & 0x02ful) << 58);
                 item.hash = hash ^ item.data;
             }
         }
@@ -99,7 +97,7 @@ namespace Pedantic.Chess
             mask = (uint)(capacity - 1);
         }
 
-        public static void IncrementVersion() { version++; used = 0; }
+        public static void IncrementVersion() { ++version; used = 0; }
 
         public static void Add(ulong hash, int depth, int ply, int alpha, int beta, int score, ulong move)
         {
@@ -139,9 +137,10 @@ namespace Pedantic.Chess
 
         public static void Clear()
         {
-            Array.Clear(table, 0, table.Length);
+            Span<TtTranItem> spn = new Span<TtTranItem>(table);
+            spn.Clear();
             used = 0;
-            version = 0;
+            version = 1;
         }
 
         public static void Resize(int sizeMb)
@@ -155,6 +154,7 @@ namespace Pedantic.Chess
             table = new TtTranItem[capacity];
             mask = (uint)(capacity - 1);
             used = 0;
+            version = 1;
         }
 
         public static int Capacity => capacity;
