@@ -26,7 +26,7 @@ namespace Pedantic.Chess
         public const int CHECK_TC_NODES_MASK = 127;
         internal const int WAIT_TIME = 50;
         internal const int ONE_MOVE_MAX_DEPTH = 5;
-        internal const int LMR_DEPTH_LIMIT = 31;
+        internal const int LMR_DEPTH_LIMIT = 47;
         internal const int LMR_MOVE_LIMIT = 63;
         internal const int STATIC_NULL_MOVE_MAX_DEPTH = 6;
         internal const int STATIC_NULL_MOVE_MARGIN = 75; 
@@ -36,6 +36,7 @@ namespace Pedantic.Chess
         internal const int RAZOR_MAX_DEPTH = 3;
         internal const int IID_MIN_DEPTH = 5;
         internal const int LMP_MAX_HISTORY = 32;
+        internal const int LMP_MAX_DEPTH = 4;
 
         public BasicSearch(Board board, GameClock time, int maxSearchDepth, long maxNodes = long.MaxValue - 100, bool randomSearch = false) 
         {
@@ -51,7 +52,7 @@ namespace Pedantic.Chess
             startDateTime = DateTime.Now;
         }
 
-        public void Search(bool collectMemory)
+        public void Search()
         {
             string location = "0";
             string position = board.ToFenString();
@@ -162,15 +163,20 @@ namespace Pedantic.Chess
                 Uci.BestMove(bestMove, CanPonder ? ponderMove : null);
                 location = "13";
                 
-                if (board.TotalMaterialNoKings < Evaluation.EndGamePhaseMaterial + Piece.Knight.Value())
+                if (board.TotalMaterialNoKings < Evaluation.EndGamePhaseMaterial /*+ Piece.Rook.Value()*/)
                 {
-                    Uci.Log("Incrementing cache version.");
-                    TtTran.IncrementVersion();
-                }
-
-                if (collectMemory)
-                {
-                    GC.Collect();
+                    // don't clear hash table unless we have enough time (a 256mb cache
+                    // takes about 78ms to clear on a AMD Ryzen 9 6800HX cpu.)
+                    if ((time.TimeLimit >> 2) >= 100)
+                    {
+                        Uci.Debug("Clearing hash table");
+                        TtTran.Clear();
+                    }
+                    else
+                    {
+                        Uci.Debug("Incrementing hash table version.");
+                        TtTran.IncrementVersion();
+                    }
                 }
             }
             catch (Exception ex)
@@ -383,20 +389,26 @@ namespace Pedantic.Chess
                 }
 
                 // razoring
-                if (canNull && depth <= RAZOR_MAX_DEPTH)
+                if (canNull)
                 {
-                    int threshold = alpha - FutilityMargin[depth];
-                    if (eval <= threshold)
+                    if (depth <= RAZOR_MAX_DEPTH)
                     {
-                        score = Quiesce(alpha, beta, ply, inCheck);
-                        if (score <= alpha)
+                        int threshold = alpha - FutilityMargin[depth];
+                        if (eval <= threshold)
                         {
-                            return score;
+                            score = Quiesce(alpha, beta, ply, inCheck);
+                            if (score <= alpha)
+                            {
+                                return score;
+                            }
                         }
                     }
 
-                    // enable LMP pruning
-                    canPrune = true;
+                    if (depth <= LMP_MAX_DEPTH)
+                    {
+                        // enable LMP pruning
+                        canPrune = true;
+                    }
                 }
             }
 
@@ -906,7 +918,7 @@ namespace Pedantic.Chess
 
         internal static readonly sbyte[][] LMR =
         {
-            #region lmr data
+            #region LMR data
             new sbyte[]
             {
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -1130,11 +1142,123 @@ namespace Pedantic.Chess
                 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7,
                 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 8,
                 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8
-            }
-            #endregion lmr data
+            },
+            new sbyte[]
+            {
+                0, 1, 1, 2, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5,
+                6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7,
+                7, 7, 7, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 8, 8,
+                8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8
+            },
+            new sbyte[]
+            {
+                0, 1, 1, 2, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5, 6,
+                6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7,
+                7, 7, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 8, 8, 8,
+                8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8
+            },
+            new sbyte[]
+            {
+                0, 1, 1, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 5, 5, 6,
+                6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7,
+                7, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+                8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 9
+            },
+            new sbyte[]
+            {
+                0, 1, 1, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 5, 5, 6,
+                6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7,
+                7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+                8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 9, 9, 9
+            },
+            new sbyte[]
+            {
+                0, 1, 1, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6,
+                6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+                7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+                8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 9, 9, 9, 9, 9
+            },
+            new sbyte[]
+            {
+                0, 1, 1, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6,
+                6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+                7, 7, 7, 7, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+                8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 9, 9, 9, 9, 9, 9
+            },
+            new sbyte[]
+            {
+                0, 1, 1, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6,
+                6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+                7, 7, 7, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+                8, 8, 8, 8, 8, 8, 8, 8, 9, 9, 9, 9, 9, 9, 9, 9
+            },
+            new sbyte[]
+            {
+                0, 1, 1, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6,
+                6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+                7, 7, 7, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+                8, 8, 8, 8, 8, 8, 8, 9, 9, 9, 9, 9, 9, 9, 9, 9
+            },
+            new sbyte[]
+            {
+                0, 1, 1, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6,
+                6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+                7, 7, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+                8, 8, 8, 8, 8, 8, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9
+            },
+            new sbyte[]
+            {
+                0, 1, 1, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6,
+                6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+                7, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+                8, 8, 8, 8, 8, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9
+            },
+            new sbyte[]
+            {
+                0, 1, 1, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6,
+                6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+                7, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+                8, 8, 8, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9
+            },
+            new sbyte[]
+            {
+                0, 1, 2, 2, 3, 3, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6,
+                6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+                8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+                8, 8, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9
+            },
+            new sbyte[]
+            {
+                0, 1, 2, 2, 3, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6,
+                6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8,
+                8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+                8, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9
+            },
+            new sbyte[]
+            {
+                0, 1, 2, 2, 3, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6,
+                6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8,
+                8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+                9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9
+            },
+            new sbyte[]
+            {
+                0, 1, 2, 2, 3, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6,
+                6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8, 8,
+                8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 9,
+                9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9
+            },
+            new sbyte[]
+            {
+                0, 1, 2, 2, 3, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6,
+                6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8, 8,
+                8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 9,
+                9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9
+            },
+            #endregion LMR data
         };
 
-        internal static readonly sbyte[] LMP = { 0, 6, 12, 18, 24 };
+        internal static readonly sbyte[] LMP = { 0, 6, 12, 18, 24, 30 };
                                                
 
         internal static readonly sbyte[] NMP =

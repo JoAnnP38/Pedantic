@@ -4,6 +4,7 @@ using System.Transactions;
 using Pedantic.Chess;
 using Pedantic.Utilities;
 using Index = Pedantic.Chess.Index;
+using static Pedantic.PgnPositionReader;
 
 namespace Pedantic.UnitTests
 {
@@ -169,12 +170,14 @@ namespace Pedantic.UnitTests
 
         [TestMethod]
         [DataRow("rn1k4/ppq3pp/3p1bb1/2pP1Nn1/N1P1Q1B1/1P2R3/P6r/2K1R3 w - - 0 1")]
+        //[DataRow("r1b1k1rQ/1pq1np2/1b2p2P/3pP3/1p1n4/P2B1N2/1BP2P2/RN2K2R w - - 0 1")] not checkmate
+        //[DataRow("1k6/4R3/1p6/p1p3p1/qnBn2Qp/5P2/1P6/1K6 w - - 0 1")] not checkmate 
         public void CheckMateInFourTest(string fen)
         {
             //Engine.Infinite = true;
             Engine.UseOwnBook = true;
             Program.ParseCommand(@$"position fen {fen}");
-            Program.ParseCommand("go depth 8");
+            Program.ParseCommand("go depth 24");
             Engine.Wait();
         }
 
@@ -466,6 +469,18 @@ namespace Pedantic.UnitTests
             Program.ParseCommand("go depth 23");
             Engine.Wait();
 
+        }
+
+        [TestMethod]
+        public void CheckClockTest()
+        {
+            Engine.SearchThreads = 1;
+            Program.ParseCommand("setoption name Hash value 128");
+            Program.ParseCommand("position startpos moves f2f4 d7d5 g1f3 g8f6 b2b3 g7g6 c1b2 f8g7 e2e3 e8g8 f1e2 c7c5 e1g1 b8c6 f3e5 d5d4 e5c6 b7c6 b1a3 a7a5 a3c4 a5a4 e2d3 c8e6 a1b1 g8h8 e3e4 f6d7 d1e2 d7b6 f4f5 b6c4 b3c4 e6c8 b2a3 d8d6 g2g3 f8d8 b1b6 c8d7 f1b1 d6e5 e2f3 g7h6 f3f2 h6g5 g1g2 h8g8 h2h3 d7e8 b6b7 g8g7 h3h4 g5f6 h4h5 g6g5 g3g4 e8d7 f2g3 e5g3 g2g3 f6e5 g3f2 a8a5 d3f1 e7e6 f2e2 h7h6 e2d3 d7c8 b7b6 c8d7 f5e6 f7e6 b6b7 g7g8 f1g2 d7c8 b7b6 c8d7 g2f3 e5c7 b6b7 c7e5 b1f1 d7c8 b7b6 c8d7 f3e2 d8f8 b6b1 f8a8 b1b7 a8d8 e2d1 d7c8 b7f7 d8e8 d1e2 e8d8 f7f6 e5f6 f1f6 g8g7 f6g6 g7h7 c2c3 d8e8 e4e5 e8g8 g6f6 h7g7 e2f3 d4c3 d3c3 c8d7 f3e4 g8h8 d2d3 d7c8 f6g6 g7f7 e4c6 a5a7 c3b2 h8h7 g6f6 f7g8 c6e4 a7c7 e4h7 g8h7 b2c3 h7g7 a3c1 c8b7 c1e3 b7c8 c3c2 c8b7 c2d2 b7c8 d2e2 c8d7 a2a3 d7c8 f6g6 g7h7 e3f2 c7c6 g6f6 h7g7 f2e1 c8b7 e1a5 b7a8 a5d8 c6c8 d8e7 a8g2 e2f2 g2c6 e7d6 c6d7 f2e3 c8e8 d6c5 d7c6 f6f2 e8c8 e3d4 c8b8 c5d6 b8c8 d4c3 c8a8 c3b4 a8d8 f2f6 d8e8 c4c5 c6d5 b4a4 e8a8 a4b4 a8d8 a3a4 d8d7 d6f8 g7h7 f6h6 h7g8");
+            Console.WriteLine(Engine.Board.ToString());
+            Console.WriteLine(Engine.Board.ToFenString());
+            Program.ParseCommand("go wtime 379038 btime 59197 winc 0 binc 0 movestogo 2");
+            Engine.Wait();
         }
     }
 }

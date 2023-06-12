@@ -28,7 +28,6 @@ namespace Pedantic.Chess
         private static Color color = Color.White;
         private static string evaluationId = string.Empty;
         private static BasicSearch? search = null;
-        private static int searchCounter = 0;
 
         public static bool Debug { get; set; } = false;
         public static bool IsRunning { get; private set; } = true;
@@ -133,7 +132,7 @@ namespace Pedantic.Chess
             TtTran.Clear();
             TtEval.Clear();
             TtPawnEval.Clear();
-            GC.Collect();
+            GC.Collect(2, GCCollectionMode.Forced, true);
         }
 
         public static void SetupNewGame()
@@ -161,9 +160,9 @@ namespace Pedantic.Chess
             {
                 Stop();
                 bool loaded = Board.LoadFenPosition(fen);
-                if (loaded && Debug)
+                if (loaded)
                 {
-                    Uci.Log(@$"New position: {Board.ToFenString()}");
+                    Uci.Debug(@$"New position: {Board.ToFenString()}");
                 }
 
                 if (!loaded)
@@ -197,10 +196,7 @@ namespace Pedantic.Chess
                 }
             }
 
-            if (Debug)
-            {
-                Uci.Log($@"New position: {Board.ToFenString()}");
-            }
+            Uci.Debug($@"New position: {Board.ToFenString()}");
         }
 
         public static void Wait()
@@ -418,12 +414,12 @@ namespace Pedantic.Chess
                 CanPonder = CanPonder,
                 CollectStats = CollectStats
             };
-            searchThread = new Thread(() => search.Search((++searchCounter % 10) == 0))
+            searchThread = new Thread(() => search.Search())
             {
                 Priority = ThreadPriority.Highest
             };
-            IsRunning = true;
             searchThread.Start();
+            IsRunning = true;
         }
     }
 }

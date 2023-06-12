@@ -97,7 +97,7 @@ namespace Pedantic.Chess
             mask = (uint)(capacity - 1);
         }
 
-        public static void IncrementVersion() { version++; used = 0; }
+        public static void IncrementVersion() { ++version; used = 0; }
 
         public static void Add(ulong hash, int depth, int ply, int alpha, int beta, int score, ulong move)
         {
@@ -137,9 +137,10 @@ namespace Pedantic.Chess
 
         public static void Clear()
         {
-            Array.Clear(table, 0, table.Length);
+            Span<TtTranItem> spn = new Span<TtTranItem>(table);
+            spn.Clear();
             used = 0;
-            version = 0;
+            version = 1;
         }
 
         public static void Resize(int sizeMb)
@@ -153,7 +154,7 @@ namespace Pedantic.Chess
             table = new TtTranItem[capacity];
             mask = (uint)(capacity - 1);
             used = 0;
-            version = 0;
+            version = 1;
         }
 
         public static int Capacity => capacity;
