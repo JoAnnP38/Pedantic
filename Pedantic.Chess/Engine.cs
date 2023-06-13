@@ -132,7 +132,7 @@ namespace Pedantic.Chess
             TtTran.Clear();
             TtEval.Clear();
             TtPawnEval.Clear();
-            GC.Collect(2, GCCollectionMode.Forced, true);
+            GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, true);
         }
 
         public static void SetupNewGame()
@@ -140,7 +140,6 @@ namespace Pedantic.Chess
             Stop();
             ClearHashTable();
             MovesOutOfBook = 0;
-            searchCounter = 0;
         }
 
         public static void ResizeHashTable(int sizeMb)

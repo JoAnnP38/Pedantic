@@ -2,7 +2,7 @@
   "profiles": {
     "Pedantic": {
       "commandName": "Project",
-      "commandLineArgs": "perft --type Normal --depth 6 --force_magic",
+      "commandLineArgs": "learn --data \"e:/pgn files/learning_data.csv\" --sample 670499 --iter 20",
       "workingDirectory": "e:\\repos\\Pedantic\\Pedantic\\bin\\Release\\net7.0\\publish",
       "nativeDebugging": true
     }

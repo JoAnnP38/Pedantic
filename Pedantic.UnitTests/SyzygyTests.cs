@@ -13,7 +13,6 @@ namespace Pedantic.UnitTests
     [TestClass]
     public class SyzygyTests
     {
-        private static TestContext? context = null;
         private static bool syzygyInitialized = false;
 
         [TestInitialize]

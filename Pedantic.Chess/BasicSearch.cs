@@ -348,13 +348,11 @@ namespace Pedantic.Chess
                 return score;
             }
 
-            /*
             if (ProbeTb(depth, ply, alpha, beta, out score))
             {
                 ++tbHits;
                 return score;
             }
-            */
 
             int X = CalcExtension(inCheck);
             if (depth + X <= 0)
