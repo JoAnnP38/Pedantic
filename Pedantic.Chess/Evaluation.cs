@@ -481,7 +481,7 @@ namespace Pedantic.Chess
         public static bool IsCheckmate(int score)
         {
             int absScore = Math.Abs(score);
-            return absScore is >= Constants.CHECKMATE_SCORE - Constants.MAX_PLY and <= Constants.CHECKMATE_SCORE;
+            return absScore is >= Constants.CHECKMATE_SCORE - Constants.MAX_PLY * 2 and <= Constants.CHECKMATE_SCORE;
         }
 
         public static ChessWeights LoadWeights(string? id = null)

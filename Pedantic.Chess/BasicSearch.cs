@@ -65,11 +65,14 @@ namespace Pedantic.Chess
                 ulong? ponderMove = null;
                 MoveList moveList = new();
                 oneLegalMove = board.OneLegalMove(moveList, out ulong bestMove);
+                
+#if USE_TB                
                 if (ProbeRootTb(moveList, out ulong tbMove))
                 {
                     Uci.BestMove(tbMove, null);
                     return;
                 }
+#endif                
 
                 Eval.CalcMaterialAdjustment(board);
                 bool inCheck = board.IsChecked();
@@ -347,12 +350,14 @@ namespace Pedantic.Chess
             { 
                 return score;
             }
-
+            
+#if USE_TB
             if (ProbeTb(depth, ply, alpha, beta, out score))
             {
                 ++tbHits;
                 return score;
             }
+#endif
 
             int X = CalcExtension(inCheck);
             if (depth + X <= 0)
@@ -646,11 +651,11 @@ namespace Pedantic.Chess
             return alpha;
         }
 
+#if USE_TB
         private bool ProbeTb(int depth, int ply, int alpha, int beta, out int score)
         {
             score = 0;
-            if (Syzygy.IsInitialized && depth > 6 && board.HalfMoveClock == 0 && board.Castling == CastlingRights.None && 
-                BitOps.PopCount(board.All) <= Syzygy.TbLargest)
+            if (Syzygy.IsInitialized && depth > 2 && BitOps.PopCount(board.All) <= Syzygy.TbLargest)
             {
                 TbResult result = Syzygy.ProbeWdl(board.Units(Color.White), board.Units(Color.Black), 
                     board.Pieces(Color.White, Piece.King)   | board.Pieces(Color.Black, Piece.King),
@@ -662,6 +667,11 @@ namespace Pedantic.Chess
                     (uint)board.HalfMoveClock, (uint)board.Castling, 
                     (uint)(board.EnPassantValidated != Index.NONE ? board.EnPassantValidated : 0), 
                     board.SideToMove == Color.White);
+
+                if (result == TbResult.TbFailure)
+                {
+                    return false;
+                }
 
                 if (result.Wdl == TbGameResult.Win)
                 {
@@ -722,6 +732,7 @@ namespace Pedantic.Chess
             }
             return false;
         }
+#endif
 
         private void ReportSearchResults(ref ulong bestMove, ref ulong? ponderMove)
         {
@@ -852,7 +863,7 @@ namespace Pedantic.Chess
         {
             mateIn = 0;
             int absScore = Math.Abs(score);
-            bool checkMate = absScore is >= Constants.CHECKMATE_SCORE - Constants.MAX_PLY and <= Constants.CHECKMATE_SCORE;
+            bool checkMate = absScore is >= Constants.CHECKMATE_SCORE - Constants.MAX_PLY * 2 and <= Constants.CHECKMATE_SCORE;
             if (checkMate)
             {
                 mateIn = ((Constants.CHECKMATE_SCORE - absScore + 1) / 2) * Math.Sign(score);

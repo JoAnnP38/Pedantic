@@ -250,7 +250,9 @@ namespace Pedantic
                     Console.WriteLine(@"option name OwnBook type check default true");
                     Console.WriteLine(@"option name Ponder type check default true");
                     Console.WriteLine(@"option name Random_Search type check default false");
+#if USE_TB
                     Console.WriteLine(@"option name SyzygyPath type string default <empty>");
+#endif
                     Console.WriteLine($@"option name UCI_EngineAbout type string default {APP_NAME_VER} by {AUTHOR}, see {PROGRAM_URL}");
                     Console.WriteLine(@"uciok");
                     break;
@@ -265,7 +267,7 @@ namespace Pedantic
                     break;
 
                 case "setoption":
-                    SetOption(tokens);
+                    SetOption(tokens, input);
                     break;
 
                 case "ucinewgame":
@@ -328,7 +330,7 @@ namespace Pedantic
             Engine.MakeMoves(tokens[firstMove..]);
         }
 
-        private static void SetOption(string[] tokens)
+        private static void SetOption(string[] tokens, string line)
         {
             if (tokens[1] == "name")
             {
@@ -398,26 +400,29 @@ namespace Pedantic
 
                         break;
 
+#if USE_TB
                     case "SyzygyPath":
-                        if (tokens[3] == "value")
+                        string valueToken = " value ";
+                        int index = line.IndexOf(valueToken);
+                        if (index >= 0)
                         {
-                            if (tokens.Length >= 5)
+                            int start = index + valueToken.Length;
+                            string path = line[start..].Trim();
+                            if (path != "<empty>")
                             {
-                                if (tokens[4] != "<empty>")
+                                if (!Path.Exists(path))
                                 {
-                                    if (!Path.Exists(tokens[4]))
-                                    {
-                                        Uci.Log($"Ignoring specified SyzygyPath: '{tokens[4]}'. Path doesn't exist.");
-                                    }
-                                    bool result = Syzygy.Initialize(tokens[4]);
-                                    if (!result)
-                                    {
-                                        Uci.Log($"Could not locate valid Syzygy tablebase files at '{tokens[4]}'.");
-                                    }
+                                    Uci.Log($"Ignoring specified SyzygyPath: '{path}'. Path doesn't exist.");
+                                }
+                                bool result = Syzygy.Initialize(path);
+                                if (!result)
+                                {
+                                    Uci.Log($"Could not locate valid Syzygy tablebase files at '{path}'.");
                                 }
                             }
                         }
                         break;
+#endif
                 }
             }
         }

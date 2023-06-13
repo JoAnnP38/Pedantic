@@ -10,6 +10,7 @@ using Pedantic.Tablebase;
 
 namespace Pedantic.UnitTests
 {
+#if USE_TB
     [TestClass]
     public class SyzygyTests
     {
@@ -41,4 +42,5 @@ namespace Pedantic.UnitTests
             Assert.AreEqual((uint)5, Syzygy.TbLargest);
         }
     }
+#endif
 }

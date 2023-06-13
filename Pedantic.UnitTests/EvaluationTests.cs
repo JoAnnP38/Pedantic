@@ -23,7 +23,7 @@ namespace Pedantic.UnitTests
 
         [TestMethod]
         [DataRow(Constants.FEN_START_POS, 0)]
-        [DataRow("r6r/pp4kp/3B1p2/3P2p1/B1P1q1n1/2Q3P1/PP6/5RK1 w - - 0 13", -69)]
+        [DataRow("r6r/pp4kp/3B1p2/3P2p1/B1P1q1n1/2Q3P1/PP6/5RK1 w - - 0 13", -81)]
         public void ComputeTest(string fen, int expectedScore)
         {
             Board board = new(fen);
@@ -60,7 +60,7 @@ namespace Pedantic.UnitTests
 
         [TestMethod]
         [DataRow(Constants.FEN_START_POS, 4180, 4180, 4445, 4445, 3900, 3900)]
-        [DataRow("r2n2k1/3P3p/1R4p1/2B5/4p3/2P1P2P/p4rP1/2KR4 w - - 0 40", 1740, 1625, 2035, 1935, 1800, 1700)]
+        [DataRow("r2n2k1/3P3p/1R4p1/2B5/4p3/2P1P2P/p4rP1/2KR4 w - - 0 40", 1875, 1625, 2035, 1935, 1800, 1700)]
         public void CorrectMaterialTest(string fen, int opWhiteMaterial, int opBlackMaterial, int egWhiteMaterial,
             int egBlackMaterial, int whiteMaterial, int blackMaterial)
         {

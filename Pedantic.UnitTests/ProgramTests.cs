@@ -483,16 +483,20 @@ namespace Pedantic.UnitTests
             Engine.Wait();        
         }
 
+#if USE_TB
         [TestMethod]
         public void SyzygyRootProbeTest()
         {
-            Syzygy.Initialize("e:/tablebases/syzygy/3-4-5");
+            //Syzygy.Initialize("e:/tablebases/syzygy/3-4-5");
+            Program.ParseCommand("setoption name Hash value 128");
+            Program.ParseCommand("setoption name SyzygyPath value e:/tablebases/syzygy/3-4-5");
             Program.ParseCommand("position fen 7k/6p1/8/8/8/8/1K6/R7 w - - 0 18");
             Console.WriteLine(Engine.Board.ToString());
             Console.WriteLine(Engine.Board.ToFenString());
             Program.ParseCommand("go depth 1");
             Engine.Wait();        
         }
+#endif
         
         public void CheckClockTest()
         {
