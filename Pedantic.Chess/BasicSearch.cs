@@ -84,7 +84,7 @@ namespace Pedantic.Chess
                     history.Rescale();
                     UpdateTtWithPv(PV, Depth);
                     int iAlpha = 0, iBeta = 0, result, alpha, beta;
-                    seldepth = Depth;
+                    seldepth = 0;
                     location = "2";
                     do
                     {
@@ -322,7 +322,9 @@ namespace Pedantic.Chess
         public int Search(int alpha, int beta, int depth, int ply, bool inCheck, bool canNull = true, bool isPv = true)
         {
             int originalAlpha = alpha;
+            NodesVisited++;
             depth = Math.Min(depth, Constants.MAX_PLY - 1);
+            seldepth = Math.Max(seldepth, ply);
             InitPv(ply);
 
             if (ply >= Constants.MAX_PLY - 1)
@@ -364,9 +366,6 @@ namespace Pedantic.Chess
             {
                 return Quiesce(alpha, beta, ply, inCheck);
             }
-
-            NodesVisited++;
-            seldepth = Math.Max(seldepth, ply);
 
             if (MustAbort || wasAborted)
             {
@@ -655,7 +654,9 @@ namespace Pedantic.Chess
         private bool ProbeTb(int depth, int ply, int alpha, int beta, out int score)
         {
             score = 0;
-            if (Syzygy.IsInitialized && depth > 2 && BitOps.PopCount(board.All) <= Syzygy.TbLargest)
+            if (Syzygy.IsInitialized && depth >= UciOptions.SyzygyProbeDepth && 
+                board.HalfMoveClock == 0 && board.Castling == CastlingRights.None &&
+                BitOps.PopCount(board.All) <= Syzygy.TbLargest)
             {
                 TbResult result = Syzygy.ProbeWdl(board.Units(Color.White), board.Units(Color.Black), 
                     board.Pieces(Color.White, Piece.King)   | board.Pieces(Color.Black, Piece.King),
@@ -664,8 +665,7 @@ namespace Pedantic.Chess
                     board.Pieces(Color.White, Piece.Bishop) | board.Pieces(Color.Black, Piece.Bishop),
                     board.Pieces(Color.White, Piece.Knight) | board.Pieces(Color.Black, Piece.Knight),
                     board.Pieces(Color.White, Piece.Pawn)   | board.Pieces(Color.Black, Piece.Pawn),
-                    (uint)board.HalfMoveClock, (uint)board.Castling, 
-                    (uint)(board.EnPassantValidated != Index.NONE ? board.EnPassantValidated : 0), 
+                    0, 0, (uint)(board.EnPassantValidated != Index.NONE ? board.EnPassantValidated : 0), 
                     board.SideToMove == Color.White);
 
                 if (result == TbResult.TbFailure)
@@ -673,20 +673,26 @@ namespace Pedantic.Chess
                     return false;
                 }
 
+                tbHits++;
+                TtFlag flag = TtFlag.Exact;
                 if (result.Wdl == TbGameResult.Win)
                 {
                     score = Constants.CHECKMATE_BASE - (Constants.MAX_PLY + ply);
+                    flag = TtFlag.LowerBound;
                 }
                 else if (result.Wdl == TbGameResult.Loss)
                 {
                     score = -Constants.CHECKMATE_BASE + (Constants.MAX_PLY + ply);
+                    flag = TtFlag.UpperBound;
                 }
                 else
                 {
                     score = (int)result.Wdl;
                 }
 
-                if (score > alpha && score < beta)
+                if (flag == TtFlag.Exact || 
+                    (flag == TtFlag.UpperBound && score <= alpha) ||
+                    (flag == TtFlag.LowerBound && score >= beta))
                 {
                     TtTran.Add(board.Hash, Constants.MAX_PLY, ply, alpha, beta, score, 0ul);
                     return true;
@@ -698,7 +704,7 @@ namespace Pedantic.Chess
         private bool ProbeRootTb(MoveList moveList, out ulong move)
         {
             move = 0;
-            if (Syzygy.IsInitialized && BitOps.PopCount(board.All) <= Syzygy.TbLargest)
+            if (Syzygy.IsInitialized && UciOptions.SyzygyProbeRoot && BitOps.PopCount(board.All) <= Syzygy.TbLargest)
             {
                 TbResult result = Syzygy.ProbeRoot(board.Units(Color.White), board.Units(Color.Black), 
                     board.Pieces(Color.White, Piece.King)   | board.Pieces(Color.Black, Piece.King),
@@ -787,11 +793,11 @@ namespace Pedantic.Chess
 
             if (IsCheckmate(Score, out int mateIn))
             {
-                Uci.InfoMate(Depth, seldepth, mateIn, NodesVisited, time.Elapsed, PV, TtTran.Usage);
+                Uci.InfoMate(Depth, seldepth, mateIn, NodesVisited, time.Elapsed, PV, TtTran.Usage, tbHits);
             }
             else
             {
-                Uci.Info(Depth, seldepth, Score, NodesVisited, time.Elapsed, PV, TtTran.Usage);
+                Uci.Info(Depth, seldepth, Score, NodesVisited, time.Elapsed, PV, TtTran.Usage, tbHits);
             }
         }
 

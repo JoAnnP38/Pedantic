@@ -35,6 +35,22 @@ namespace Pedantic.Chess
         King
     }
 
+    public sealed class PieceComparer : IComparer<Piece>
+    {
+        public int Compare(Piece p1, Piece p2)
+        {
+            return (int)p1 - (int)p2;
+        }
+    }
+
+    public sealed class ReversePieceComparer : IComparer<Piece>
+    {
+        public int Compare(Piece p1, Piece p2)
+        {
+            return (int)p2 - (int)p1;
+        }
+    }
+
     [Flags]
     public enum CastlingRights : byte
     {
@@ -115,5 +131,13 @@ namespace Pedantic.Chess
         {
             return Evaluation.CanonicalPieceValues(piece);
         }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static char ToChar(this Piece piece)
+        {
+            return piece == Piece.None ? '-' : pieceChar[(int)piece];
+        }
+
+        private static readonly char[] pieceChar = { 'P', 'N', 'B', 'R', 'Q', 'K' };
     }
 }

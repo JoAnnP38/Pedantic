@@ -3,7 +3,11 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net7.0-windows8.0</TargetFramework>
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SupportedOSPlatformVersion>8.0</SupportedOSPlatformVersion>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>    
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
@@ -16,20 +20,24 @@
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <DebugType>full</DebugType>
+    <DefineConstants>$(DefineConstants);USE_TB</DefineConstants>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <DebugType>full</DebugType>
+    <DefineConstants>$(DefineConstants);USE_TB</DefineConstants>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <Optimize>True</Optimize>
     <DebugType>full</DebugType>
+    <DefineConstants>$(DefineConstants);USE_TB</DefineConstants>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Optimize>True</Optimize>
     <DebugType>full</DebugType>
+    <DefineConstants>$(DefineConstants);USE_TB</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
@@ -40,7 +48,9 @@
     <ProjectReference Include="..\Pedantic.Chess\Pedantic.Chess.csproj" />
     <ProjectReference Include="..\Pedantic.Collections\Pedantic.Collections.csproj" />
     <ProjectReference Include="..\Pedantic.Genetics\Pedantic.Genetics.csproj" />
-    <ProjectReference Include="..\Pedantic.Tablebase\Pedantic.Tablebase.vcxproj" />
+    <ProjectReference Include="..\Pedantic.Tablebase\Pedantic.Tablebase.vcxproj">
+        <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </ProjectReference>
     <ProjectReference Include="..\Pedantic.Utilities\Pedantic.Utilities.csproj" />
   </ItemGroup>
 

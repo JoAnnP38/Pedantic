@@ -48,5 +48,14 @@ namespace Pedantic.Utilities
                 Array.Clear(array[i]);
             }
         }
+
+        public static void Fill<T>(T[][] array, T fillValue)
+        {
+            for (int i = 0; i < array.Length; ++i)
+            {
+                Array.Fill(array[i], fillValue);
+            }
+        }
+
     }
 }

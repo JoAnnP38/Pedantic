@@ -26,27 +26,14 @@ namespace Pedantic.Chess
         private static Thread? searchThread;
         private static PolyglotEntry[]? bookEntries;
         private static Color color = Color.White;
-        private static string evaluationId = string.Empty;
         private static BasicSearch? search = null;
 
         public static bool Debug { get; set; } = false;
         public static bool IsRunning { get; private set; } = true;
         public static bool IsPondering { get; private set; } = true;
-        public static bool CanPonder { get; set; } = true;
-        public static bool UseOwnBook { get; set; } = true;
         public static bool Infinite { get; set; } = false;
-        public static bool CollectStats { get; set; } = false;
         public static int MovesOutOfBook { get; set; } = 0;
 
-        public static string EvaluationId
-        {
-            get => evaluationId;
-            set
-            {
-                Evaluation.LoadWeights(value == string.Empty ? null : value);
-                evaluationId = value;
-            }
-        }
         public static Board Board { get; } = new();
 
         public static Color Color
@@ -62,8 +49,6 @@ namespace Pedantic.Chess
                 color = value;
             }
         }
-        public static bool RandomSearch { get; set; } = false;
-  
         public static PolyglotEntry[] BookEntries
         {
             get
@@ -142,16 +127,18 @@ namespace Pedantic.Chess
             MovesOutOfBook = 0;
         }
 
-        public static void ResizeHashTable(int sizeMb)
+        public static void ResizeHashTable()
         {
+            int sizeMb = UciOptions.Hash;
             if (!BitOps.IsPow2(sizeMb))
             {
                 sizeMb = BitOps.GreatestPowerOfTwoLessThan(sizeMb);
+                UciOptions.Hash = sizeMb;
             }
 
             TtTran.Resize(sizeMb);
             TtEval.Resize(sizeMb >> 2);
-            TtPawnEval.Resize(sizeMb >> 4);
+            TtPawnEval.Resize(sizeMb >> 5);
         }
 
         public static bool SetupPosition(string fen)
@@ -215,7 +202,7 @@ namespace Pedantic.Chess
         private static void WriteStats()
         {
 
-            if (CollectStats && search != null)
+            if (UciOptions.CollectStatistics && search != null)
             {
                 using var mutex = new Mutex(false, "Pedantic::chess_stats.csv");
                 mutex.WaitOne();
@@ -247,6 +234,11 @@ namespace Pedantic.Chess
             {
                 Stop();
             }
+        }
+
+        public static void LoadEvaluation()
+        {
+            Evaluation.LoadWeights(UciOptions.EvaluationID);
         }
 
         private static int FindFirstBookMove(ulong hash)
@@ -339,7 +331,7 @@ namespace Pedantic.Chess
         public static string GetBookMove()
         {
             string move = "0000";
-            if (!UseOwnBook)
+            if (!UciOptions.OwnBook)
             {
                 return move;
             }
@@ -409,10 +401,10 @@ namespace Pedantic.Chess
             }
 
             ++MovesOutOfBook;
-            search = new(Board, time, maxDepth, maxNodes, RandomSearch)
+            search = new(Board, time, maxDepth, maxNodes, UciOptions.RandomSearch)
             {
-                CanPonder = CanPonder,
-                CollectStats = CollectStats
+                CanPonder = UciOptions.Ponder,
+                CollectStats = UciOptions.CollectStatistics
             };
             searchThread = new Thread(() => search.Search())
             {

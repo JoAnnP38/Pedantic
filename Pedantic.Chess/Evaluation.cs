@@ -501,6 +501,23 @@ namespace Pedantic.Chess
             return w;
         }
 
+        public static ChessWeights LoadWeights(Guid? id)
+        {
+            var rep = new ChessDb();
+            ChessWeights? w = id == null
+                ? rep.Weights.FirstOrDefault(cw => cw.IsActive && cw.IsImmortal)
+                : rep.Weights.FirstOrDefault(cw => cw.Id == id);
+
+            if (w == null)
+            {
+                w = ChessWeights.CreateParagon();
+                rep.Weights.Insert(w);
+                rep.Save();
+            }
+            wt = new EvalWeights(w);
+            return w;
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static short CanonicalPieceValues(Piece piece)
         {
