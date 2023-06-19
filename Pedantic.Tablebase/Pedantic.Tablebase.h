@@ -7,12 +7,12 @@ namespace Pedantic
 {
     namespace Tablebase
     {
-        public enum class TbGameResult : char
+        public enum class TbGameResult : System::SByte
         {
             Loss = 0, BlessedLoss, Draw, CursedWin, Win
         };
 
-        public enum class TbPromotes : char
+        public enum class TbPromotes : System::SByte
         {
             None = 0, Queen, Rook, Bishop, Knight
         };

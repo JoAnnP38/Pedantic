@@ -23,6 +23,9 @@ SOFTWARE.
 */
 
 #include "pch.h"
+#pragma unmanaged
+
+#include "tbprobe.h"
 
 #define TB_PIECES 7
 #define TB_HASHBITS  (TB_PIECES < 7 ?  11 : 12)
@@ -182,8 +185,6 @@ static unsigned lsb(uint64_t b) {
 #define min(a,b) a < b ? a : b
 
 #include "stdendian.h"
-
-#pragma unmanaged
 
 #if _BYTE_ORDER == _BIG_ENDIAN
 

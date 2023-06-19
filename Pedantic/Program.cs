@@ -194,8 +194,8 @@ namespace Pedantic
             try
             {
                 Console.WriteLine(APP_NAME_VER);
-                Engine.RandomSearch = random;
-                Engine.CollectStats = stats;
+                UciOptions.RandomSearch = random;
+                UciOptions.CollectStatistics = stats;
                 Engine.Start();
                 while (Engine.IsRunning)
                 {
@@ -243,15 +243,17 @@ namespace Pedantic
                     Console.WriteLine($@"id name {APP_NAME_VER}");
                     Console.WriteLine($@"id author {AUTHOR}");
                     Console.WriteLine(@"option name Clear Hash type button");
-                    Console.WriteLine(@"option name Collect_Stats type check default false");
-                    Console.WriteLine(@"option name Evaluation_ID type string default <empty>");
+                    Console.WriteLine(@"option name CollectStats type check default false");
+                    Console.WriteLine(@"option name EvaluationID type string default <empty>");
                     Console.WriteLine($@"option name Hash type spin default {TtTran.DEFAULT_SIZE_MB} min 1 max {TtTran.MAX_SIZE_MB}");
                     //Console.WriteLine($@"option name Threads type spin default 1 min 1 max {Math.Max(Environment.ProcessorCount - 2, 1)}");
                     Console.WriteLine(@"option name OwnBook type check default true");
                     Console.WriteLine(@"option name Ponder type check default true");
-                    Console.WriteLine(@"option name Random_Search type check default false");
+                    Console.WriteLine(@"option name RandomSearch type check default false");
 #if USE_TB
                     Console.WriteLine(@"option name SyzygyPath type string default <empty>");
+                    Console.WriteLine(@"option name SyzygyProbeRoot type check default true");
+                    Console.WriteLine($@"option name SyzygyProbeDepth type spin default 2 min 0 max {Constants.MAX_PLY - 1}");
 #endif
                     Console.WriteLine($@"option name UCI_EngineAbout type string default {APP_NAME_VER} by {AUTHOR}, see {PROGRAM_URL}");
                     Console.WriteLine(@"uciok");
@@ -339,14 +341,15 @@ namespace Pedantic
                     case "Hash":
                         if (tokens[3] == "value" && int.TryParse(tokens[4], out int sizeMb))
                         {
-                            Engine.ResizeHashTable(sizeMb);
+                            UciOptions.Hash = sizeMb;
+                            Engine.ResizeHashTable();
                         }
                         break;
 
                     case "OwnBook":
                         if (tokens[3] == "value" && bool.TryParse(tokens[4], out bool useOwnBook))
                         {
-                            Engine.UseOwnBook = useOwnBook;
+                            UciOptions.OwnBook = useOwnBook;
                         }
                         break;
 
@@ -367,35 +370,37 @@ namespace Pedantic
                     case "Ponder":
                         if (tokens[3] == "value" && bool.TryParse(tokens[4], out bool canPonder))
                         {
-                            Engine.CanPonder = canPonder;
+                            UciOptions.Ponder = canPonder;
                         }
 
                         break;
 
-                    case "Evaluation_ID":
+                    case "EvaluationID":
                         if (tokens[3] == "value")
                         {
-                            if (tokens.Length >= 5 && !Guid.TryParse(tokens[4], out Guid _))
+                            bool validGuidFormat = tokens.Length >= 5 && Guid.TryParse(tokens[4], out Guid _);
+                            if (!validGuidFormat)
                             {
-                                Uci.Log($"Ignoring illegal GUID specified for evaluation ID: '{tokens[4]}'.");
+                                Uci.Debug($"Ignoring illegal GUID specified for evaluation ID: '{(tokens.Length >= 5 ? tokens[4] : string.Empty)}'.");
                             }
-                            Engine.EvaluationId = tokens.Length >= 5 && Guid.TryParse(tokens[4], out Guid _) ? tokens[4] : string.Empty;
+                            UciOptions.EvaluationID = validGuidFormat ? Guid.Parse(tokens[4]) : null;
+                            Engine.LoadEvaluation();
                         }
 
                         break;
 
-                    case "Random_Search":
+                    case "RandomSearch":
                         if (tokens[3] == "value" && bool.TryParse(tokens[4], out bool randomSearch))
                         {
-                            Engine.RandomSearch = randomSearch;
+                            UciOptions.RandomSearch = randomSearch;
                         }
 
                         break;
 
-                    case "Collect_Stats":
+                    case "CollectStats":
                         if (tokens[3] == "value" && bool.TryParse(tokens[4], out bool collectStats))
                         {
-                            Engine.CollectStats = collectStats;
+                            UciOptions.CollectStatistics = collectStats;
                         }
 
                         break;
@@ -414,12 +419,33 @@ namespace Pedantic
                                 {
                                     Uci.Log($"Ignoring specified SyzygyPath: '{path}'. Path doesn't exist.");
                                 }
-                                bool result = Syzygy.Initialize(path);
-                                if (!result)
+                                else
                                 {
-                                    Uci.Log($"Could not locate valid Syzygy tablebase files at '{path}'.");
+                                    bool result = Syzygy.Initialize(path);
+                                    if (!result)
+                                    {
+                                        Uci.Log($"Could not locate valid Syzygy tablebase files at '{path}'.");
+                                    }
+                                    else
+                                    {
+                                        UciOptions.SyzygyPath = path;
+                                    }
                                 }
                             }
+                        }
+                        break;
+
+                    case "SyzygyProbeRoot":
+                        if (tokens[3] == "value" && bool.TryParse(tokens[4], out bool probeRoot))
+                        {
+                            UciOptions.SyzygyProbeRoot = probeRoot;
+                        }
+                        break;
+
+                    case "SyzygyProbeDepth":
+                        if (tokens[3] == "value" && int.TryParse(tokens[4], out int probeDepth))
+                        {
+                            UciOptions.SyzygyProbeDepth = Math.Max(Math.Min(probeDepth, Constants.MAX_PLY - 1), 0);
                         }
                         break;
 #endif

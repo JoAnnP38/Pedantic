@@ -13,6 +13,7 @@
 //     A class that encapsulates UCI responses from the engine.
 // </summary>
 // ***********************************************************************
+using Pedantic.Tablebase;
 using Pedantic.Utilities;
 using System.Text;
 
@@ -54,11 +55,17 @@ namespace Pedantic.Chess
             }
         }
 
-        public static void Info(int depth, int seldepth, int score, long nodes, long timeMs, ulong[] pv, int hashfull)
+        public static void Info(int depth, int seldepth, int score, long nodes, long timeMs, ulong[] pv, int hashfull, long tbHits)
         {
             StringBuilder sb = new();
             int nps = (int)(nodes * 1000 / Math.Max(1, timeMs));
-            sb.Append(@$"info depth {depth} seldepth {seldepth} score cp {score} nodes {nodes} hashfull {hashfull} nps {nps} time {timeMs} pv");
+            sb.Append(@$"info depth {depth} seldepth {seldepth} score cp {score} nodes {nodes} hashfull {hashfull} nps {nps} time {timeMs} ");
+            if (tbHits > 0)
+            {
+                sb.Append(@$"tbhits {tbHits} ");
+            }
+
+            sb.Append("pv ");
             for (int n = 0; n < pv.Length; n++)
             {
                 sb.Append($@" {Move.ToString(pv[n])}");
@@ -73,11 +80,16 @@ namespace Pedantic.Chess
             Util.WriteLine(output);
         }
 
-        public static void InfoMate(int depth, int seldepth, int mateIn, long nodes, long timeMs, ulong[] pv, int hashfull)
+        public static void InfoMate(int depth, int seldepth, int mateIn, long nodes, long timeMs, ulong[] pv, int hashfull, long tbHits)
         {
             StringBuilder sb = new();
             int nps = (int)(nodes * 1000 / Math.Max(1, timeMs));
-            sb.Append(@$"info depth {depth} seldepth {seldepth} score mate {mateIn} nodes {nodes} hashfull {hashfull} nps {nps} time {timeMs} pv");
+            sb.Append(@$"info depth {depth} seldepth {seldepth} score mate {mateIn} nodes {nodes} hashfull {hashfull} nps {nps} time {timeMs} ");
+            if (tbHits > 0)
+            {
+                sb.Append($@"tbhits {tbHits} ");
+            }
+            sb.Append("pv ");
             for (int n = 0; n < pv.Length; n++)
             {
                 sb.Append($@" {Move.ToString(pv[n])}");

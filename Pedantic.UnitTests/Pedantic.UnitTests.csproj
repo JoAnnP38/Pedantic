@@ -15,20 +15,24 @@
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <DebugType>full</DebugType>
+    <DefineConstants>$(DefineConstants);USE_TB</DefineConstants>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <DebugType>full</DebugType>
+    <DefineConstants>$(DefineConstants);USE_TB</DefineConstants>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <DebugType>full</DebugType>
     <Optimize>True</Optimize>
+    <DefineConstants>$(DefineConstants);USE_TB</DefineConstants>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <DebugType>full</DebugType>
     <Optimize>True</Optimize>
+    <DefineConstants>$(DefineConstants);USE_TB</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
