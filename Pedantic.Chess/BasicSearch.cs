@@ -1369,7 +1369,6 @@ namespace Pedantic.Chess
 
         internal static readonly sbyte[] LMP = { 0, 6, 12, 18, 24, 30 };
                                                
-
         internal static readonly sbyte[] NMP =
         {
             #region nmp data
