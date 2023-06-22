@@ -31,14 +31,13 @@ namespace Pedantic.Chess
             private ulong hash;
             private ulong data;
 
-            public TtTranItem(ulong hash, short score, sbyte depth, byte age, TtFlag ttFlag, ulong bestMove)
+            public TtTranItem(ulong hash, short score, sbyte depth, TtFlag ttFlag, ulong bestMove)
             {
                 data = (bestMove & 0x0fffffful) |
                        (((ulong)score & 0x0fffful) << 24) |
                        (((ulong)ttFlag & 0x03ul) << 40) |
                        (((byte)depth & 0x0fful) << 42) |
-                       (((byte)age & 0x0fful) << 50) |
-                       (((byte)version & 0x02ful) << 58);
+                       (((ulong)generation & 0x03ffful) << 50); 
 
                 this.hash = hash ^ data;
             }
@@ -49,35 +48,28 @@ namespace Pedantic.Chess
             public short Score => (short)BitOps.BitFieldExtract(data, 24, 16);
             public TtFlag Flag => (TtFlag)BitOps.BitFieldExtract(data, 40, 2);
             public sbyte Depth => (sbyte)BitOps.BitFieldExtract(data, 42, 8);
-            public byte Age
+            public ushort Age
             {
-                get => (byte) BitOps.BitFieldExtract(data, 50, 8);
-                set => BitOps.BitFieldSet(data, value, 50, 8);
+                get => (ushort) BitOps.BitFieldExtract(data, 50, 14);
+                set => BitOps.BitFieldSet(data, value, 50, 14);
             }
 
-            public byte Version
-            {
-                get => (byte) BitOps.BitFieldExtract(data, 58, 6);
-                set => BitOps.BitFieldSet(data, value, 58, 6);
-            }
-
-            public bool InUse => Version == version;
+            public bool InUse => Age == generation;
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public bool IsValid(ulong hash)
             {
-                return (this.hash ^ data)  == hash && Version == version;
+                return (this.hash ^ data)  == hash;
             }
 
-            public static void SetValue(ref TtTranItem item, ulong hash, short score, sbyte depth, byte age, 
+            public static void SetValue(ref TtTranItem item, ulong hash, short score, sbyte depth, 
                 TtFlag flag, ulong bestMove)
             {
                 item.data = (Move.ClearScore(bestMove)) |
                             (((ulong)score & 0x0fffful) << 24) |
                             (((ulong)flag & 0x03ul) << 40) |
                             (((byte)depth & 0x0fful) << 42) |
-                            (((byte)age & 0x0fful) << 50) |
-                            (((byte)version & 0x02ful) << 58);
+                            (((ulong)generation & 0x03ffful) << 50);
                 item.hash = hash ^ item.data;
             }
         }
@@ -87,7 +79,7 @@ namespace Pedantic.Chess
         private static int capacity;
         private static int used;
         private static uint mask;
-        private static byte version;
+        private static ushort generation;
 
         static TtTran()
         {
@@ -95,9 +87,13 @@ namespace Pedantic.Chess
             used = 0;
             table = new TtTranItem[capacity];
             mask = (uint)(capacity - 1);
+            generation = 1;
         }
 
-        public static void IncrementVersion() { ++version; used = 0; }
+        public static void IncrementVersion() 
+        { 
+            generation = (ushort)((generation + 4) & 0x3fff); 
+        }
 
         public static void Add(ulong hash, int depth, int ply, int alpha, int beta, int score, ulong move)
         {
@@ -110,7 +106,7 @@ namespace Pedantic.Chess
                 bestMove = bestMove == 0 ? item.BestMove : bestMove;
             }
 
-            if (!item.InUse)
+            if (item.Age == 0)
             {
                 ++used;
             }
@@ -132,7 +128,7 @@ namespace Pedantic.Chess
                 flag = TtFlag.LowerBound;
             }
 
-            TtTranItem.SetValue(ref item, hash, (short)score, itemDepth, 0, flag, bestMove);
+            TtTranItem.SetValue(ref item, hash, (short)score, itemDepth, flag, bestMove);
         }
 
         public static void Clear()
@@ -140,7 +136,7 @@ namespace Pedantic.Chess
             Span<TtTranItem> spn = new Span<TtTranItem>(table);
             spn.Clear();
             used = 0;
-            version = 1;
+            generation = 1;
         }
 
         public static void Resize(int sizeMb)
@@ -154,7 +150,7 @@ namespace Pedantic.Chess
             table = new TtTranItem[capacity];
             mask = (uint)(capacity - 1);
             used = 0;
-            version = 1;
+            generation = 1;
         }
 
         public static int Capacity => capacity;
@@ -245,7 +241,7 @@ namespace Pedantic.Chess
                 return index ^ 1;
             }
 
-            return (++item0.Age - item0.Depth) > (++item1.Age - item1.Depth) ? index : index ^ 1;
+            return (item0.Age + item0.Depth) > (item1.Age + item1.Depth) ? index ^ 1 : index;
         }
 
         private static bool GetLoadIndex(ulong hash, out int index)
@@ -260,8 +256,6 @@ namespace Pedantic.Chess
                     return false;
                 }
             }
-
-            table[index].Age = 0;
             return true;
         }
     }
