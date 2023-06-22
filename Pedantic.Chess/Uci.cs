@@ -55,11 +55,21 @@ namespace Pedantic.Chess
             }
         }
 
-        public static void Info(int depth, int seldepth, int score, long nodes, long timeMs, ulong[] pv, int hashfull, long tbHits)
+        public static void Info(int depth, int seldepth, int score, long nodes, long timeMs, ulong[] pv, 
+            int hashfull, long tbHits, TtFlag flag = TtFlag.Exact)
         {
             StringBuilder sb = new();
             int nps = (int)(nodes * 1000 / Math.Max(1, timeMs));
-            sb.Append(@$"info depth {depth} seldepth {seldepth} score cp {score} nodes {nodes} hashfull {hashfull} nps {nps} time {timeMs} ");
+            sb.Append(@$"info depth {depth} seldepth {seldepth} score cp {score}");
+            if (flag == TtFlag.UpperBound)
+            {
+                sb.Append(" upperbound");
+            }
+            else if (flag == TtFlag.LowerBound)
+            {
+                sb.Append(" lowerbound");
+            }
+            sb.Append(@$" nodes {nodes} hashfull {hashfull} nps {nps} time {timeMs} ");
             if (tbHits > 0)
             {
                 sb.Append(@$"tbhits {tbHits} ");

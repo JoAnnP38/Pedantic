@@ -83,18 +83,23 @@ namespace Pedantic.Chess
                     time.StartInterval();
                     history.Rescale();
                     UpdateTtWithPv(PV, Depth);
-                    int iAlpha = 0, iBeta = 0, result, alpha, beta;
+                    int alpha = -Constants.INFINITE_WINDOW;
+                    int beta = Constants.INFINITE_WINDOW;
+                    int iAlpha = 0, iBeta = 0, result;
                     seldepth = 0;
                     location = "2";
                     do
                     {
-                        alpha = Window[iAlpha] == Constants.INFINITE_WINDOW
-                            ? -Constants.INFINITE_WINDOW
-                            : Score - Window[iAlpha];
-                        location = "3";
-                        beta = Window[iBeta] == Constants.INFINITE_WINDOW
-                            ? Constants.INFINITE_WINDOW
-                            : Score + Window[iBeta];
+                        if (Depth > Constants.WINDOW_MIN_DEPTH)
+                        {
+                            alpha = Window[iAlpha] == Constants.INFINITE_WINDOW
+                                ? -Constants.INFINITE_WINDOW
+                                : Score - Window[iAlpha];
+                            location = "3";
+                            beta = Window[iBeta] == Constants.INFINITE_WINDOW
+                                ? Constants.INFINITE_WINDOW
+                                : Score + Window[iBeta];
+                        }
                         location = "4";
                         result = SearchRoot(alpha, beta, Depth, inCheck);
                         location = "5";
@@ -103,15 +108,19 @@ namespace Pedantic.Chess
                             break;
                         }
 
+                        ulong bm = bestMove;
+                        ulong? pm = ponderMove;
+
                         if (result <= alpha)
                         {
                             ++iAlpha;
+                            ReportSearchResults(result, TtFlag.UpperBound);
                         }
                         else if (result >= beta)
                         {
                             ++iBeta;
+                            ReportSearchResults(result, TtFlag.LowerBound);
                         }
-
                     } while (result <= alpha || result >= beta);
 
                     location = "6";
@@ -740,12 +749,20 @@ namespace Pedantic.Chess
         }
 #endif
 
+        private void ReportSearchResults(int score, TtFlag flag)
+        {
+            if (Depth > Constants.WINDOW_MIN_DEPTH)
+            {
+                Uci.Info(Depth, seldepth, score, NodesVisited, time.Elapsed, PV, TtTran.Usage, tbHits, flag);
+            }
+        }
+
         private void ReportSearchResults(ref ulong bestMove, ref ulong? ponderMove)
         {
             bool bestMoveChanged = false;
             ulong oldBestMove = bestMove;
             PV = GetPv();
-            PV = ExtractPv();
+            PV = ExtractPv(PV);
 
             if (PV.Length > 0)
             {
@@ -801,18 +818,18 @@ namespace Pedantic.Chess
             }
         }
 
-        private ulong[] ExtractPv()
+        private ulong[] ExtractPv(ulong[] pv)
         {
             MoveList result = moveListPool.Get();
             Board bd = board.Clone();
             int d = 0;
             positions.Clear();
 
-            for (int n = 0; n < PV.Length; n++)
+            for (int n = 0; n < pv.Length; n++)
             {
-                if (!bd.MakeMove(PV[n]))
+                if (!bd.MakeMove(pv[n]))
                 {
-                    throw new InvalidOperationException($"Invalid move in PV: {PV[n]}");
+                    throw new InvalidOperationException($"Invalid move in PV: {pv[n]}");
                 }
 
                 positions.Add(bd.Hash);
@@ -839,7 +856,7 @@ namespace Pedantic.Chess
 
             ulong[] array = result.ToArray();
             moveListPool.Return(result);
-            return AppendPv(array);
+            return AppendPv(ref pv, array);
         }
 
         private static ulong[] MergeMove(ulong[] pv, ulong move)
@@ -966,9 +983,8 @@ namespace Pedantic.Chess
             return pv;
         }
 
-        public ulong[] AppendPv(ulong[] moves)
+        public ulong[] AppendPv(ref ulong[] pv, ulong[] moves)
         {
-            ulong[] pv = PV;
             if (moves.Length > 0)
             {
                 int append = pv.Length;
@@ -1022,6 +1038,7 @@ namespace Pedantic.Chess
         private readonly int[] pvLength = new int[Constants.MAX_PLY];
 
         internal static readonly ulong[] EmptyPv = Array.Empty<ulong>();
+        // Optimized 6/21/2023: 33, 100, 200, 300, INF
         internal static readonly int[] Window = { 25, 100, Constants.INFINITE_WINDOW };
         internal static readonly int[] FutilityMargin = { 0, 200, 400, 600, 800 };
 
