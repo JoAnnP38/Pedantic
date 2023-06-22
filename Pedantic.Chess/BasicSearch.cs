@@ -1039,7 +1039,7 @@ namespace Pedantic.Chess
 
         internal static readonly ulong[] EmptyPv = Array.Empty<ulong>();
         // Optimized 6/21/2023: 33, 100, 200, 300, INF
-        internal static readonly int[] Window = { 25, 100, Constants.INFINITE_WINDOW };
+        internal static readonly int[] Window = { 33, 100, 200, 300, Constants.INFINITE_WINDOW };
         internal static readonly int[] FutilityMargin = { 0, 200, 400, 600, 800 };
 
         internal static readonly sbyte[][] LMR =
