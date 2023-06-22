@@ -39,15 +39,7 @@ namespace Pedantic.Chess
         public const short BAD_CAPTURE = 6000;
         public const short HISTORY_SCORE = 5000;
         public const short INFINITE_WINDOW = short.MaxValue;
-        public const ulong LINEUP_K = 0ul;
-        public const ulong LINEUP_KQ = 0x0005ul;
-        public const ulong LINEUP_KR = 0x0004ul;
-        public const ulong LINEUP_KB = 0x0003ul;
-        public const ulong LINEUP_KN = 0x0002ul;
-        public const ulong LINEUP_KP = 0x0001ul;
-        public const ulong LINEUP_KNN = 0x0012ul;
-        public const ulong LINEUP_KBN = 0x001Aul;
-        public const ulong LINEUP_KBB = 0x001Bul;
+        public const int WINDOW_MIN_DEPTH = 6;
         public const int LAZY_EVAL_MARGIN = 500;
         public const int INVALID_PROBE = int.MinValue;
 
@@ -57,5 +49,6 @@ namespace Pedantic.Chess
         public const string FEN_EMPTY = @"8/8/8/8/8/8/8/8 w - - 0 0";
         public const string FEN_START_POS = @"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
         public const string APP_NAME = "Pedantic";
+        public const string APP_VERSION = "0.4.0";
     }
 }
