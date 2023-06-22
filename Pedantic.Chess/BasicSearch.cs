@@ -182,22 +182,8 @@ namespace Pedantic.Chess
                 location = "12";
                 Uci.BestMove(bestMove, CanPonder ? ponderMove : null);
                 location = "13";
-                
-                if (board.TotalMaterialNoKings < Evaluation.EndGamePhaseMaterial /*+ Piece.Rook.Value()*/)
-                {
-                    // don't clear hash table unless we have enough time (a 256mb cache
-                    // takes about 78ms to clear on a AMD Ryzen 9 6800HX cpu.)
-                    if ((time.TimeLimit >> 2) >= 100)
-                    {
-                        Uci.Debug("Clearing hash table");
-                        TtTran.Clear();
-                    }
-                    else
-                    {
-                        Uci.Debug("Incrementing hash table version.");
-                        TtTran.IncrementVersion();
-                    }
-                }
+                Uci.Debug("Incrementing hash table version.");
+                TtTran.IncrementVersion();
             }
             catch (Exception ex)
             {
@@ -485,7 +471,7 @@ namespace Pedantic.Chess
                 bool badCapture = Move.IsCapture(move) && Move.GetScore(move) == Constants.BAD_CAPTURE /* Move.IsBadCapture(move) */;
                 bool interesting = inCheck || checkingMove || (!isQuiet && !badCapture) || isKiller || expandedNodes == 1;
 
-                if (canPrune && !interesting && expandedNodes > LMP[depth]/* && Move.GetScore(move) < LMP_MAX_HISTORY*/)
+                if (canPrune && !interesting && expandedNodes > LMP[depth])
                 {
                     board.UnmakeMoveNs();
                     continue;
