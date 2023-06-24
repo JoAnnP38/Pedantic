@@ -184,7 +184,7 @@ namespace Pedantic.Chess
             return bestMove != 0;
         }
 
-        public static bool TryGetScore(ulong hash, int depth, int ply, ref int alpha, ref int beta, out int score,
+        public static bool TryGetScore(ulong hash, int depth, int ply, int alpha, int beta, out int score,
             out ulong move)
         {
             score = 0;
