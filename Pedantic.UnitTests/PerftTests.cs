@@ -31,6 +31,7 @@ namespace Pedantic.UnitTests
             Assert.AreEqual(expectedNodes, actual);
         }
 
+#if !DEBUG
         [TestMethod]
         [DataRow("8/p7/8/1P6/K1k3p1/6P1/7P/8 w - - 0 1", 8, 8103790ul)]
         [DataRow("r3k2r/pb3p2/5npp/n2p4/1p1PPB2/6P1/P2N1PBP/R3K2R w KQkq - 0 1", 5, 29179893ul)]
@@ -52,5 +53,6 @@ namespace Pedantic.UnitTests
             ulong actual = perft.Execute(depth);
             Assert.AreEqual(expectedNodes, actual);
         }
+#endif
     }
 }

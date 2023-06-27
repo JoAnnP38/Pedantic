@@ -940,7 +940,7 @@ namespace Pedantic.Chess
                 Piece capture = Move.GetCapture(move);
                 if (bcIndex < 20 && board[from].Piece.Value() > capture.Value() && PreMoveStaticExchangeEval(SideToMove, move) < 0)
                 {
-                    bc[bcIndex++] = Move.SetScore(move, Constants.BAD_CAPTURE);
+                    bc[bcIndex++] = Move.AdjustScore(move, Constants.BAD_CAPTURE - Constants.CAPTURE_SCORE);
                     continue;
                 }
                 
@@ -1020,7 +1020,7 @@ namespace Pedantic.Chess
                 Piece capture = Move.GetCapture(move);
                 if (bcIndex < 20 && board[from].Piece.Value() > capture.Value() && PreMoveStaticExchangeEval(SideToMove, move) < 0)
                 {
-                    bc[bcIndex++] = Move.SetScore(move, Constants.BAD_CAPTURE);
+                    bc[bcIndex++] = Move.AdjustScore(move, Constants.BAD_CAPTURE - Constants.CAPTURE_SCORE);
                     continue;
                 }
 
@@ -1738,14 +1738,11 @@ namespace Pedantic.Chess
                         int to = BitOps.TzCount(bb3);
                         Piece capture = board[to].Piece;
                         ulong move = Move.Pack(from, to, MoveType.Capture, capture);
+                        move = Move.SetScore(move, (short)CaptureScore(capture, piece));
 
                         if (piece.Value() > capture.Value() && PreMoveStaticExchangeEval(SideToMove, move) < 0)
                         {
-                            move = Move.SetScore(move, Constants.BAD_CAPTURE);
-                        }
-                        else
-                        {
-                            move = Move.SetScore(move, (short)CaptureScore(capture, piece));
+                            move = Move.AdjustScore(move, Constants.BAD_CAPTURE - Constants.CAPTURE_SCORE);
                         }
 
                         moveList.Add(move);
@@ -2114,6 +2111,28 @@ namespace Pedantic.Chess
             }
 
             return GetQueenAttacksFancy(sq, blockers);
+        }
+
+        private static ulong GetBestMove(ulong[] moves, int length, int n)
+        {
+            int largest = -1;
+            int score = -1;
+            for (int i = n; i < length; ++i)
+            {
+                short mvScore = Move.GetScore(moves[i]);
+                if (mvScore > score)
+                {
+                    largest = i;
+                    score = mvScore;
+                }
+            }
+
+            if (largest > n)
+            {
+                (moves[n],  moves[largest]) = (moves[largest], moves[n]);
+            }
+
+            return moves[n];
         }
 
         private static readonly FakeHistory fakeHistory = new();

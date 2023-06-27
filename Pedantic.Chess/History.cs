@@ -17,6 +17,7 @@
 // </summary>
 // ***********************************************************************
 
+using Pedantic.Utilities;
 using System.Runtime.CompilerServices;
 
 namespace Pedantic.Chess
@@ -36,19 +37,25 @@ namespace Pedantic.Chess
 
         public int this[Color color, int from, int to] => history[GetIndex(color, from, to)];
 
-        public void Update(Color color, int from, int to, int value)
+        public void Update(Color color, int from, int to, int bonus)
         {
             int i = GetIndex(color, from, to);
-            history[i] += value;
-            if (history[i] >= Constants.HISTORY_SCORE)
+            history[i] += bonus;
+
+            if (Math.Abs(history[i]) >= Constants.HISTORY_SCORE)
             {
                 Rescale();
             }
         }
 
-        public void Update(int from, int to, int value)
+        public void Update(int from, int to, int bonus)
         {
-            Update(SideToMove, from, to, value * value);
+            Update(SideToMove, from, to, bonus);
+        }
+
+        public void Update(ulong move, int bonus)
+        {
+            Update(SideToMove, Move.GetFrom(move), Move.GetTo(move), bonus);
         }
 
         public void Clear()

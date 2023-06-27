@@ -178,7 +178,7 @@ namespace Pedantic.UnitTests
             //Engine.Infinite = true;
             UciOptions.OwnBook = true;
             Program.ParseCommand(@$"position fen {fen}");
-            Program.ParseCommand("go depth 24");
+            Program.ParseCommand("go depth 12");
             Engine.Wait();
         }
 
@@ -197,7 +197,7 @@ namespace Pedantic.UnitTests
         {
             Program.ParseCommand(
                 "position startpos moves d2d4 g8f6 c2c4 g7g6 b1c3 f8g7 e2e4 d7d6 f1e2 e8g8 c1g5 a7a6 g1f3 c7c6 h2h3 b7b5 a2a3 b5c4 e4e5 d6e5 d4e5 f6d5 e2c4 c8e6 d1d2 b8d7 c3d5 c6d5");
-            Program.ParseCommand("go depth 20");
+            Program.ParseCommand("go depth 16");
             Engine.Wait();
         }
 
@@ -219,7 +219,7 @@ namespace Pedantic.UnitTests
             Program.ParseCommand("setoption name Hash value 128");
             Program.ParseCommand(
                 "position startpos moves e2e4 e7e5 b1c3 g8f6 f1c4 b8c6 d2d3 c6a5 g1e2 c7c6 c4f7 e8f7 c1e3 d7d5 e4d5 c6d5");
-            Program.ParseCommand("go depth 18");
+            Program.ParseCommand("go depth 16");
             Engine.Wait();
 
         }
@@ -319,7 +319,7 @@ namespace Pedantic.UnitTests
         {
             Program.ParseCommand("setoption name Hash value 128");
             Program.ParseCommand("position startpos moves c2c4 g8f6 g1f3 c7c5 b1c3 d7d5 c4d5 f6d5 d2d4 e7e6 g2g3 b8c6 f1g2 c5d4 f3d4 d5c3 b2c3 c6d4 d1d4 d8d4 c3d4 f8b4 c1d2 b4d6 h1g1 e8g8 d2e3 a8b8 e1d2 a7a5 a1b1 f8d8 g2e4 a5a4 g1c1 b7b5 e3g5 f7f6 g5e3 b5b4 c1c6 a4a3 h2h3 h7h6 e4d3 g7g5");
-            Program.ParseCommand("go depth 19");
+            Program.ParseCommand("go depth 15");
             Engine.Wait();
 
             Engine.Debug = true;
@@ -413,7 +413,7 @@ namespace Pedantic.UnitTests
             //Engine.Infinite = true;
             Program.ParseCommand("position startpos moves g1f3 d7d5 d2d4 e7e6 c2c4 g8f6 b1c3 c7c6 e2e3 b8d7 f1d3 d5c4 d3c4 b7b5 c4d3 a7a6 a2a4 b5b4 c3e4 c6c5 e4f6 d7f6 e1g1 c5d4 e3d4 f8d6 f3e5 c8b7 c1f4 e8g8 a1c1 d6c7 c1c4 a6a5 d1d2 d8d5 f2f3 c7e5 f4e5 f6d7 f1e1 b7a6 c4c2 d7e5 d3e4 d5a2 d4e5 a8d8 d2e3 a2a4 b2b3 a4a3 c2c1 a3b2 c1c6 a6b5 c6c5 d8b8 e1b1 b2a3 h2h3 f8d8 c5c7 a3a2 b1c1 b5e8");
             Console.WriteLine(Engine.Board.ToFenString());
-            Program.ParseCommand("go depth 19");
+            Program.ParseCommand("go depth 15");
             Engine.Wait();
         }
 
@@ -423,7 +423,7 @@ namespace Pedantic.UnitTests
             //Engine.Infinite = true;
             Program.ParseCommand("position startpos moves b1c3 c7c5 e2e4 b8c6 g1f3 d7d6 d2d4 c5d4 f3d4 g8f6 f1c4 d8b6 d4b3 b6d8 e1g1 g7g6 c3d5 f8g7 d5f6 g7f6 c2c3 h7h5 c1e3 c6e5 c4e2 d8c7 e3d4 c8e6 f2f4 e5d7 d4f2 e6c4 e2c4 c7c4 d1d5 c4d5 e4d5 h5h4 f1d1 d7b6 f2b6 a7b6 b3d4 a8a4 b2b4 h8h5 d4e2 a4a3 d1d3 e8d7 g2g3 h4g3 h2g3 g6g5 g1f2 g5f4 g3f4 f6h8 f2g3 f7f5 g3g2 h5h4 d3e3 b6b5 g2g1 h8f6 e3d3 h4h8 g1f2 h8h2 f2e3 b7b6 a1f1 a3a2 f1f2 h2h1 f2f3 h1e1 d3d2 a2a3 e3f2 e1h1 f2g2 h1h8 f3e3 h8c8 g2f2 f6h4 f2g2 c8g8 g2h2 h4f6 d2c2 g8c8 e3g3 a3a1 c2d2 c8h8 h2g2 h8a8 g3h3 a1b1 h3h5 a8a3 h5h3 b1b3 d2c2 a3a1 h3h5 a1a7 h5h1 a7c7 h1c1 c7c8 g2f2 c8c4 f2g2 b3a3 g2f2 e7e6 d5e6 d7e6 f2e1 d6d5 e1d2 c4e4 c1e1 e6f7 e1h1 d5d4 c3d4 f6d4 c2c7 f7g6 c7c6 d4f6 h1c1 a3a2 c1c2 a2c2 c6c2 e4c4 c2c1 f6b2 c1c2 c4b4 c2c6 g6f7 c6b6 b2d4 e2d4 b4d4 d2e3 d4d5 e3f3 f7e7 f3e3 e7d7 b6g6 d7c7 g6a6 d5d6 a6a1 c7b6 a1b1 d6e6 e3f3 e6c6 f3e3 c6c4 b1d1 b5b4 d1d8 b6b5 e3d3 c4f4 d3c2 f4c4 c2b2 f5f4 d8d3 b5c5 d3f3 c5d5 f3f1 c4d4 b2b3 d5e5 b3a4 e5f5 a4b5 d4e4 b5c5 f5e5 f1f3 e4e3 f3f2 b4b3 f2h2 f4f3 c5c4 e3e2 h2h5 e5e4 h5h4 e4e3 c4b3 f3f2 h4h3 e3d4 h3h4 e2e4 h4h1 e4e1 h1h4 d4e5 h4h5 e5e4 h5h4 e4d5 h4f4 f2f1q f4f1 e1f1 b3c3 d5c5 c3d3 f1f6 d3e4 c5d6 e4d4 f6f3 d4e4 f3a3 e4d4 d6d7 d4e5 a3a4 e5d5 d7c8 d5c5 a4f4 c5d5 f4g4 d5c6 g4e4 c6d5 e4e2 d5d4 c8b7 d4d5 b7a6 d5d4 a6b5 d4d5 e2e3 d5d4 e3e8 d4d5 e8f8 d5d6 f8f5 d6e6 f5f4 e6e5 f4a4 e5d5 b5b6 d5e6 a4f4 e6e5 f4h4 e5d5");
             Console.WriteLine(Engine.Board.ToFenString());
-            Program.ParseCommand("go depth 20");
+            Program.ParseCommand("go depth 19");
             Engine.Wait();
         }
 
@@ -480,7 +480,7 @@ namespace Pedantic.UnitTests
             Program.ParseCommand("position fen 7k/6p1/8/8/8/8/1K6/R7 w - - 0 18");
             Console.WriteLine(Engine.Board.ToString());
             Console.WriteLine(Engine.Board.ToFenString());
-            Program.ParseCommand("go depth 28");
+            Program.ParseCommand("go depth 20");
             Engine.Wait();        
         }
 

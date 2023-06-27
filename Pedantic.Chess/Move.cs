@@ -28,7 +28,7 @@ namespace Pedantic.Chess
         {
             Util.Assert(Index.IsValid(from));
             Util.Assert(Index.IsValid(to));
-            Util.Assert(score is >= 0 and <= short.MaxValue);
+            Util.Assert(score is >= -Constants.HISTORY_SCORE and <= short.MaxValue);
             ulong move = ((ulong)from & 0x3f) |
                          (((ulong)to & 0x3f) << 6) |
                          (((ulong)type & 0x0f) << 12) |
@@ -49,6 +49,12 @@ namespace Pedantic.Chess
         public static ulong SetScore(ulong move, short score)
         {
             return BitOps.BitFieldSet(move, score, 24, 16);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static ulong AdjustScore(ulong move, short adjustment)
+        {
+            return SetScore(move, (short)(GetScore(move) + adjustment));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -84,9 +90,9 @@ namespace Pedantic.Chess
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int GetScore(ulong move)
+        public static short GetScore(ulong move)
         {
-            return BitOps.BitFieldExtract(move, 24, 16);
+            return (short)BitOps.BitFieldExtract(move, 24, 16);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -117,7 +123,7 @@ namespace Pedantic.Chess
         public static bool IsBadCapture(ulong move)
         {
             int score = GetScore(move);
-            return score is >= Constants.BAD_CAPTURE and < Constants.KILLER_SCORE;
+            return IsCapture(move) && (score is >= Constants.BAD_CAPTURE and < Constants.KILLER_SCORE);
         }
 
         public static void Unpack(ulong move, out int from, out int to, out MoveType type, out Piece capture,

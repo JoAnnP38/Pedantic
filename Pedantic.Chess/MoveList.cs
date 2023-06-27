@@ -24,7 +24,7 @@ namespace Pedantic.Chess
         public MoveList() : base(Constants.AVG_MOVES_PER_PLY * 2)
         { }
 
-        public void Sort(int n)
+        public ulong Sort(int n)
         {
             int largest = -1;
             int score = -1;
@@ -42,6 +42,8 @@ namespace Pedantic.Chess
             {
                 (array[n], array[largest]) = (array[largest], array[n]);
             }
+
+            return array[n];
         }
 
         public void Add(int from, int to, MoveType type = MoveType.Normal, Piece capture = Piece.None,
@@ -65,20 +67,20 @@ namespace Pedantic.Chess
 
                 if (fromto == (pv & 0x0fff))
                 {
-                    array[n] = BitOps.BitFieldSet(move, Constants.PV_SCORE, 24, 16);
+                    array[n] = Move.SetScore(move, Constants.PV_SCORE);
                     found++;
                 }
                 else if (!isCapture)
                 {
                     if (KillerMoves.MovesEqual(move, km.Killer0))
                     {
-                        array[n] = BitOps.BitFieldSet(move, Constants.KILLER_SCORE - 0, 24, 16);
+                        array[n] = Move.SetScore(move, Constants.KILLER_SCORE - 0);
                         found++;
                     }
 
                     if (KillerMoves.MovesEqual(move, km.Killer1))
                     {
-                        array[n] = BitOps.BitFieldSet(move, Constants.KILLER_SCORE - 1, 24, 16);
+                        array[n] = Move.SetScore(move, Constants.KILLER_SCORE - 1);
                         found++;
                     }
                 }

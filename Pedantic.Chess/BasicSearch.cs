@@ -236,7 +236,7 @@ namespace Pedantic.Chess
 
                 bool checkingMove = board.IsChecked();
                 bool isQuiet = Move.IsQuiet(move);
-                bool badCapture = Move.IsCapture(move) && Move.GetScore(move) == Constants.BAD_CAPTURE;
+                bool badCapture = Move.IsBadCapture(move);
                 bool interesting = inCheck || checkingMove || (!isQuiet && !badCapture) || !raisedAlpha;
 
                 int R = 0;
@@ -285,10 +285,10 @@ namespace Pedantic.Chess
 
                     if (score >= beta)
                     {
-                        if (Move.IsQuiet(move))
+                        if (isQuiet)
                         {
                             killerMoves.Add(move, 0);
-                            history.Update(Move.GetFrom(move), Move.GetTo(move), depth);
+                            history.Update(move, HistoryBonus(depth));
                         }
 
                         break;
@@ -468,7 +468,7 @@ namespace Pedantic.Chess
                 bool checkingMove = board.IsChecked();
                 bool isQuiet = Move.IsQuiet(move);
                 bool isKiller = isQuiet && killerMoves.Exists(ply, move);
-                bool badCapture = Move.IsCapture(move) && Move.GetScore(move) == Constants.BAD_CAPTURE /* Move.IsBadCapture(move) */;
+                bool badCapture = Move.IsBadCapture(move);
                 bool interesting = inCheck || checkingMove || (!isQuiet && !badCapture) || isKiller || expandedNodes == 1;
 
                 if (canPrune && !interesting && !IsPromotionThreat(move))
@@ -539,10 +539,10 @@ namespace Pedantic.Chess
 
                     if (score >= beta)
                     {
-                        if (Move.IsQuiet(move))
+                        if (isQuiet)
                         {
                             killerMoves.Add(move, ply);
-                            history.Update(Move.GetFrom(move), Move.GetTo(move), depth);
+                            history.Update(move, HistoryBonus(depth));
                         }
 
                         break;
@@ -627,7 +627,7 @@ namespace Pedantic.Chess
                 expandedNodes++;
 
                 bool checkingMove = board.IsChecked();
-                if (!inCheck && !checkingMove && Move.GetScore(move) == Constants.BAD_CAPTURE)
+                if (!inCheck && !checkingMove && Move.IsBadCapture(move))
                 {
                     board.UnmakeMoveNs();
                     continue;
@@ -689,12 +689,12 @@ namespace Pedantic.Chess
                 TtFlag flag = TtFlag.Exact;
                 if (result.Wdl == TbGameResult.Win)
                 {
-                    score = Constants.CHECKMATE_BASE - (Constants.MAX_PLY + ply);
+                    score = Constants.TABLEBASE_WIN - ply;
                     flag = TtFlag.LowerBound;
                 }
                 else if (result.Wdl == TbGameResult.Loss)
                 {
-                    score = -Constants.CHECKMATE_BASE + (Constants.MAX_PLY + ply);
+                    score = Constants.TABLEBASE_LOSS + ply;
                     flag = TtFlag.UpperBound;
                 }
                 else
@@ -1029,6 +1029,12 @@ namespace Pedantic.Chess
         private static int NmpReduction(int depth)
         {
             return NMP_BASE_REDUCTION + Math.Max(depth - 3, 0) / NMP_INC_DIVISOR + 1;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static int HistoryBonus(int depth)
+        {
+            return ((depth * depth) >> 1) + (depth << 1) - 1;
         }
 
         private readonly Board board;

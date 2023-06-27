@@ -59,8 +59,8 @@ namespace Pedantic.UnitTests
         }
 
         [TestMethod]
-        [DataRow(Constants.FEN_START_POS, 4180, 4180, 4445, 4445, 3900, 3900)]
-        [DataRow("r2n2k1/3P3p/1R4p1/2B5/4p3/2P1P2P/p4rP1/2KR4 w - - 0 40", 1875, 1625, 2035, 1935, 1800, 1700)]
+        [DataRow(Constants.FEN_START_POS, 4455, 4455, 4300, 4300, 3900, 3900)]
+        [DataRow("r2n2k1/3P3p/1R4p1/2B5/4p3/2P1P2P/p4rP1/2KR4 w - - 0 40", 1875, 1755, 1980, 1885, 1800, 1700)]
         public void CorrectMaterialTest(string fen, int opWhiteMaterial, int opBlackMaterial, int egWhiteMaterial,
             int egBlackMaterial, int whiteMaterial, int blackMaterial)
         {
@@ -74,8 +74,8 @@ namespace Pedantic.UnitTests
         }
 
         [TestMethod]
-        [DataRow(Constants.FEN_START_POS, -201, -201, -163, -163)]
-        [DataRow("r2n2k1/3P3p/1R4p1/2B5/4p3/2P1P2P/p4rP1/2KR4 w - - 0 40", 241, 380, 109, 139)]
+        [DataRow(Constants.FEN_START_POS, -201, -201, -147, -147)]
+        [DataRow("r2n2k1/3P3p/1R4p1/2B5/4p3/2P1P2P/p4rP1/2KR4 w - - 0 40", 264, 401, 91, 123)]
         public void CorrectPcSquareTest(string fen, int opWhite, int opBlack, int egWhite, int egBlack)
         {
             Board board = new(fen);
@@ -142,7 +142,7 @@ namespace Pedantic.UnitTests
         }
 
         [TestMethod]
-        [DataRow("1k3r2/1p4p1/p3p1Np/3b1p2/1bq5/2P2P2/PP1Q1PBP/1K1R2R1 w - - 5 27", (short)415)]
+        [DataRow("1k3r2/1p4p1/p3p1Np/3b1p2/1bq5/2P2P2/PP1Q1PBP/1K1R2R1 w - - 5 27", (short)445)]
         public void UnbalancedPosition(string fen, short expected)
         {
             Board bd = new(fen);
