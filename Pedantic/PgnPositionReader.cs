@@ -173,10 +173,11 @@ namespace Pedantic
                                     continue;
                                 }
 
+                                bool inCheck = bd.IsChecked();
                                 int eval = search.Eval.Compute(bd);
                                 int delta = Math.Abs(search.Quiesce(-Constants.INFINITE_WINDOW,
-                                    Constants.INFINITE_WINDOW, 0, bd.IsChecked()) - eval);
-                                if (delta == 0)
+                                    Constants.INFINITE_WINDOW, 0, inCheck) - eval);
+                                if (!inCheck && delta == 0)
                                 {
                                     yield return new Position(bd.Hash, ply, gamePly, bd.ToFenString(),
                                         bd.HasCastled, result);
@@ -185,7 +186,7 @@ namespace Pedantic
                             else
                             {
                                 Util.WriteLine($"Illegal token encountered: {mv}... skipping to next game.");
-                                Console.WriteLine($@"{lineNumber}: Illegal token encountered - '{line}'");
+                                Console.Error.WriteLine($@"{lineNumber}: Illegal token encountered - '{line}'");
                                 break;
                             }
                         }

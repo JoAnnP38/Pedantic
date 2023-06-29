@@ -294,6 +294,7 @@ namespace Pedantic.Chess
         {
             int c = (int)color;
             Color other = (Color)(c ^ 1);
+            int o = (int)other;
             ulong pawns = board.Pieces(color, Piece.Pawn);
             ulong otherPawns = board.Pieces(other, Piece.Pawn);
 
@@ -342,10 +343,19 @@ namespace Pedantic.Chess
             for (ulong bb = rooks; bb != 0; bb = BitOps.ResetLsb(bb))
             {
                 int sq = BitOps.TzCount(bb);
-                ulong mask = Board.MaskFile(sq);
-                ulong potentials = mask & rooks;
+                int rank = Index.GetRank(Index.NormalizedIndex[c][sq]);
+                int enemyKingRank = Index.GetRank(Index.NormalizedIndex[c][kingIndex[o]]);
+                ulong maskFile = Board.MaskFile(sq);
+                ulong maskRank = Board.MaskRank(sq);
+                ulong potentials = maskFile & rooks;
 
-                if ((mask & allPawns) == 0)
+                if (rank == Coord.RANK_7 && ((otherPawns & maskRank) != 0 || enemyKingRank >= Coord.RANK_7))
+                {
+                    opScore[c] += wt.OpeningRookOnSeventhRank;
+                    egScore[c] += wt.EndGameRookOnSeventhRank;
+                }
+                
+                if ((maskFile & allPawns) == 0)
                 {
                     opScore[c] += wt.OpeningRookOnOpenFile;
                     egScore[c] += wt.EndGameRookOnOpenFile;
@@ -358,7 +368,7 @@ namespace Pedantic.Chess
                     }
                 }
 
-                if ((mask & pawns) == 0 && (mask & otherPawns) != 0)
+                if ((maskFile & pawns) == 0 && (maskFile & otherPawns) != 0)
                 {
                     opScore[c] += wt.OpeningRookOnHalfOpenFile;
                     egScore[c] += wt.EndGameRookOnHalfOpenFile;
@@ -368,6 +378,25 @@ namespace Pedantic.Chess
                         opScore[c] += wt.OpeningDoubledRooks;
                         egScore[c] += wt.EndGameDoubledRooks;
                     }
+                }
+            }
+
+            ulong queens = board.Pieces(color, Piece.Queen);
+            for (ulong bb = queens; bb != 0; bb = BitOps.ResetLsb(bb))
+            {
+                int sq = BitOps.TzCount(bb);
+                ulong mask = Board.MaskFile(sq);
+
+                if ((mask & allPawns) == 0)
+                {
+                    opScore[c] += wt.OpeningQueenOnOpenFile;
+                    egScore[c] += wt.EndGameQueenOnOpenFile;
+                }
+
+                if ((mask & pawns) == 0 && (mask & otherPawns) != 0)
+                {
+                    opScore[c] += wt.OpeningQueenOnHalfOpenFile;
+                    egScore[c] += wt.EndGameQueenOnHalfOpenFile;
                 }
             }
 

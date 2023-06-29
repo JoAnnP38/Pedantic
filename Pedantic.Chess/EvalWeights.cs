@@ -146,6 +146,13 @@ namespace Pedantic.Chess
             return wt[ChessWeights.CENTER_CONTROL + ChessWeights.ENDGAME_WEIGHTS + distance];
         }
 
+        public short OpeningQueenOnOpenFile => wt[ChessWeights.QUEEN_ON_OPEN_FILE];
+        public short EndGameQueenOnOpenFile => wt[ChessWeights.QUEEN_ON_OPEN_FILE + ChessWeights.ENDGAME_WEIGHTS];
+        public short OpeningQueenOnHalfOpenFile => wt[ChessWeights.QUEEN_ON_HALF_OPEN_FILE];
+        public short EndGameQueenOnHalfOpenFile => wt[ChessWeights.QUEEN_ON_HALF_OPEN_FILE + ChessWeights.ENDGAME_WEIGHTS];
+        public short OpeningRookOnSeventhRank => wt[ChessWeights.ROOK_ON_7TH_RANK];
+        public short EndGameRookOnSeventhRank => wt[ChessWeights.ROOK_ON_7TH_RANK + ChessWeights.ENDGAME_WEIGHTS];
+
         private readonly short[] wt;
     }
 }

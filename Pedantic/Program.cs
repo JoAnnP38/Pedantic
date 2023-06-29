@@ -35,8 +35,8 @@ namespace Pedantic
         public const string PROGRAM_URL = "https://github.com/JoAnnP38/Pedantic";
         public const double CONVERGENCE_TOLERANCE = 0.00000005;
         public const int MAX_CONVERGENCE_FAILURE = 5;
-        public const int MINI_BATCH_COUNT = 16;
-        public const int MINI_BATCH_SIZE = 1000000;
+        public const int MINI_BATCH_COUNT = 30;
+        public const int MINI_BATCH_MIN_SIZE = 10000;
 
         private enum PerftRunType
         {
@@ -96,6 +96,10 @@ namespace Pedantic
                 name: "--preserve",
                 description: "When present intermediary versions of the solution will be saved.",
                 getDefaultValue: () => false);
+            var saveOption = new Option<bool>(
+                name: "--save",
+                description: "If specified the sample will be saved in file.",
+                getDefaultValue: () => false);
             var immortalOption = new Option<string?>(
                 name: "--immortal",
                 description: "Designate a new immortal set of weights.",
@@ -142,7 +146,8 @@ namespace Pedantic
                 dataFileOption,
                 sampleOption,
                 iterOption,
-                preserveOption
+                preserveOption,
+                saveOption
             };
 
             var weightsCommand = new Command("weights", "Manipulate the weight database.")
@@ -163,7 +168,7 @@ namespace Pedantic
             uciCommand.SetHandler(RunUci, commandFileOption, errorFileOption, randomSearchOption, statsOption, magicOption);
             perftCommand.SetHandler(RunPerft, typeOption, depthOption, fenOption, magicOption);
             labelCommand.SetHandler(RunLabel, pgnFileOption, dataFileOption, maxPositionsOption);
-            learnCommand.SetHandler(RunLearn, dataFileOption, sampleOption, iterOption, preserveOption);
+            learnCommand.SetHandler(RunLearn, dataFileOption, sampleOption, iterOption, preserveOption, saveOption);
             weightsCommand.SetHandler(RunWeights, immortalOption, displayOption);
             rootCommand.SetHandler(async () => await RunUci(null, null, false, false, false));
 
@@ -691,7 +696,7 @@ namespace Pedantic
             }
         }
 
-        private static void RunLearn(string? dataFile, int sampleSize = 10000, int maxPass = 200, bool preserve = false)
+        private static void RunLearn(string? dataFile, int sampleSize = 10000, int maxPass = 200, bool preserve = false, bool save = false)
         {
             if (string.IsNullOrEmpty(dataFile))
             {
@@ -724,7 +729,10 @@ namespace Pedantic
             try
             {
                 Console.WriteLine($@"Sample size: {sampleSize}, Start time: {DateTime.Now:G}");
-                var slices = CreateSlices(LoadSample(sampleSize, streamReader));
+                string savedSampleName = $"Pedantic_Sample_{sampleSize}_{DateTime.Now:yyyyMMdd_HHmmss}.csv";
+                using StreamWriter? streamWriter = save ? new(savedSampleName, false, Encoding.UTF8) : null;
+                var slices = CreateSlices(LoadSample(sampleSize, streamReader, streamWriter));
+                streamWriter?.Close();
                 ChessDb rep = new();
                 ChessWeights? startingWeight = rep.Weights
                     .Where(w => w.IsActive && w.IsImmortal)
@@ -904,7 +912,7 @@ namespace Pedantic
             return optimized;
         }
 
-        public static PosRecord[] LoadSample(int sampleSize, StreamReader sr)
+        public static PosRecord[] LoadSample(int sampleSize, StreamReader sr, StreamWriter? sw)
         {
             Stopwatch watch = new();
             Console.WriteLine("Loading samples...");
@@ -915,7 +923,11 @@ namespace Pedantic
 
             try
             {
-                Console.ReadLine(); // skip over csv header
+                string? header = Console.ReadLine();
+                if (header != null)
+                {
+                    sw?.WriteLine(header);
+                }
                 watch.Start();
                 long currMs = watch.ElapsedMilliseconds;
                 foreach (int selLine in selections)
@@ -934,7 +946,7 @@ namespace Pedantic
                     {
                         break;
                     }
-
+                    sw?.WriteLine(str);
                     string[] fields = str.Split(',');
                     string fen = fields[3];
                     byte hasCastled = byte.Parse(fields[4]);
@@ -1076,7 +1088,11 @@ namespace Pedantic
         public static double MiniEvalErrorParallel(short[] weights, List<Memory<PosRecord>> slices, double k, int batch)
         {
             int totalLength = slices.Sum(s => s.Length);
-            int miniBatchSize = MINI_BATCH_SIZE; // totalLength / MINI_BATCH_COUNT;
+            int miniBatchSize = totalLength / MINI_BATCH_COUNT;
+            if (miniBatchSize < MINI_BATCH_MIN_SIZE)
+            {
+                miniBatchSize = totalLength;
+            }
             if (UsableProcessorCount == 1)
             {
                 return EvalErrorParallel(weights, slices, k);
@@ -1130,9 +1146,9 @@ namespace Pedantic
         {
             short[] wts = solution.Weights;
             indentLevel = 2;
-            WriteLine($"// Solution fitness: {solution.Fitness:F5} generated on {DateTime.Now:R}");
+            WriteLine($"// Solution sample size: {solution.SampleSize}, generated on {DateTime.Now:R}");
             WriteLine($"// Object ID: {solution.Id} - {solution.Description}");
-            WriteLine("private static readonly short[] weights =");
+            WriteLine("private static readonly short[] paragonWeights =");
             WriteLine("{");
             indentLevel++;
             PrintSolutionSection(wts, "OPENING WEIGHTS", "opening");
@@ -1267,6 +1283,15 @@ namespace Pedantic
             WriteLine($"/* {section} center control */");
             WriteLine($"{wts[ChessWeights.CENTER_CONTROL]}, // D0");
             WriteLine($"{wts[ChessWeights.CENTER_CONTROL + 1]}, // D1");
+            WriteLine();
+            WriteLine($"/* {section} queen on open file */");
+            WriteLine($"{wts[ChessWeights.QUEEN_ON_OPEN_FILE]},");
+            WriteLine();
+            WriteLine($"/* {section} queen on half-open file */");
+            WriteLine($"{wts[ChessWeights.QUEEN_ON_HALF_OPEN_FILE]},");
+            WriteLine();
+            WriteLine($"/* {section} rook on seventh rank */");
+            WriteLine($"{wts[ChessWeights.ROOK_ON_7TH_RANK]},");
         }
 
         private static void WriteIndent()

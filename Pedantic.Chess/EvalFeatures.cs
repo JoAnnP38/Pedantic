@@ -70,8 +70,11 @@ namespace Pedantic.Chess
          * [1567]           # of potential castle moves available
          * [1568]           0-1 side has already castled
          * [1569 - 1570]    # center control (d0 - d1)
+         * [1571]           # queens on open file
+         * [1572]           # queens on half-open file
+         * [1573]           # rooks on seventh rank
          */
-        public const int FEATURE_SIZE = 1571;
+        public const int FEATURE_SIZE = 1574;
         public const int GAME_PHASE_BOUNDARY = 0;
         public const int MATERIAL = 1;
         public const int PIECE_SQUARE_TABLES = 7;
@@ -95,6 +98,9 @@ namespace Pedantic.Chess
         public const int CASTLING_AVAILABLE = 1567;
         public const int CASTLING_COMPLETE = 1568;
         public const int CENTER_CONTROL = 1569;
+        public const int QUEEN_OPEN_FILE = 1571;
+        public const int QUEEN_HALF_OPEN_FILE = 1572;
+        public const int ROOK_ON_7TH_RANK = 1573;
 
         private readonly SparseArray<short>[] sparse = { new(), new() };
 		private readonly short[][] features = { Array.Empty<short>(), Array.Empty<short>() };
@@ -255,13 +261,21 @@ namespace Pedantic.Chess
                 ulong allPawns = pawns | otherPawns;
                 ulong rooks = bd.Pieces(color, Piece.Rook);
 
-                for (ulong bb = bd.Pieces(color, Piece.Rook); bb != 0; bb = BitOps.ResetLsb(bb))
+                for (ulong bb = rooks; bb != 0; bb = BitOps.ResetLsb(bb))
                 {
                     int sq = BitOps.TzCount(bb);
-                    ulong mask = Board.MaskFile(sq);
-                    ulong potentials = mask & rooks;
+                    int rank = Index.GetRank(Index.NormalizedIndex[c][sq]);
+                    ulong maskFile = Board.MaskFile(sq);
+                    ulong maskRank = Board.MaskRank(sq);
+                    ulong potentials = maskFile & rooks;
+                    int enemyKingRank = Index.GetRank(Index.NormalizedIndex[c][kingIndex[o]]);
 
-                    if ((mask & allPawns) == 0)
+                    if (rank == Coord.RANK_7 && ((otherPawns & maskRank) != 0 || enemyKingRank >= Coord.RANK_7))
+                    {
+                        IncrementRookOnSeventhRank(v);
+                    }
+
+                    if ((maskFile & allPawns) == 0)
                     {
                         IncrementRookOnOpenFile(v);
 
@@ -271,7 +285,7 @@ namespace Pedantic.Chess
                         }
                     }
 
-                    if ((mask & pawns) == 0 && (mask & otherPawns) != 0)
+                    if ((maskFile & pawns) == 0 && (maskFile & otherPawns) != 0)
                     {
                         IncrementRookOnHalfOpenFile(v);
 
@@ -279,6 +293,24 @@ namespace Pedantic.Chess
                         {
                             IncrementDoubledRook(v);
                         }
+                    }
+                }
+
+                ulong queens = bd.Pieces(color, Piece.Queen);
+
+                for (ulong bb = queens; bb != 0; bb = BitOps.ResetLsb(bb))
+                {
+                    int sq = BitOps.TzCount(bb);
+                    ulong mask = Board.MaskFile(sq);
+
+                    if ((mask & allPawns) == 0)
+                    {
+                        IncrementQueenOnOpenFile(v);
+                    }
+
+                    if ((mask & pawns) == 0 && (mask & otherPawns) != 0)
+                    {
+                        IncrementQueenOnHalfOpenFile(v);
                     }
                 }
 
@@ -371,8 +403,8 @@ namespace Pedantic.Chess
         {
             return index switch
             {
-                GAME_PHASE_BOUNDARY => 100,
-                GAME_PHASE_BOUNDARY + FEATURE_SIZE => 100,
+                GAME_PHASE_BOUNDARY => 50,
+                GAME_PHASE_BOUNDARY + FEATURE_SIZE => 50,
                 MATERIAL + (int)Piece.King => 0,
                 MATERIAL + (int)Piece.King + FEATURE_SIZE => 0,
                 >= MATERIAL and < (MATERIAL + (int)Piece.King) => 5,
@@ -660,6 +692,45 @@ namespace Pedantic.Chess
         private static void SetCastlingAvailable(IDictionary<int, short> v, short count)
         {
             v[CASTLING_AVAILABLE] = count;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void IncrementQueenOnOpenFile(IDictionary<int, short> v)
+        {
+            if (v.ContainsKey(QUEEN_OPEN_FILE))
+            {
+                v[QUEEN_OPEN_FILE]++;
+            }
+            else
+            {
+                v.Add(QUEEN_OPEN_FILE, 1);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void IncrementQueenOnHalfOpenFile(IDictionary<int, short> v)
+        {
+            if (v.ContainsKey(QUEEN_HALF_OPEN_FILE))
+            {
+                v[QUEEN_HALF_OPEN_FILE]++;
+            }
+            else
+            {
+                v.Add(QUEEN_HALF_OPEN_FILE, 1);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void IncrementRookOnSeventhRank(IDictionary<int, short> v)
+        {
+            if (v.ContainsKey(ROOK_ON_7TH_RANK))
+            {
+                v[ROOK_ON_7TH_RANK]++;
+            }
+            else
+            {
+                v.Add(ROOK_ON_7TH_RANK, 1);
+            }
         }
 
 #pragma warning restore CA1854
