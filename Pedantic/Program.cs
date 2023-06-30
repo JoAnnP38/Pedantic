@@ -87,11 +87,11 @@ namespace Pedantic
             var sampleOption = new Option<int>(
                 name: "--sample",
                 description: "Specify the number of samples to use from learning data.",
-                getDefaultValue: () => 10000);
+                getDefaultValue: () => -1);
             var iterOption = new Option<int>(
                 name: "--iter",
                 description: "Specify the maximum number of iterations before a solution is declared.",
-                getDefaultValue: () => 200);
+                getDefaultValue: () => 100);
             var preserveOption = new Option<bool>(
                 name: "--preserve",
                 description: "When present intermediary versions of the solution will be saved.",
@@ -696,7 +696,7 @@ namespace Pedantic
             }
         }
 
-        private static void RunLearn(string? dataFile, int sampleSize = 10000, int maxPass = 200, bool preserve = false, bool save = false)
+        private static void RunLearn(string? dataFile, int sampleSize, int maxPass = 200, bool preserve = false, bool save = false)
         {
             if (string.IsNullOrEmpty(dataFile))
             {
@@ -706,12 +706,6 @@ namespace Pedantic
             if (!File.Exists(dataFile))
             {
                 Console.Error.WriteLine("ERROR: The specified data file does not exist.");
-                return;
-            }
-
-            if (sampleSize <= 0)
-            {
-                Console.Error.WriteLine("ERROR: Sample size must be greater than zero.");
                 return;
             }
 
@@ -728,11 +722,21 @@ namespace Pedantic
 
             try
             {
-                Console.WriteLine($@"Sample size: {sampleSize}, Start time: {DateTime.Now:G}");
-                string savedSampleName = $"Pedantic_Sample_{sampleSize}_{DateTime.Now:yyyyMMdd_HHmmss}.csv";
-                using StreamWriter? streamWriter = save ? new(savedSampleName, false, Encoding.UTF8) : null;
-                var slices = CreateSlices(LoadSample(sampleSize, streamReader, streamWriter));
-                streamWriter?.Close();
+                List<Memory<PosRecord>> slices;
+                if (sampleSize == -1)
+                {
+                    sampleSize = GetDataSize(streamReader);
+                    Console.WriteLine($@"Sample size: {sampleSize}, Start time: {DateTime.Now:G}");
+                    slices = CreateSlices(LoadDataFile(streamReader, sampleSize));
+                }
+                else
+                {
+                    Console.WriteLine($@"Sample size: {sampleSize}, Start time: {DateTime.Now:G}");
+                    string savedSampleName = $"Pedantic_Sample_{sampleSize}_{DateTime.Now:yyyyMMdd_HHmmss}.csv";
+                    using StreamWriter? streamWriter = save ? new(savedSampleName, false, Encoding.UTF8) : null;
+                    slices = CreateSlices(LoadSample(ref sampleSize, streamReader, streamWriter));
+                    streamWriter?.Close();
+                }
                 ChessDb rep = new();
                 ChessWeights? startingWeight = rep.Weights
                     .Where(w => w.IsActive && w.IsImmortal)
@@ -912,11 +916,11 @@ namespace Pedantic
             return optimized;
         }
 
-        public static PosRecord[] LoadSample(int sampleSize, StreamReader sr, StreamWriter? sw)
+        public static PosRecord[] LoadSample(ref int sampleSize, StreamReader sr, StreamWriter? sw)
         {
             Stopwatch watch = new();
             Console.WriteLine("Loading samples...");
-            int[] selections = GetSampleSelections(sampleSize, sr);
+            int[] selections = GetSampleSelections(ref sampleSize, sr);
             PosRecord[] posRecords = new PosRecord[sampleSize];
             int posInsert = 0;
             int currLine = 0;
@@ -982,30 +986,99 @@ namespace Pedantic
             }
         }
 
-        private static int[] GetSampleSelections(int sampleSize, StreamReader sr)
+        public static PosRecord[] LoadDataFile(StreamReader sr, int sampleSize)
+        {
+            Stopwatch watch = new();
+            Console.WriteLine("Loading data file...");
+            PosRecord[] posRecords = new PosRecord[sampleSize];
+            int posInsert = 0;
+            int currLine = 0;
+
+            try
+            {
+                string? header = Console.ReadLine();
+                watch.Start();
+                long currMs = watch.ElapsedMilliseconds;
+
+                string? line;
+
+                while ((line = sr.ReadLine()) != null)
+                {
+                    string[] fields = line.Split(',');
+                    string fen = fields[3];
+                    byte hasCastled = byte.Parse(fields[4]);
+                    float result = float.Parse(fields[5]);
+                    posRecords[posInsert++] = new PosRecord(fen, hasCastled, result);
+
+                    if (watch.ElapsedMilliseconds - currMs > 1000)
+                    {
+                        currMs = watch.ElapsedMilliseconds;
+                        Console.Write($"Loading {posInsert} of {sampleSize} ({posInsert * 100 / sampleSize}%)...\r");
+                    }
+                }
+
+                Console.WriteLine($"Loading {posInsert} of {sampleSize} ({posInsert * 100 / sampleSize}%)     ");
+                sr.BaseStream.Seek(0L, SeekOrigin.Begin);
+                if (posInsert < sampleSize)
+                {
+                    Array.Resize(ref posRecords, posInsert);
+                }
+
+                Console.WriteLine("Shuffling data...");
+                Random.Shared.Shuffle(posRecords);
+                return posRecords;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Unexpected exception occurred at line {currLine}: {ex.Message}", ex);
+            }
+        }
+
+        private static int GetDataSize(StreamReader sr)
         {
             int lineCount = 0;
-            while (Console.ReadLine() != null)
+            while (sr.ReadLine() != null)
             {
                 ++lineCount;
             }
-
             sr.BaseStream.Seek(0L, SeekOrigin.Begin);
-            int[] pop = new int[lineCount];
-            int i = lineCount - 1;
-            while (i >= 0) { pop[i] = i--; }
+            return lineCount - 1; // minus 1 to account for header
+        }
 
-            int[] sample = new int[sampleSize];
+        private static int[] GetSampleSelections(ref int sampleSize, StreamReader sr)
+        {
+            int[] sample;
+            int lineCount = GetDataSize(sr);
 
-            for (int n = 0; n < sampleSize; ++n)
+
+            if (sampleSize > 0 && sampleSize < lineCount)
             {
-                int m = Random.Shared.Next(0, lineCount);
-                sample[n] = pop[m] + 1;
-                lineCount--;
-                pop[m] = pop[lineCount];
-            }
+                int i = lineCount - 1;
+                int[] pop = new int[lineCount];
+                while (i >= 0) { pop[i] = i--; }
 
-            Array.Sort(sample);
+                sample = new int[sampleSize];
+
+                for (int n = 0; n < sampleSize; ++n)
+                {
+                    int m = Random.Shared.Next(0, lineCount);
+                    sample[n] = pop[m];
+                    lineCount--;
+                    pop[m] = pop[lineCount];
+                }
+
+                Array.Sort(sample);
+            }
+            else
+            {
+                int i = 0;
+                sampleSize = lineCount;
+                sample = new int[sampleSize];
+                while (i < lineCount)
+                {
+                    sample[i] = i++;
+                }
+            }
             return sample;
         }
 
