@@ -246,8 +246,9 @@ namespace Pedantic.Chess
 
                 if ((otherPawns & PassedPawnMasks[c, sq]) == 0 && (pawns & doubledFriends) == 0)
                 {
-                    opPawnScore[c] += wt.OpeningPassedPawn;
-                    egPawnScore[c] += wt.EndGamePassedPawn;
+                    int normalRank = Index.GetRank(Index.NormalizedIndex[c][sq]);
+                    opPawnScore[c] += wt.OpeningPassedPawn(normalRank);
+                    egPawnScore[c] += wt.EndGamePassedPawn(normalRank);
 
                     ulong bb = color == Color.White
                         ? BitOps.AndNot(ray.South, Board.RevVectors[BitOps.LzCount(ray.South & board.All)].South)
@@ -411,6 +412,18 @@ namespace Pedantic.Chess
             {
                 opScore[c] += wt.OpeningKingOnHalfOpenFile;
                 egScore[c] += wt.EndGameKingOnHalfOpenFile;
+            }
+
+            if (kingFile > Coord.FILE_A && (Board.MaskFile(kingFile - 1) & allPawns) == 0)
+            {
+                opScore[c] += wt.OpeningKingAdjacentOpenFile;
+                egScore[c] += wt.EndGameKingAdjacentOpenFile;
+            }
+
+            if (kingFile < Coord.FILE_H && (Board.MaskFile(kingFile + 1) & allPawns) == 0)
+            {
+                opScore[c] += wt.OpeningKingAdjacentOpenFile;
+                egScore[c] += wt.EndGameKingAdjacentOpenFile;
             }
 
             if (board.HasCastled[(int)color])

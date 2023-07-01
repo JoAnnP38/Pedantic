@@ -74,7 +74,7 @@ namespace Pedantic.Chess
          * [1572]           # queens on half-open file
          * [1573]           # rooks on seventh rank
          */
-        public const int FEATURE_SIZE = 1574;
+        public const int FEATURE_SIZE = 1582;
         public const int GAME_PHASE_BOUNDARY = 0;
         public const int MATERIAL = 1;
         public const int PIECE_SQUARE_TABLES = 7;
@@ -85,7 +85,7 @@ namespace Pedantic.Chess
         public const int BACKWARD_PAWNS = 1554;
         public const int DOUBLED_PAWNS = 1555;
         public const int ADJACENT_PAWNS = 1556;
-        public const int PASSED_PAWNS = 1557;
+        public const int KING_ADJACENT_OPEN_FILE = 1557;
         public const int KNIGHTS_ON_OUTPOST = 1558;
         public const int BISHOPS_ON_OUTPOST = 1559;
         public const int BISHOP_PAIR = 1560;
@@ -101,6 +101,7 @@ namespace Pedantic.Chess
         public const int QUEEN_OPEN_FILE = 1571;
         public const int QUEEN_HALF_OPEN_FILE = 1572;
         public const int ROOK_ON_7TH_RANK = 1573;
+        public const int PASSED_PAWNS = 1574;
 
         private readonly SparseArray<short>[] sparse = { new(), new() };
 		private readonly short[][] features = { Array.Empty<short>(), Array.Empty<short>() };
@@ -179,7 +180,7 @@ namespace Pedantic.Chess
                     ulong doubledFriends = color == Color.White ? ray.North : ray.South;
                     if ((otherPawns & Evaluation.PassedPawnMasks[c, sq]) == 0 && (pawns & doubledFriends) == 0)
                     {
-                        IncrementPassedPawns(v);
+                        IncrementPassedPawns(v, Index.GetRank(Index.NormalizedIndex[c][sq]));
 
                         ulong bb;
                         if (color == Color.White)
@@ -324,6 +325,16 @@ namespace Pedantic.Chess
                 if ((kingFileMask & pawns) == 0 && (kingFileMask & otherPawns) != 0)
                 {
                     SetKingOnHalfOpenFile(v);
+                }
+
+                if (kingFile > Coord.FILE_A && (Board.MaskFile(kingFile - 1) & allPawns) == 0)
+                {
+                    IncrementKingAdjacentOpenFile(v);
+                }
+
+                if (kingFile < Coord.FILE_H && (Board.MaskFile(kingFile + 1) & allPawns) == 0)
+                {
+                    IncrementKingAdjacentOpenFile(v);
                 }
 
                 if (bd.HasCastled[c])
@@ -561,15 +572,15 @@ namespace Pedantic.Chess
             }
         }
 
-        private static void IncrementPassedPawns(IDictionary<int, short> v)
+        private static void IncrementPassedPawns(IDictionary<int, short> v, int rank)
         {
-            if (v.ContainsKey(PASSED_PAWNS))
+            if (v.ContainsKey(PASSED_PAWNS + rank))
             {
-                v[PASSED_PAWNS]++;
+                v[PASSED_PAWNS + rank]++;
             }
             else
             {
-                v.Add(PASSED_PAWNS, 1);
+                v.Add(PASSED_PAWNS + rank, 1);
             }
         }
 
@@ -730,6 +741,19 @@ namespace Pedantic.Chess
             else
             {
                 v.Add(ROOK_ON_7TH_RANK, 1);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void IncrementKingAdjacentOpenFile(IDictionary<int, short> v)
+        {
+            if (v.ContainsKey(KING_ADJACENT_OPEN_FILE))
+            {
+                v[KING_ADJACENT_OPEN_FILE]++;
+            }
+            else
+            {
+                v.Add(KING_ADJACENT_OPEN_FILE, 1);
             }
         }
 
