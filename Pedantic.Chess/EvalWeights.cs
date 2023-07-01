@@ -109,8 +109,8 @@ namespace Pedantic.Chess
         public short EndGameDoubledPawn => wt[ChessWeights.DOUBLED_PAWN + ChessWeights.ENDGAME_WEIGHTS];
         public short OpeningConnectedPawn => wt[ChessWeights.CONNECTED_PAWN];
         public short EndGameConnectedPawn => wt[ChessWeights.CONNECTED_PAWN + ChessWeights.ENDGAME_WEIGHTS];
-        public short OpeningPassedPawn => wt[ChessWeights.PASSED_PAWN];
-        public short EndGamePassedPawn => wt[ChessWeights.PASSED_PAWN + ChessWeights.ENDGAME_WEIGHTS];
+        public short OpeningKingAdjacentOpenFile => wt[ChessWeights.KING_ADJACENT_OPEN_FILE];
+        public short EndGameKingAdjacentOpenFile => wt[ChessWeights.KING_ADJACENT_OPEN_FILE + ChessWeights.ENDGAME_WEIGHTS];
         public short OpeningKnightOutpost => wt[ChessWeights.KNIGHT_OUTPOST];
         public short EndGameKnightOutpost => wt[ChessWeights.KNIGHT_OUTPOST + ChessWeights.ENDGAME_WEIGHTS];
         public short OpeningBishopOutpost => wt[ChessWeights.BISHOP_OUTPOST];
@@ -152,6 +152,18 @@ namespace Pedantic.Chess
         public short EndGameQueenOnHalfOpenFile => wt[ChessWeights.QUEEN_ON_HALF_OPEN_FILE + ChessWeights.ENDGAME_WEIGHTS];
         public short OpeningRookOnSeventhRank => wt[ChessWeights.ROOK_ON_7TH_RANK];
         public short EndGameRookOnSeventhRank => wt[ChessWeights.ROOK_ON_7TH_RANK + ChessWeights.ENDGAME_WEIGHTS];
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public short OpeningPassedPawn(int rank)
+        {
+            return wt[ChessWeights.PASSED_PAWN + rank];
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public short EndGamePassedPawn(int rank)
+        {
+            return wt[ChessWeights.PASSED_PAWN + ChessWeights.ENDGAME_WEIGHTS + rank];
+        }
 
         private readonly short[] wt;
     }

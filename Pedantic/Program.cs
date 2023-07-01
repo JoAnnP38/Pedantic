@@ -1317,8 +1317,8 @@ namespace Pedantic
             WriteLine($"/* {section} adjacent/connected pawns */");
             WriteLine($"{wts[ChessWeights.CONNECTED_PAWN]},");
             WriteLine();
-            WriteLine($"/* {section} passed pawns */");
-            WriteLine($"{wts[ChessWeights.PASSED_PAWN]},");
+            WriteLine($"/* {section} king adjacent open file */");
+            WriteLine($"{wts[ChessWeights.KING_ADJACENT_OPEN_FILE]},");
             WriteLine();
             WriteLine($"/* {section} knight on outpost */");
             WriteLine($"{wts[ChessWeights.KNIGHT_OUTPOST]},");
@@ -1365,6 +1365,14 @@ namespace Pedantic
             WriteLine();
             WriteLine($"/* {section} rook on seventh rank */");
             WriteLine($"{wts[ChessWeights.ROOK_ON_7TH_RANK]},");
+            WriteLine();
+            WriteLine($"/* {section} passed pawn */");
+            WriteIndent();
+            for (int n = Coord.RANK_1; n <= Coord.RANK_8; n++)
+            {
+                Console.Write($"{wts[ChessWeights.PASSED_PAWN + n]}, ");
+            }
+            WriteLine();
         }
 
         private static void WriteIndent()
