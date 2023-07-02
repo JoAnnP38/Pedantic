@@ -2009,7 +2009,7 @@ namespace Pedantic.Chess
 
         private class FakeHistory : IHistory
         {
-            public int this[int from, int to] => 0;
+            public short this[int from, int to] => 0;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

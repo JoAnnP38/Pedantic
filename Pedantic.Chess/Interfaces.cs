@@ -2,7 +2,7 @@
 {
     public interface IHistory
     {
-        public int this[int from, int to] { get; }
+        public short this[int from, int to] { get; }
     }
 
     public interface IMoveScorer

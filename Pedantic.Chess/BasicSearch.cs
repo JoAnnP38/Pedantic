@@ -1032,9 +1032,9 @@ namespace Pedantic.Chess
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static int HistoryBonus(int depth)
+        private static short HistoryBonus(int depth)
         {
-            return ((depth * depth) >> 1) + (depth << 1) - 1;
+            return (short)(((depth * depth) >> 1) + (depth << 1) - 1);
         }
 
         private readonly Board board;
