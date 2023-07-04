@@ -49,9 +49,13 @@ namespace Pedantic.Chess
             kingIndex[0] = BitOps.TzCount(board.Pieces(Color.White, Piece.King));
             kingIndex[1] = BitOps.TzCount(board.Pieces(Color.Black, Piece.King));
             currentPhase = GetGamePhase(board, out opWt, out egWt);
-            score = currentPhase == GamePhase.EndGameMopup ? ComputeMopUp(board) : ComputeNormal(board, alpha, beta);
+            bool isLazy = false;
+            score = currentPhase == GamePhase.EndGameMopup ? ComputeMopUp(board) : ComputeNormal(board, alpha, beta, ref isLazy);
             score = board.SideToMove == Color.White ? score : (short)-score;
-            TtEval.Add(board.Hash, score);
+            if (!isLazy)
+            {
+                TtEval.Add(board.Hash, score);
+            }
             return score;
         }
 
@@ -98,7 +102,7 @@ namespace Pedantic.Chess
             return (short)(egScore[0] - egScore[1]);
         }
 
-        public short ComputeNormal(Board board, int alpha, int beta)
+        public short ComputeNormal(Board board, int alpha, int beta, ref bool isLazy)
         {
             int kp = (int)Index.GetKingPlacement(kingIndex[0], kingIndex[1]);
             opScore[0] += (short)(AdjustMaterial(board.OpeningMaterial[0], adjust[0]) + board.OpeningPieceSquare[0, kp]);
@@ -111,9 +115,11 @@ namespace Pedantic.Chess
             int score = (((opScore[0] - opScore[1]) * opWt) >> 7) +
                         (((egScore[0] - egScore[1]) * egWt) >> 7);
 
+            isLazy = true;
             int evalScore = board.SideToMove == Color.White ? score : -score;
             if (evalScore >= alpha - Constants.LAZY_EVAL_MARGIN && evalScore <= beta + Constants.LAZY_EVAL_MARGIN)
             {
+                isLazy = false;
                 bool pawnsCalculated = TtPawnEval.TryLookup(board.PawnHash, out TtPawnEval.TtPawnItem item);
 
                 ComputeKingAttacks(Color.White, board);
