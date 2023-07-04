@@ -73,6 +73,7 @@ namespace Pedantic.Chess
          * [1571]           # queens on open file
          * [1572]           # queens on half-open file
          * [1573]           # rooks on seventh rank
+         * [1574 - 1581]    # passed pawns on rank
          */
         public const int FEATURE_SIZE = 1582;
         public const int GAME_PHASE_BOUNDARY = 0;

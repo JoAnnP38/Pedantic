@@ -758,7 +758,7 @@ namespace Pedantic
                     rep.Weights.Insert(optimized);
                     rep.Save();
                     DateTime end = DateTime.Now;
-                    Console.WriteLine($@"Optimization complete at: {DateTime.UtcNow:G}, Elapsed: {end - start:g}");
+                    Console.WriteLine($@"Optimization complete at: {DateTime.Now:G}, Elapsed: {end - start:g}");
                     PrintSolution(optimized);
                 }
             }

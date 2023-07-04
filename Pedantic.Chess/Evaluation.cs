@@ -22,8 +22,8 @@ namespace Pedantic.Chess
 {
     public sealed class Evaluation
     {
-        public const ulong D0_CENTER_CONTROL_MASK = 0x0000001818000000ul;
-        public const ulong D1_CENTER_CONTROL_MASK = 0x00003C24243C0000ul;
+        public const ulong D0_CENTER_CONTROL_MASK   = 0x0000001818000000ul;
+        public const ulong D1_CENTER_CONTROL_MASK   = 0x00003C24243C0000ul;
 
         static Evaluation()
         {
@@ -255,16 +255,6 @@ namespace Pedantic.Chess
                     int normalRank = Index.GetRank(Index.NormalizedIndex[c][sq]);
                     opPawnScore[c] += wt.OpeningPassedPawn(normalRank);
                     egPawnScore[c] += wt.EndGamePassedPawn(normalRank);
-
-                    ulong bb = color == Color.White
-                        ? BitOps.AndNot(ray.South, Board.RevVectors[BitOps.LzCount(ray.South & board.All)].South)
-                        : BitOps.AndNot(ray.North, Board.Vectors[BitOps.TzCount(ray.North & board.All)].North);
-
-                    if ((bb & board.Pieces(color, Piece.Rook)) != 0)
-                    {
-                        opScore[c] += wt.OpeningRookBehindPassedPawn;
-                        egScore[c] += wt.EndGameRookBehindPassedPawn;
-                    }
                 }
 
                 if ((pawns & IsolatedPawnMasks[sq]) == 0)
@@ -342,6 +332,25 @@ namespace Pedantic.Chess
             egScore[c] += (short)(BitOps.PopCount(pawns & KingProximity[1, ki]) * wt.EndGamePawnShield(1));
             egScore[c] += (short)(BitOps.PopCount(pawns & KingProximity[2, ki]) * wt.EndGamePawnShield(2));
 
+            for (ulong p = pawns; p != 0; p = BitOps.ResetLsb(p))
+            {
+                int sq = BitOps.TzCount(p);
+                Ray ray = Board.Vectors[sq];
+                ulong doubledFriends = color == Color.White ? ray.North : ray.South;
+
+                if ((otherPawns & PassedPawnMasks[c, sq]) == 0 && (pawns & doubledFriends) == 0)
+                {
+                    ulong bb = color == Color.White
+                        ? BitOps.AndNot(ray.South, Board.RevVectors[BitOps.LzCount(ray.South & board.All)].South)
+                        : BitOps.AndNot(ray.North, Board.Vectors[BitOps.TzCount(ray.North & board.All)].North);
+
+                    if ((bb & board.Pieces(color, Piece.Rook)) != 0)
+                    {
+                        opScore[c] += wt.OpeningRookBehindPassedPawn;
+                        egScore[c] += wt.EndGameRookBehindPassedPawn;
+                    }
+                }
+            }
 
 
             ulong allPawns = pawns | otherPawns;
