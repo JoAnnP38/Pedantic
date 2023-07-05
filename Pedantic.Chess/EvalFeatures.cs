@@ -57,7 +57,7 @@ namespace Pedantic.Chess
          * [1554]           # backward pawns
          * [1555]           # doubled pawns
          * [1556]           # connected/adjacent pawns
-         * [1557]           # passed pawns
+         * [1557]           # UNUSED (was king adjacent open file)
          * [1558]           # knights on outpost
          * [1559]           # bishops on outpost
          * [1560]           0-1 bishop pair
@@ -86,7 +86,7 @@ namespace Pedantic.Chess
         public const int BACKWARD_PAWNS = 1554;
         public const int DOUBLED_PAWNS = 1555;
         public const int ADJACENT_PAWNS = 1556;
-        public const int KING_ADJACENT_OPEN_FILE = 1557;
+        //public const int KING_ADJACENT_OPEN_FILE = 1557;
         public const int KNIGHTS_ON_OUTPOST = 1558;
         public const int BISHOPS_ON_OUTPOST = 1559;
         public const int BISHOP_PAIR = 1560;
@@ -326,16 +326,6 @@ namespace Pedantic.Chess
                 if ((kingFileMask & pawns) == 0 && (kingFileMask & otherPawns) != 0)
                 {
                     SetKingOnHalfOpenFile(v);
-                }
-
-                if (kingFile > Coord.FILE_A && (Board.MaskFile(kingFile - 1) & allPawns) == 0)
-                {
-                    IncrementKingAdjacentOpenFile(v);
-                }
-
-                if (kingFile < Coord.FILE_H && (Board.MaskFile(kingFile + 1) & allPawns) == 0)
-                {
-                    IncrementKingAdjacentOpenFile(v);
                 }
 
                 if (bd.HasCastled[c])
@@ -742,19 +732,6 @@ namespace Pedantic.Chess
             else
             {
                 v.Add(ROOK_ON_7TH_RANK, 1);
-            }
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void IncrementKingAdjacentOpenFile(IDictionary<int, short> v)
-        {
-            if (v.ContainsKey(KING_ADJACENT_OPEN_FILE))
-            {
-                v[KING_ADJACENT_OPEN_FILE]++;
-            }
-            else
-            {
-                v.Add(KING_ADJACENT_OPEN_FILE, 1);
             }
         }
 

@@ -429,18 +429,6 @@ namespace Pedantic.Chess
                 egScore[c] += wt.EndGameKingOnHalfOpenFile;
             }
 
-            if (kingFile > Coord.FILE_A && (Board.MaskFile(kingFile - 1) & allPawns) == 0)
-            {
-                opScore[c] += wt.OpeningKingAdjacentOpenFile;
-                egScore[c] += wt.EndGameKingAdjacentOpenFile;
-            }
-
-            if (kingFile < Coord.FILE_H && (Board.MaskFile(kingFile + 1) & allPawns) == 0)
-            {
-                opScore[c] += wt.OpeningKingAdjacentOpenFile;
-                egScore[c] += wt.EndGameKingAdjacentOpenFile;
-            }
-
             if (board.HasCastled[(int)color])
             {
                 opScore[c] += wt.OpeningCastlingComplete;

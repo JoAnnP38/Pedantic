@@ -26,5 +26,14 @@ namespace Pedantic.UnitTests
             move = list.Sort(2);
             Assert.AreEqual((short)-5, Move.GetScore(move));
         }
+
+        [TestMethod]
+        public void NegativeMoveScoreTest()
+        {
+            MoveList list = new();
+            ulong move = Move.Pack(Index.E2, Index.E4, MoveType.DblPawnMove, score: -5);
+            short score = Move.GetScore(move);
+            Assert.AreEqual((short)-5, score);
+        }
     }
 }

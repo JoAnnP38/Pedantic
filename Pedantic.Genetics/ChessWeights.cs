@@ -35,7 +35,8 @@ namespace Pedantic.Genetics
         public const int BACKWARD_PAWN = 1554;
         public const int DOUBLED_PAWN = 1555;
         public const int CONNECTED_PAWN = 1556;
-        public const int KING_ADJACENT_OPEN_FILE = 1557;
+        //public const int KING_ADJACENT_OPEN_FILE = 1557; (-Elo)
+        public const int UNUSED = 1557;
         public const int KNIGHT_OUTPOST = 1558;
         public const int BISHOP_OUTPOST = 1559;
         public const int BISHOP_PAIR = 1560;
@@ -449,8 +450,8 @@ namespace Pedantic.Genetics
             /* opening adjacent/connected pawns */
             10,
 
-            /* opening king adjacent open file */
-            -3,
+            /* UNUSED (was - opening king adjacent open file) */
+            0,
 
             /* opening knight on outpost */
             -1,
@@ -784,8 +785,8 @@ namespace Pedantic.Genetics
             /* end game adjacent/connected pawns */
             9,
 
-            /* end game king adjacent open file */
-            -11,
+            /* UNUSED (was - end game king adjacent open file) */
+            0,
 
             /* end game knight on outpost */
             27,

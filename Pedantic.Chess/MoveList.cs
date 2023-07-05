@@ -52,6 +52,14 @@ namespace Pedantic.Chess
             Add(Move.Pack(from, to, type, capture, promote, score));
         }
 
+        public void Add(ulong[] moves, int count)
+        {
+            for (int n = 0; n < count; n++)
+            {
+                Add(moves[n]);
+            }
+        }
+
         public ReadOnlySpan<ulong> ToSpan() => new(array, 0, Count);
 
         public void UpdateScores(ulong pv, KillerMoves killerMoves, int ply)
