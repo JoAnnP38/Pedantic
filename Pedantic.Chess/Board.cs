@@ -1097,7 +1097,7 @@ namespace Pedantic.Chess
                     bb2 = BitOps.AndNot(bb1 & MaskRank(Index.A7), All << 16);
                 }
 
-                if (bb1 != 0 && to == pawnPlus[(int)sideToMove, from] && normalRank != Coord.MAX_VALUE)
+                if (bb1 != 0 && to == PawnPlus[(int)sideToMove, from] && normalRank != Coord.MAX_VALUE)
                 {
                     validMove = Move.Pack(from, to, MoveType.PawnMove);
                     return true;
@@ -1342,7 +1342,7 @@ namespace Pedantic.Chess
             for (; bb != 0; bb = BitOps.ResetLsb(bb))
             {
                 int from = BitOps.TzCount(bb);
-                int to = pawnPlus[(int)sideToMove, from];
+                int to = PawnPlus[(int)sideToMove, from];
                 int score = Constants.PROMOTE_SCORE + Piece.Knight.Value();
                 list.Add(from, to, MoveType.Promote, promote: Piece.Knight, score: score);
                 score = Constants.PROMOTE_SCORE + Piece.Queen.Value();
@@ -1417,7 +1417,7 @@ namespace Pedantic.Chess
             for (; bb1 != 0; bb1 = BitOps.ResetLsb(bb1))
             {
                 from = BitOps.TzCount(bb1);
-                to = pawnPlus[(int)sideToMove, from];
+                to = PawnPlus[(int)sideToMove, from];
                 AddPawnMove(list, from, to, score: hist[from, to]);
             }
 
@@ -1465,7 +1465,7 @@ namespace Pedantic.Chess
             for (; bb3 != 0; bb3 = BitOps.ResetLsb(bb3))
             {
                 from = BitOps.TzCount(bb3);
-                to = pawnPlus[(int)sideToMove, from];
+                to = PawnPlus[(int)sideToMove, from];
                 AddPawnMove(list, from, to, MoveType.PawnMove, score: hist[from, to]);
             }
 
@@ -1515,7 +1515,7 @@ namespace Pedantic.Chess
             for (; bb3 != 0; bb3 = BitOps.ResetLsb(bb3))
             {
                 from = BitOps.TzCount(bb3);
-                to = pawnPlus[(int)sideToMove, from];
+                to = PawnPlus[(int)sideToMove, from];
                 if (BitOps.GetBit(validSquares, to) != 0)
                 {
                     AddPawnMove(list, from, to, score: hist[from, to]);
@@ -2499,7 +2499,7 @@ namespace Pedantic.Chess
             #endregion
         };
 
-        private static readonly UnsafeArray2D<sbyte> pawnPlus = new(Constants.MAX_COLORS, Constants.MAX_SQUARES)
+        public static readonly UnsafeArray2D<sbyte> PawnPlus = new(Constants.MAX_COLORS, Constants.MAX_SQUARES)
         {
             #region pawnPlus data
              8,  9, 10, 11, 12, 13, 14, 15,
