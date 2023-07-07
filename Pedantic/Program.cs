@@ -1373,6 +1373,22 @@ namespace Pedantic
                 Console.Write($"{wts[ChessWeights.PASSED_PAWN + n]}, ");
             }
             WriteLine();
+            WriteLine();
+            WriteLine($"/* {section} bad bishop pawns */");
+            for (int n = 0; n < Constants.MAX_SQUARES; n++)
+            {
+                if (n % 8 == 0)
+                {
+                    if (n != 0)
+                    {
+                        Console.WriteLine();
+                    }
+                    WriteIndent();
+                }
+                Console.Write($"{wts[ChessWeights.BAD_BISHOP_PAWN + n],4}, ");
+            }
+            Console.WriteLine();
+            WriteLine();
         }
 
         private static void WriteIndent()

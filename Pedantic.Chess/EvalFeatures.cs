@@ -75,7 +75,7 @@ namespace Pedantic.Chess
          * [1573]           # rooks on seventh rank
          * [1574 - 1581]    # passed pawns on rank
          */
-        public const int FEATURE_SIZE = 1582;
+        public const int FEATURE_SIZE = 1646;
         public const int GAME_PHASE_BOUNDARY = 0;
         public const int MATERIAL = 1;
         public const int PIECE_SQUARE_TABLES = 7;
@@ -103,6 +103,7 @@ namespace Pedantic.Chess
         public const int QUEEN_HALF_OPEN_FILE = 1572;
         public const int ROOK_ON_7TH_RANK = 1573;
         public const int PASSED_PAWNS = 1574;
+        public const int BAD_BISHOP_PAWN = 1582;
 
         private readonly SparseArray<short>[] sparse = { new(), new() };
 		private readonly short[][] features = { Array.Empty<short>(), Array.Empty<short>() };
@@ -223,7 +224,24 @@ namespace Pedantic.Chess
                     }
                 }
 
-                int bishopCount = BitOps.PopCount(bd.Pieces(color, Piece.Bishop));
+                ulong bishops = bd.Pieces(color, Piece.Bishop);
+                for (ulong bbBishop = bishops; bbBishop != 0; bbBishop = BitOps.ResetLsb(bbBishop))
+                {
+                    int sq = BitOps.TzCount(bbBishop);
+                    ulong badPawns = pawns & Evaluation.DARK_SQUARES_MASK;
+                    if (!Index.IsDark(sq))
+                    {
+                        badPawns = pawns & Evaluation.LITE_SQUARES_MASK;
+                    }
+
+                    for (ulong bbBadPawn = badPawns; bbBadPawn != 0; bbBadPawn = BitOps.ResetLsb(bbBadPawn))
+                    {
+                        int normalSq = Index.NormalizedIndex[c][BitOps.TzCount(bbBadPawn)];
+                        SetBadBishopPawn(v, normalSq);
+                    }
+                }
+
+                int bishopCount = BitOps.PopCount(bishops);
                 if (bishopCount >= 2)
                 {
                     SetBishopPair(v);
@@ -240,7 +258,6 @@ namespace Pedantic.Chess
                     }
                 }
 
-                ulong bishops = bd.Pieces(color, Piece.Bishop);
                 for (ulong bb = bishops; bb != 0; bb = BitOps.ResetLsb(bb))
                 {
                     int sq = BitOps.TzCount(bb);
@@ -733,6 +750,12 @@ namespace Pedantic.Chess
             {
                 v.Add(ROOK_ON_7TH_RANK, 1);
             }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void SetBadBishopPawn(IDictionary<int, short> v, int square) 
+        {
+            v[BAD_BISHOP_PAWN + square] = 1;
         }
 
 #pragma warning restore CA1854

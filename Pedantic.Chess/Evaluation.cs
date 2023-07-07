@@ -22,8 +22,10 @@ namespace Pedantic.Chess
 {
     public sealed class Evaluation
     {
-        public const ulong D0_CENTER_CONTROL_MASK   = 0x0000001818000000ul;
-        public const ulong D1_CENTER_CONTROL_MASK   = 0x00003C24243C0000ul;
+        public const ulong D0_CENTER_CONTROL_MASK = 0x0000001818000000ul;
+        public const ulong D1_CENTER_CONTROL_MASK = 0x00003C24243C0000ul;
+        public const ulong DARK_SQUARES_MASK = 0xAA55AA55AA55AA55ul;
+        public const ulong LITE_SQUARES_MASK = 0x55AA55AA55AA55AAul;
 
         static Evaluation()
         {
@@ -321,6 +323,24 @@ namespace Pedantic.Chess
                         opScore[c] += wt.OpeningBishopOutpost;
                         egScore[c] += wt.EndGameKnightOutpost;
                     }
+                }
+            }
+
+            for (ulong bbBishop = board.Pieces(color, Piece.Bishop); bbBishop != 0; bbBishop = BitOps.ResetLsb(bbBishop))
+            { 
+                int sq = BitOps.TzCount(bbBishop);
+                ulong badPawns = pawns & DARK_SQUARES_MASK;
+                if (!Index.IsDark(sq))
+                {
+                    badPawns = pawns & LITE_SQUARES_MASK;
+                }
+
+                for (ulong bbBadPawn = badPawns; bbBadPawn != 0; bbBadPawn = BitOps.ResetLsb(bbBadPawn))
+                {
+                    int pawnSq = BitOps.TzCount(bbBadPawn);
+                    int normalSq = Index.NormalizedIndex[c][pawnSq];
+                    opScore[c] += wt.OpeningBadBishopPawn(normalSq);
+                    egScore[c] += wt.EndGameBadBishopPawn(normalSq);
                 }
             }
 

@@ -165,6 +165,18 @@ namespace Pedantic.Chess
             return wt[ChessWeights.PASSED_PAWN + ChessWeights.ENDGAME_WEIGHTS + rank];
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public short OpeningBadBishopPawn(int square)
+        {
+            return wt[ChessWeights.BAD_BISHOP_PAWN + square];
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public short EndGameBadBishopPawn(int square)
+        {
+            return wt[ChessWeights.BAD_BISHOP_PAWN + ChessWeights.ENDGAME_WEIGHTS + square];
+        }
+
         private readonly short[] wt;
     }
 }
