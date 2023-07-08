@@ -28,7 +28,7 @@ namespace Pedantic.Chess
         public ulong Sort(int n)
         {
             int largest = -1;
-            int score = -1;
+            int score = short.MinValue;
             for (int i = n; i < insertIndex; ++i)
             {
                 int mvScore = Move.GetScore(array[i]);
