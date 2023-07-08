@@ -958,23 +958,25 @@ namespace Pedantic.Chess
                 }
             }
 
-            KillerMoves.KillerMove km = killerMoves.GetKillers(ply);
-            from = Move.GetFrom(km.Killer0);
-            int to = Move.GetTo(km.Killer0);
-            Square square = board[from];
             moveList.Clear();
-            if (IsValidMove(square, from, to, out ulong validMove) && Move.Compare(validMove, bestMove) != 0)
+            GenerateQuietMoves(moveList, history);
+            moveList.Remove(bestMove);
+
+            KillerMoves.KillerMove km = killerMoves.GetKillers(ply);
+            
+            if (moveList.Remove(km.Killer0))
             {
-                yield return validMove;
+                yield return km.Killer0;
             }
 
-            from = Move.GetFrom(km.Killer1);
-            to = Move.GetTo(km.Killer1);
-            square = board[from];
-            moveList.Clear();
-            if (IsValidMove(square, from, to, out validMove) && Move.Compare(validMove, bestMove) != 0)
+            if (moveList.Remove(km.Killer1))
             {
-                yield return validMove;
+                yield return km.Killer1;
+            }
+
+            if (moveList.Remove(history.CounterMove))
+            {
+                yield return history.CounterMove;
             }
                 
             // now return the bad captures deferred from earlier
@@ -983,16 +985,9 @@ namespace Pedantic.Chess
                 yield return bc[n];
             }
 
-            moveList.Clear();
-            GenerateQuietMoves(moveList, history);
             for (int n = 0; n < moveList.Count; n++)
             {
-                moveList.Sort(n);
-                if (Move.Compare(moveList[n], bestMove) == 0 || killerMoves.Exists(ply, moveList[n]))
-                {
-                    continue;
-                }
-                yield return moveList[n];
+                yield return moveList.Sort(n);
             }
         }
 
@@ -1065,8 +1060,7 @@ namespace Pedantic.Chess
 
             for (int n = 0; n < moveList.Count; n++)
             {
-                moveList.Sort(n);
-                yield return moveList[n];
+                yield return moveList.Sort(n);
             }
         }
 

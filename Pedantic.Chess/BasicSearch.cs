@@ -215,7 +215,7 @@ namespace Pedantic.Chess
 
             int expandedNodes = 0;
             bool raisedAlpha = false;
-            history.SideToMove = board.SideToMove;
+            history.SetContext(board);
             MoveList moveList = GetMoveList();
             ulong bestMove = 0ul;
             IEnumerable<ulong> moves = board.Moves(0, killerMoves, history, moveList);
@@ -441,7 +441,7 @@ namespace Pedantic.Chess
             }
 
             int expandedNodes = 0;
-            history.SideToMove = board.SideToMove;
+            history.SetContext(board);
             MoveList moveList = GetMoveList();
             bestMove = 0ul;
             IEnumerable<ulong> moves = board.Moves(ply, killerMoves, history, moveList);
