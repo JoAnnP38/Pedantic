@@ -16,6 +16,7 @@
 // ***********************************************************************
 using Pedantic.Collections;
 using Pedantic.Utilities;
+using System;
 
 namespace Pedantic.Chess
 {
@@ -60,6 +61,19 @@ namespace Pedantic.Chess
             }
         }
 
+        public new bool Remove(ulong move)
+        {
+            for (int n = 0; n < insertIndex; n++)
+            {
+                if (Move.Compare(array[n], move) == 0)
+                {
+                    array[n] = array[--insertIndex];
+                    return true;
+                }
+            }
+            return false;
+        }
+
         public ReadOnlySpan<ulong> ToSpan() => new(array, 0, Count);
 
         public void UpdateScores(ulong pv, KillerMoves killerMoves, int ply)
@@ -70,10 +84,9 @@ namespace Pedantic.Chess
             for (int n = 0; n < insertIndex && found < 3; ++n)
             {
                 ulong move = array[n];
-                ulong fromto = move & 0x0fff;
                 bool isCapture = Move.GetCapture(move) != Piece.None;
 
-                if (fromto == (pv & 0x0fff))
+                if (Move.Compare(move, pv) == 0)
                 {
                     array[n] = Move.SetScore(move, Constants.PV_SCORE);
                     found++;

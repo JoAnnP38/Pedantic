@@ -69,7 +69,7 @@ namespace Pedantic.Chess
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool MovesEqual(ulong move1, ulong move2)
         {
-            return (move1 & 0x0fff) == (move2 & 0x0fff);
+            return Move.Compare(move1, move2) == 0;
         }
 
         private readonly KillerMove[] killers;

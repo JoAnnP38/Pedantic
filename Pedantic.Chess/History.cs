@@ -26,11 +26,45 @@ namespace Pedantic.Chess
     {
         private Color sideToMove = Color.White;
         private readonly short[] history = new short[Constants.MAX_COLORS * Constants.MAX_SQUARES * Constants.MAX_SQUARES];
+        private readonly uint[] counters = new uint[Constants.MAX_COLORS * Constants.MAX_SQUARES * Constants.MAX_SQUARES];
+        private int cmFrom = Index.NONE;
+        private int cmTo = Index.NONE;
 
         public Color SideToMove
         {
             get => sideToMove;
             set => sideToMove = value;
+        }
+
+        public void SetContext(Board board)
+        {
+            SideToMove = board.SideToMove;
+            ulong lastMove = board.LastMove;
+            if (lastMove != Move.NullMove)
+            {
+                cmFrom = Move.GetFrom(lastMove);
+                cmTo = Move.GetTo(lastMove);
+            }
+            else
+            {
+                cmFrom = Index.NONE;
+                cmTo = Index.NONE;
+            }
+        }
+
+        public ulong CounterMove
+        {
+            get
+            {
+                if (cmFrom == Index.NONE)
+                {
+                    return 0ul;
+                }
+                else
+                {
+                    return counters[GetIndex(cmFrom, cmTo)];
+                }
+            }
         }
 
         public short this[int from, int to] => history[GetIndex(from, to)];
@@ -57,11 +91,16 @@ namespace Pedantic.Chess
         public void Update(ulong move, short bonus)
         {
             Update(SideToMove, Move.GetFrom(move), Move.GetTo(move), bonus);
+            if (cmFrom != Index.NONE)
+            {
+                counters[GetIndex(cmFrom, cmTo)] = (uint)Move.ClearScore(move);
+            }
         }
 
         public void Clear()
         {
             Array.Clear(history);
+            Array.Clear(counters);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
