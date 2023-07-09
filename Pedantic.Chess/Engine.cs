@@ -16,6 +16,7 @@
 
 using Pedantic.Genetics;
 using Pedantic.Utilities;
+using System.Diagnostics;
 
 namespace Pedantic.Chess
 {
@@ -406,6 +407,7 @@ namespace Pedantic.Chess
                 CanPonder = UciOptions.Ponder,
                 CollectStats = UciOptions.CollectStatistics
             };
+            Debugger.Break();
             searchThread = new Thread(() => search.Search())
             {
                 Priority = ThreadPriority.Highest

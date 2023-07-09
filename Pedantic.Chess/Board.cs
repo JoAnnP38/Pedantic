@@ -1240,7 +1240,7 @@ namespace Pedantic.Chess
                     for (ulong bb3 = BitOps.AndNot(bb2, All); bb3 != 0; bb3 = BitOps.ResetLsb(bb3))
                     {
                         int to = BitOps.TzCount(bb3);
-                        list.Add(from, to, score: hist[from, to]);
+                        list.Add(from, to, score: hist[piece, to]);
                     }
                 }
             }
@@ -1258,7 +1258,7 @@ namespace Pedantic.Chess
             for (ulong bb3 = BitOps.AndNot(bb2, All); bb3 != 0; bb3 = BitOps.ResetLsb(bb3))
             {
                 int to = BitOps.TzCount(bb3);
-                list.Add(from, to, score: hist[from, to]);
+                list.Add(from, to, score: hist[piece, to]);
             }
         }
 
@@ -1296,7 +1296,8 @@ namespace Pedantic.Chess
                     for (ulong bb3 = BitOps.AndNot(bb2, All); bb3 != 0; bb3 = BitOps.ResetLsb(bb3))
                     {
                         int to = BitOps.TzCount(bb3);
-                        list.Add(from, to, score: history[from, to]);
+                        Util.Assert(Index.IsValid(to), $"'to' out of range: {to}");
+                        list.Add(from, to, score: history[piece, to]);
                     }
                 }
             }
@@ -1370,24 +1371,24 @@ namespace Pedantic.Chess
             {
                 if ((castling & CastlingRights.WhiteKingSide) != 0 && (WHITE_KS_CLEAR_MASK & All) == 0)
                 {
-                    list.Add(Index.E1, Index.G1, MoveType.Castle, score: hist[Index.E1, Index.G1]);
+                    list.Add(Index.E1, Index.G1, MoveType.Castle, score: hist[Piece.King, Index.G1]);
                 }
 
                 if ((castling & CastlingRights.WhiteQueenSide) != 0 && (WHITE_QS_CLEAR_MASK & All) == 0)
                 {
-                    list.Add(Index.E1, Index.C1, MoveType.Castle, score: hist[Index.E1, Index.C1]);
+                    list.Add(Index.E1, Index.C1, MoveType.Castle, score: hist[Piece.King, Index.C1]);
                 }
             }
             else
             {
                 if ((castling & CastlingRights.BlackKingSide) != 0 && (BLACK_KS_CLEAR_MASK & All) == 0)
                 {
-                    list.Add(Index.E8, Index.G8, MoveType.Castle, score: hist[Index.E8, Index.G8]);
+                    list.Add(Index.E8, Index.G8, MoveType.Castle, score: hist[Piece.King, Index.G8]);
                 }
 
                 if ((castling & CastlingRights.BlackQueenSide) != 0 && (BLACK_QS_CLEAR_MASK & All) == 0)
                 {
-                    list.Add(Index.E8, Index.C8, MoveType.Castle, score: hist[Index.E8, Index.C8]);
+                    list.Add(Index.E8, Index.C8, MoveType.Castle, score: hist[Piece.King, Index.C8]);
                 }
             }
         }
@@ -1412,14 +1413,14 @@ namespace Pedantic.Chess
             {
                 from = BitOps.TzCount(bb1);
                 to = PawnPlus[(int)sideToMove, from];
-                AddPawnMove(list, from, to, score: hist[from, to]);
+                AddPawnMove(list, from, to, score: hist[Piece.Pawn, to]);
             }
 
             for (; bb2 != 0; bb2 = BitOps.ResetLsb(bb2))
             {
                 from = BitOps.TzCount(bb2);
                 to = pawnDouble[(int)sideToMove, from];
-                list.Add(from, to, MoveType.DblPawnMove, score: hist[from, to]);
+                list.Add(from, to, MoveType.DblPawnMove, score: hist[Piece.Pawn, to]);
             }
         }
 
@@ -1460,14 +1461,14 @@ namespace Pedantic.Chess
             {
                 from = BitOps.TzCount(bb3);
                 to = PawnPlus[(int)sideToMove, from];
-                AddPawnMove(list, from, to, MoveType.PawnMove, score: hist[from, to]);
+                AddPawnMove(list, from, to, MoveType.PawnMove, score: hist[Piece.Pawn, to]);
             }
 
             for (; bb4 != 0; bb4 = BitOps.ResetLsb(bb4))
             {
                 from = BitOps.TzCount(bb4);
                 to = pawnDouble[(int)sideToMove, from];
-                list.Add(from, to, MoveType.DblPawnMove, score: hist[from, to]);
+                list.Add(from, to, MoveType.DblPawnMove, score: hist[Piece.Pawn, to]);
             }
         }
 
@@ -1512,7 +1513,7 @@ namespace Pedantic.Chess
                 to = PawnPlus[(int)sideToMove, from];
                 if (BitOps.GetBit(validSquares, to) != 0)
                 {
-                    AddPawnMove(list, from, to, score: hist[from, to]);
+                    AddPawnMove(list, from, to, score: hist[Piece.Pawn, to]);
                 }
             }
 
@@ -1522,7 +1523,7 @@ namespace Pedantic.Chess
                 to = pawnDouble[(int)sideToMove, from];
                 if (BitOps.GetBit(validSquares, to) != 0)
                 {
-                    list.Add(from, to, MoveType.DblPawnMove, score: hist[from, to]);
+                    list.Add(from, to, MoveType.DblPawnMove, score: hist[Piece.Pawn, to]);
                 }
             }
         }
@@ -1707,7 +1708,7 @@ namespace Pedantic.Chess
             for (ulong bb = kingMoves[kingIndex] & ~all; bb != 0; bb = BitOps.ResetLsb(bb))
             {
                 int to = BitOps.TzCount(bb);
-                moveList.Add(kingIndex, to, score: hist[kingIndex, to]);
+                moveList.Add(kingIndex, to, score: hist[Piece.King, to]);
             }
 
             if (checkCount > 1)
@@ -1747,7 +1748,7 @@ namespace Pedantic.Chess
                         int to = BitOps.TzCount(bb3);
                         if (BitOps.GetBit(attacksFrom, to) != 0)
                         {
-                            moveList.Add(from, to, score: hist[from, to]);
+                            moveList.Add(from, to, score: hist[piece, to]);
                         }
                     }
                 }
@@ -2003,7 +2004,7 @@ namespace Pedantic.Chess
 
         private class FakeHistory : IHistory
         {
-            public short this[int from, int to] => 0;
+            public short this[Piece piece, int to] => 0;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

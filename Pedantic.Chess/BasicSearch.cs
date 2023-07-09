@@ -288,7 +288,7 @@ namespace Pedantic.Chess
                         if (isQuiet)
                         {
                             killerMoves.Add(move, 0);
-                            history.Update(move, HistoryBonus(depth));
+                            history.Update(board, move, HistoryBonus(depth));
                         }
 
                         break;
@@ -542,7 +542,7 @@ namespace Pedantic.Chess
                         if (isQuiet)
                         {
                             killerMoves.Add(move, ply);
-                            history.Update(move, HistoryBonus(depth));
+                            history.Update(board, move, HistoryBonus(depth));
                         }
 
                         break;
