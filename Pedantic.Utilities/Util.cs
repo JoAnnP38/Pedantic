@@ -13,7 +13,7 @@
 //     Methods used to ensure correctness of the application in real-time.
 // </summary>
 // ***********************************************************************
-#undef DEBUG
+//#undef DEBUG
 using System.Diagnostics;
 
 namespace Pedantic.Utilities
@@ -78,6 +78,7 @@ namespace Pedantic.Utilities
             }
             else if (!condition)
             {
+                TraceError(message);
                 throw new AssertionException(message);
             }
         }

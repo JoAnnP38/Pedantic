@@ -4,7 +4,7 @@
       "commandName": "Project",
       "commandLineArgs": "learn --data \"e:/pgn files/training_data_ver4.0.csv\" --sample 12000000 --iter 20 --save",
       "workingDirectory": "e:\\repos\\Pedantic\\Pedantic\\bin\\Release\\net7.0\\publish",
-      "nativeDebugging": true
+      "nativeDebugging": false
     }
   }
 }
