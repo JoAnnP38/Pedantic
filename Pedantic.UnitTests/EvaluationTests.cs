@@ -113,7 +113,7 @@ namespace Pedantic.UnitTests
                 .ToArray();
             Assert.IsTrue(s1.SetEquals(moves));
 
-            ulong move = Move.Pack(Index.H4, Index.H5, MoveType.PawnMove);
+            ulong move = Move.Pack(Piece.Pawn, Index.H4, Index.H5, MoveType.PawnMove);
             board.MakeMove(move);
 
             int eval1 = evaluation.Compute(board);
@@ -122,7 +122,7 @@ namespace Pedantic.UnitTests
 
             board.UnmakeMove();
 
-            move = Move.Pack(Index.C3, Index.C4, MoveType.PawnMove);
+            move = Move.Pack(Piece.Pawn, Index.C3, Index.C4, MoveType.PawnMove);
             board.MakeMove(move);
             int eval2 = evaluation.Compute(board);
 

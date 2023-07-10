@@ -33,25 +33,25 @@ namespace Pedantic.Chess
 
             public TtTranItem(ulong hash, short score, sbyte depth, TtFlag ttFlag, ulong bestMove)
             {
-                data = (bestMove & 0x0fffffful) |
-                       (((ulong)score & 0x0fffful) << 24) |
-                       (((ulong)ttFlag & 0x03ul) << 40) |
-                       (((byte)depth & 0x0fful) << 42) |
-                       (((ulong)generation & 0x03ffful) << 50); 
+                data = Move.ClearScore(bestMove) |
+                       (((ulong)score & 0x0fffful) << 25) |
+                       (((ulong)ttFlag & 0x03ul) << 41) |
+                       (((byte)depth & 0x0fful) << 43) |
+                       (((ulong)generation & 0x01ffful) << 51); 
 
                 this.hash = hash ^ data;
             }
 
             public ulong Hash => hash ^ data;
             public ulong Data => data;
-            public ulong BestMove => (ulong)BitOps.BitFieldExtract(data, 0, 24);
-            public short Score => (short)BitOps.BitFieldExtract(data, 24, 16);
-            public TtFlag Flag => (TtFlag)BitOps.BitFieldExtract(data, 40, 2);
-            public sbyte Depth => (sbyte)BitOps.BitFieldExtract(data, 42, 8);
+            public ulong BestMove => (ulong)BitOps.BitFieldExtract(data, 0, 25);
+            public short Score => (short)BitOps.BitFieldExtract(data, 25, 16);
+            public TtFlag Flag => (TtFlag)BitOps.BitFieldExtract(data, 41, 2);
+            public sbyte Depth => (sbyte)BitOps.BitFieldExtract(data, 43, 8);
             public ushort Age
             {
-                get => (ushort) BitOps.BitFieldExtract(data, 50, 14);
-                set => BitOps.BitFieldSet(data, value, 50, 14);
+                get => (ushort) BitOps.BitFieldExtract(data, 51, 13);
+                set => BitOps.BitFieldSet(data, value, 51, 13);
             }
 
             public bool InUse => Age == generation;
@@ -65,11 +65,11 @@ namespace Pedantic.Chess
             public static void SetValue(ref TtTranItem item, ulong hash, short score, sbyte depth, 
                 TtFlag flag, ulong bestMove)
             {
-                item.data = (Move.ClearScore(bestMove)) |
-                            (((ulong)score & 0x0fffful) << 24) |
-                            (((ulong)flag & 0x03ul) << 40) |
-                            (((byte)depth & 0x0fful) << 42) |
-                            (((ulong)generation & 0x03ffful) << 50);
+                item.data = Move.ClearScore(bestMove) |
+                            (((ulong)score & 0x0fffful) << 25) |
+                            (((ulong)flag & 0x03ul) << 41) |
+                            (((byte)depth & 0x0fful) << 43) |
+                            (((ulong)generation & 0x01ffful) << 51);
                 item.hash = hash ^ item.data;
             }
         }
@@ -92,7 +92,10 @@ namespace Pedantic.Chess
 
         public static void IncrementVersion() 
         { 
-            generation = (ushort)((generation + 4) & 0x3fff); 
+            if (generation + 4 < 0x2000)
+            {
+                generation += 4;
+            }
         }
 
         public static void Add(ulong hash, int depth, int ply, int alpha, int beta, int score, ulong move)

@@ -265,7 +265,7 @@ namespace Pedantic.UnitTests
         public void SEETest(string fen, Color stm, int expected)
         {
             Board bd = new(fen);
-            ulong move = Move.Pack(Index.D4, Index.E5, MoveType.Capture, Piece.Pawn);
+            ulong move = Move.Pack(Piece.Bishop, Index.D4, Index.E5, MoveType.Capture, Piece.Pawn);
             int seeEval = bd.PreMoveStaticExchangeEval(stm, move);
             Assert.AreEqual(expected, seeEval);
         }
@@ -277,7 +277,7 @@ namespace Pedantic.UnitTests
         public void SEE0Test(string fen, bool safe)
         {
             Board bd = new(fen);
-            ulong move = Move.Pack(Index.G6, Index.G1);
+            ulong move = Move.Pack(Piece.Rook, Index.G6, Index.G1);
             int seeEval = bd.PostMoveStaticExchangeEval(bd.SideToMove.Other(), move);
             if (safe)
             {
@@ -323,7 +323,7 @@ namespace Pedantic.UnitTests
         public void GenerateRecapturesTest()
         {
             Board bd = new("Bn2k2r/p5pp/3b2q1/8/4p1n1/8/PP5p/R1BQR2K w - - 0 1");
-            bd.MakeMove(Move.Pack(Index.E1, Index.E4, MoveType.Capture, Piece.Pawn));
+            bd.MakeMove(Move.Pack(Piece.Rook, Index.E1, Index.E4, MoveType.Capture, Piece.Pawn));
             MoveList list = new ();
             bd.GenerateRecaptures(list, Index.E4);
             int legalMoves = 0;

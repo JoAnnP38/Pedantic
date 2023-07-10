@@ -288,7 +288,7 @@ namespace Pedantic.Chess
                         if (isQuiet)
                         {
                             killerMoves.Add(move, 0);
-                            history.Update(board, move, HistoryBonus(depth));
+                            history.Update(move, HistoryBonus(depth));
                         }
 
                         break;
@@ -542,7 +542,7 @@ namespace Pedantic.Chess
                         if (isQuiet)
                         {
                             killerMoves.Add(move, ply);
-                            history.Update(board, move, HistoryBonus(depth));
+                            history.Update(move, HistoryBonus(depth));
                         }
 
                         break;
@@ -986,7 +986,7 @@ namespace Pedantic.Chess
             return pv;
         }
 
-        public ulong[] AppendPv(ref ulong[] pv, ulong[] moves)
+        public static ulong[] AppendPv(ref ulong[] pv, ulong[] moves)
         {
             if (moves.Length > 0)
             {

@@ -11,7 +11,7 @@ namespace Pedantic.UnitTests
         [TestMethod]
         public void NegativeScoreTest()
         {
-            ulong move = Move.Pack(Index.E2, Index.E4, MoveType.DblPawnMove, score: -1);
+            ulong move = Move.Pack(Piece.Pawn, Index.E2, Index.E4, MoveType.DblPawnMove, score: -1);
             short moveScore = Move.GetScore(move);
             Assert.AreEqual((short)-1, moveScore);
         }
@@ -19,7 +19,7 @@ namespace Pedantic.UnitTests
         [TestMethod]
         public void AdjustScoreTest()
         {
-            ulong move = Move.Pack(Index.E4, Index.D5, MoveType.Capture, Piece.Pawn, score: Board.CaptureScore(Piece.Pawn, Piece.Pawn));
+            ulong move = Move.Pack(Piece.Pawn, Index.E4, Index.D5, MoveType.Capture, Piece.Pawn, score: Board.CaptureScore(Piece.Pawn, Piece.Pawn));
             short moveScore = Move.GetScore(move);
             Assert.AreEqual((short)30006, moveScore);
 

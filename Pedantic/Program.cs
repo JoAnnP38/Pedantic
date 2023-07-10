@@ -466,8 +466,8 @@ namespace Pedantic
             TryParse(tokens, "movestogo", out int movesToGo, -1);
             bool ponder = Array.Exists(tokens, item => item.Equals("ponder"));
 
-            int whiteTime, blackTime;
-            if (Engine.SideToMove == Color.White && TryParse(tokens, "wtime", out whiteTime))
+            int blackTime;
+            if (Engine.SideToMove == Color.White && TryParse(tokens, "wtime", out int whiteTime))
             {
                 TryParse(tokens, "winc", out int whiteIncrement);
                 TryParse(tokens, "btime", out blackTime, whiteTime);

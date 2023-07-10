@@ -75,7 +75,7 @@ namespace Pedantic.Chess
                 sb.Append(@$"tbhits {tbHits} ");
             }
 
-            sb.Append("pv ");
+            sb.Append("pv");
             for (int n = 0; n < pv.Length; n++)
             {
                 sb.Append($@" {Move.ToString(pv[n])}");
@@ -99,7 +99,7 @@ namespace Pedantic.Chess
             {
                 sb.Append($@"tbhits {tbHits} ");
             }
-            sb.Append("pv ");
+            sb.Append("pv");
             for (int n = 0; n < pv.Length; n++)
             {
                 sb.Append($@" {Move.ToString(pv[n])}");
