@@ -42,7 +42,7 @@ namespace Pedantic.Chess
             ulong lastMove = board.LastMove;
             if (lastMove != Move.NullMove)
             {
-                cmPiece = board.PieceBoard[Move.GetFrom(lastMove)].Piece;
+                cmPiece = Move.GetPiece(lastMove);
                 cmTo = Move.GetTo(lastMove);
             }
             else
@@ -83,9 +83,9 @@ namespace Pedantic.Chess
             history[i] += bonus;
         }
 
-        public void Update(Board board, ulong move, short bonus)
+        public void Update(ulong move, short bonus)
         {
-            Update(SideToMove, board.PieceBoard[Move.GetFrom(move)].Piece, Move.GetTo(move), bonus);
+            Update(SideToMove, Move.GetPiece(move), Move.GetTo(move), bonus);
             if (cmPiece != Piece.None)
             {
                 counters[GetIndex(cmPiece, cmTo)] = (uint)Move.ClearScore(move);

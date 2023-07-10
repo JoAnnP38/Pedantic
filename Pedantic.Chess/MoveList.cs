@@ -47,10 +47,10 @@ namespace Pedantic.Chess
             return array[n];
         }
 
-        public void Add(int from, int to, MoveType type = MoveType.Normal, Piece capture = Piece.None,
+        public void Add(Piece piece, int from, int to, MoveType type = MoveType.Normal, Piece capture = Piece.None,
             Piece promote = Piece.None, int score = 0)
         {
-            Add(Move.Pack(from, to, type, capture, promote, score));
+            Add(Move.Pack(piece, from, to, type, capture, promote, score));
         }
 
         public void Add(ulong[] moves, int count)

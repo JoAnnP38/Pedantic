@@ -277,13 +277,13 @@ namespace Pedantic.UnitTests
             Program.ParseCommand("go depth 14");
             Engine.Wait();
 
-            ulong move = Move.Pack(Index.B6, Index.B1);
+            ulong move = Move.Pack(Piece.Rook, Index.B6, Index.B1);
             //Engine.Infinite = true;
             Engine.Board.MakeMove(move);
             Program.ParseCommand("go depth 14");
             Engine.Wait();
             
-            move = Move.Pack(Index.A2, Index.A1, MoveType.Promote, promote: Piece.Queen);
+            move = Move.Pack(Piece.Pawn, Index.A2, Index.A1, MoveType.Promote, promote: Piece.Queen);
             Engine.Board.MakeMove(move);
             Program.ParseCommand("go depth 14");
 
@@ -499,6 +499,7 @@ namespace Pedantic.UnitTests
         }
 #endif
         
+        //[TestMethod]
         public void CheckClockTest()
         {
             Engine.SearchThreads = 1;
@@ -507,6 +508,18 @@ namespace Pedantic.UnitTests
             Console.WriteLine(Engine.Board.ToString());
             Console.WriteLine(Engine.Board.ToFenString());
             Program.ParseCommand("go wtime 379038 btime 59197 winc 0 binc 0 movestogo 2");
+            Engine.Wait();
+        }
+
+        [TestMethod]
+        public void NoPvReturnedTest()
+        {
+            //Board bd = new Board("2rr3k/pp3pp1/1nnqbN1p/3pN3/2pP4/2P3Q1/PPB4P/R4RK1 w - - 0 1");
+            Program.ParseCommand("setoption name Hash value 128");
+            Program.ParseCommand("position fen 2rr3k/pp3pp1/1nnqbN1p/3pN3/2pP4/2P3Q1/PPB4P/R4RK1 w - - 0 1");
+            Console.WriteLine(Engine.Board.ToString());
+            Console.WriteLine(Engine.Board.ToFenString());
+            Program.ParseCommand("go depth 16");
             Engine.Wait();
         }
     }

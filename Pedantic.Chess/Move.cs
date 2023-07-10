@@ -22,19 +22,20 @@ namespace Pedantic.Chess
 {
     public static class Move
     {
-        public static readonly ulong NullMove = Pack(0, 0, MoveType.Null);
-        public static ulong Pack(int from, int to, MoveType type = MoveType.Normal, Piece capture = Piece.None, 
-            Piece promote = Piece.None, int score = 0)
+        public static readonly ulong NullMove = Pack(Piece.None, 0, 0, MoveType.Null);
+        public static ulong Pack(Piece piece, int from, int to, MoveType type = MoveType.Normal, 
+            Piece capture = Piece.None, Piece promote = Piece.None, int score = 0)
         {
             Util.Assert(Index.IsValid(from));
             Util.Assert(Index.IsValid(to));
             Util.Assert(score is >= -Constants.HISTORY_SCORE and <= short.MaxValue);
-            ulong move = ((ulong)from & 0x3f) |
-                         (((ulong)to & 0x3f) << 6) |
-                         (((ulong)type & 0x0f) << 12) |
-                         (((ulong)capture & 0x0f) << 16) |
-                         (((ulong)promote & 0x0f) << 20) |
-                         (((ulong)score & 0x0ffff) << 24);
+            ulong move = ((ulong)piece & 0x07) |
+                        (((ulong)from & 0x3f) << 3) |
+                        (((ulong)to & 0x3f) << 9) |
+                        (((ulong)type & 0x0f) << 15) |
+                        (((ulong)capture & 0x07) << 19) |
+                        (((ulong)promote & 0x07) << 22) |
+                        (((ulong)score & 0x0ffff) << 25);
 
             return move;
         }
@@ -42,13 +43,13 @@ namespace Pedantic.Chess
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong ClearScore(ulong move)
         {
-            return move & 0x0fffffful;
+            return move & 0x01fffffful;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SetScore(ulong move, short score)
         {
-            return BitOps.BitFieldSet(move, score, 24, 16);
+            return BitOps.BitFieldSet(move, score, 25, 16);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -58,41 +59,48 @@ namespace Pedantic.Chess
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static Piece GetPiece(ulong move)
+        {
+            int piece = BitOps.BitFieldExtract(move, 0, 3);
+            return piece == 0x07 ? Piece.None : (Piece)piece;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int GetFrom(ulong move)
         {
-            return BitOps.BitFieldExtract(move, 0, 6);
+            return BitOps.BitFieldExtract(move, 3, 6);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int GetTo(ulong move)
         {
-            return BitOps.BitFieldExtract(move, 6, 6);
+            return BitOps.BitFieldExtract(move, 9, 6);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static MoveType GetMoveType(ulong move)
         {
-            return (MoveType)BitOps.BitFieldExtract(move, 12, 4);
+            return (MoveType)BitOps.BitFieldExtract(move, 15, 4);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Piece GetCapture(ulong move)
         {
-            int piece = BitOps.BitFieldExtract(move, 16, 4);
-            return piece == 0x0f ? Piece.None : (Piece)piece;
+            int piece = BitOps.BitFieldExtract(move, 19, 3);
+            return piece == 0x07 ? Piece.None : (Piece)piece;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Piece GetPromote(ulong move)
         {
-            int piece = BitOps.BitFieldExtract(move, 20, 4);
-            return piece == 0x0f ? Piece.None : (Piece)piece;
+            int piece = BitOps.BitFieldExtract(move, 22, 3);
+            return piece == 0x07 ? Piece.None : (Piece)piece;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static short GetScore(ulong move)
         {
-            return (short)BitOps.BitFieldExtract(move, 24, 16);
+            return (short)BitOps.BitFieldExtract(move, 25, 16);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -126,9 +134,10 @@ namespace Pedantic.Chess
             return IsCapture(move) && (score is >= Constants.BAD_CAPTURE and < Constants.KILLER_SCORE);
         }
 
-        public static void Unpack(ulong move, out int from, out int to, out MoveType type, out Piece capture,
+        public static void Unpack(ulong move, out Piece piece, out int from, out int to, out MoveType type, out Piece capture,
             out Piece promote, out int score)
         {
+            piece = GetPiece(move);
             from = GetFrom(move);
             to = GetTo(move);
             type = GetMoveType(move);
@@ -188,6 +197,7 @@ namespace Pedantic.Chess
 
         public static string ToString(ulong move)
         {
+            Piece piece = GetPiece(move);
             int from = GetFrom(move);
             int to = GetTo(move);
             Piece promote = GetPromote(move);
@@ -196,11 +206,11 @@ namespace Pedantic.Chess
 
         public static string ToLongString(ulong move)
         {
-            Unpack(move, out int from, out int to, out MoveType type, out Piece capture, out Piece promote,
+            Unpack(move, out Piece piece, out int from, out int to, out MoveType type, out Piece capture, out Piece promote,
                 out int score);
 
             return
-                $"(From = {Index.ToString(from)}, To = {Index.ToString(to)}, Type = {type}, Capture = {capture}, Promote = {promote}, Score = {score})";
+                $"(Piece = {piece}, From = {Index.ToString(from)}, To = {Index.ToString(to)}, Type = {type}, Capture = {capture}, Promote = {promote}, Score = {score})";
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -217,7 +227,7 @@ namespace Pedantic.Chess
             }
 
             StringBuilder sb = new();
-            Move.Unpack(move, out int from, out int to, out MoveType type, out Piece capture, out Piece promote, out int _);
+            Move.Unpack(move, out Piece piece, out int from, out int to, out MoveType type, out Piece capture, out Piece promote, out int _);
             if (type == MoveType.Castle)
             {
                 if (Index.GetFile(to) == 2)
@@ -231,24 +241,22 @@ namespace Pedantic.Chess
             }
             else
             {
-                Square sq = board.PieceBoard[from];
-                if (sq.Piece != Piece.Pawn)
+                if (piece != Piece.Pawn)
                 {
-                    sb.Append(Conversion.PieceToString(board.PieceBoard[from].Piece).ToUpper());
+                    sb.Append(Conversion.PieceToString(piece).ToUpper());
                 }
 
                 MoveList moveList = new();
                 board.GenerateLegalMoves(moveList);
 
                 var ambiguous = moveList.Where(m =>
-                    Move.GetTo(m) == to && board.PieceBoard[Move.GetFrom(m)].Piece == sq.Piece &&
-                    Move.Compare(move, m) == 0).ToArray();
+                    GetTo(m) == to && GetPiece(m) == piece && Compare(move, m) == 0).ToArray();
 
                 if (ambiguous.Length > 0)
                 {
-                    if (ambiguous.Any(m => Index.GetFile(Move.GetFrom(m)) == Index.GetFile(from)))
+                    if (ambiguous.Any(m => Index.GetFile(GetFrom(m)) == Index.GetFile(from)))
                     {
-                        sb.Append(ambiguous.Any(m => Index.GetRank(Move.GetFrom(m)) == Index.GetRank(from))
+                        sb.Append(ambiguous.Any(m => Index.GetRank(GetFrom(m)) == Index.GetRank(from))
                             ? Index.ToString(from)
                             : Coord.ToRank(Index.GetRank(from)));
                     }
