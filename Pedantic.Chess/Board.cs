@@ -920,16 +920,11 @@ namespace Pedantic.Chess
 
             moveList.Clear();
             GenerateCaptures(moveList);
+            moveList.Remove(bestMove);
 
             for (int n = 0; n < moveList.Count; n++)
             {
-                moveList.Sort(n);
-                ulong move = moveList[n];
-                if (Move.Compare(move, bestMove) == 0)
-                {
-                    continue;
-                }
-
+                ulong move = moveList.Sort(n);
                 Piece capture = Move.GetCapture(move);
                 Piece piece = Move.GetPiece(move);
                 if (bcIndex < 20 && piece.Value() > capture.Value() && PreMoveStaticExchangeEval(SideToMove, move) < 0)
@@ -943,13 +938,11 @@ namespace Pedantic.Chess
 
             moveList.Clear();
             GeneratePromotions(moveList, Pieces(sideToMove, Piece.Pawn));
+            moveList.Remove(bestMove);
+
             for (int n = 0; n < moveList.Count; n++)
             {
-                moveList.Sort(n);
-                if (Move.Compare(moveList[n], bestMove) != 0)
-                {
-                    yield return moveList[n];
-                }
+                yield return moveList.Sort(n);
             }
 
             moveList.Clear();
@@ -972,7 +965,7 @@ namespace Pedantic.Chess
             {
                 yield return history.CounterMove;
             }
-                
+
             // now return the bad captures deferred from earlier
             for (int n = 0; n < bcIndex; n++)
             {
@@ -990,6 +983,11 @@ namespace Pedantic.Chess
             ulong[] bc = badCaptures[ply];
             int bcIndex = 0;
 
+            if (TtTran.TryGetBestMove(hash, out ulong bestMove))
+            {
+                yield return bestMove;
+            }
+
             moveList.Clear();
 
             if (qsPly < 6)
@@ -1000,6 +998,8 @@ namespace Pedantic.Chess
             {
                 GenerateRecaptures(moveList, Move.GetTo(LastMove));
             }
+
+            moveList.Remove(bestMove);
 
             for (int n = 0; n < moveList.Count; n++)
             {
@@ -1019,6 +1019,7 @@ namespace Pedantic.Chess
             {
                 moveList.Clear();
                 GeneratePromotions(moveList, Pieces(sideToMove, Piece.Pawn));
+                moveList.Remove(bestMove);
                 for (int n = 0; n < moveList.Count; n++)
                 {
                     yield return moveList.Sort(n);
@@ -1033,8 +1034,14 @@ namespace Pedantic.Chess
 
         public IEnumerable<ulong> EvasionMoves(MoveList moveList)
         {
+            if (TtTran.TryGetBestMove(hash, out ulong bestMove))
+            {
+                yield return bestMove;
+            }
+
             moveList.Clear();
             GenerateEvasions(moveList);
+            moveList.Remove(bestMove);
 
             for (int n = 0; n < moveList.Count; n++)
             {
@@ -1042,12 +1049,33 @@ namespace Pedantic.Chess
             }
         }
 
-        public IEnumerable<ulong> EvasionMoves2(int ply, KillerMoves killerMoves, IHistory history, MoveList moveList)
+        public IEnumerable<ulong> EvasionMoves2(int ply, KillerMoves killerMoves, History history, MoveList moveList)
         {
-            TtTran.TryGetBestMove(hash, out ulong bestMove);
+            if (TtTran.TryGetBestMove(hash, out ulong bestMove))
+            {
+                yield return bestMove;
+            }
+
             moveList.Clear();
             GenerateEvasions(moveList, history);
-            moveList.UpdateScores(bestMove, killerMoves, ply);
+            moveList.Remove(bestMove);
+
+            KillerMoves.KillerMove km = killerMoves.GetKillers(ply);
+
+            if (moveList.Remove(km.Killer0))
+            {
+                yield return km.Killer0;
+            }
+
+            if (moveList.Remove(km.Killer1))
+            {
+                yield return km.Killer1;
+            }
+
+            if (moveList.Remove(history.CounterMove))
+            {
+                yield return history.CounterMove;
+            }
 
             for (int n = 0; n < moveList.Count; n++)
             {
@@ -2112,7 +2140,7 @@ namespace Pedantic.Chess
         private static ulong GetBestMove(ulong[] moves, int length, int n)
         {
             int largest = -1;
-            int score = -1;
+            int score = short.MinValue;
             for (int i = n; i < length; ++i)
             {
                 short mvScore = Move.GetScore(moves[i]);
