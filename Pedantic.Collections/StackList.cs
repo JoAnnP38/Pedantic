@@ -19,11 +19,10 @@ namespace Pedantic.Collections
 
         public void Add(T item)
         {
-            if (count + 1 >= list.Length)
+            if (count + 1 < list.Length)
             {
-                throw new IndexOutOfRangeException();
+                list[count++] = item;
             }
-            list[count++] = item;
         }
 
         public void Clear()

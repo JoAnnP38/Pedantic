@@ -81,7 +81,7 @@ namespace Pedantic.Chess
                 while (++Depth <= maxSearchDepth && time.CanSearchDeeper())
                 {
                     time.StartInterval();
-                    history.Rescale();
+                    history.RescaleHistory();
                     UpdateTtWithPv(PV, Depth);
                     int alpha = -Constants.INFINITE_WINDOW;
                     int beta = Constants.INFINITE_WINDOW;

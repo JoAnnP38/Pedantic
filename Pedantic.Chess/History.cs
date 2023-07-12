@@ -24,9 +24,10 @@ namespace Pedantic.Chess
 {
     public sealed class History : IHistory
     {
+        public const int HISTORY_LEN = Constants.MAX_COLORS * Constants.MAX_PIECES * Constants.MAX_SQUARES;
         private Color sideToMove = Color.White;
-        private readonly short[] history = new short[Constants.MAX_COLORS * Constants.MAX_PIECES * Constants.MAX_SQUARES];
-        private readonly uint[] counters = new uint[Constants.MAX_COLORS * Constants.MAX_PIECES * Constants.MAX_SQUARES];
+        private readonly short[] history = new short[HISTORY_LEN];
+        private readonly uint[] counters = new uint[HISTORY_LEN];
         private Piece cmPiece = Piece.None;
         private int cmTo = Index.NONE;
 
@@ -98,11 +99,6 @@ namespace Pedantic.Chess
             Array.Clear(counters);
         }
 
-        public void Rescale()
-        {
-            RescaleHistory();
-        }
-
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private int GetIndex(Piece piece, int to)
         {
@@ -115,19 +111,30 @@ namespace Pedantic.Chess
             return ((int)color * 384) + ((int)piece * 64) + to;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void RescaleHistory()
+        public unsafe void RescaleHistory()
         {
-            for (int i = 0; i < history.Length; i += 8)
+            fixed (short* p = &history[0])
             {
-                history[i + 0] >>= 1;
-                history[i + 1] >>= 1;
-                history[i + 2] >>= 1;
-                history[i + 3] >>= 1;
-                history[i + 4] >>= 1;
-                history[i + 5] >>= 1;
-                history[i + 6] >>= 1;
-                history[i + 7] >>= 1;
+                Span<short> hist = new(p, HISTORY_LEN);
+                for (int i = 0; i < HISTORY_LEN; i += 16)
+                {
+                    hist[i + 0] >>= 1;
+                    hist[i + 1] >>= 1;
+                    hist[i + 2] >>= 1;
+                    hist[i + 3] >>= 1;
+                    hist[i + 4] >>= 1;
+                    hist[i + 5] >>= 1;
+                    hist[i + 6] >>= 1;
+                    hist[i + 7] >>= 1;
+                    hist[i + 8] >>= 1;
+                    hist[i + 9] >>= 1;
+                    hist[i + 10] >>= 1;
+                    hist[i + 11] >>= 1;
+                    hist[i + 12] >>= 1;
+                    hist[i + 13] >>= 1;
+                    hist[i + 14] >>= 1;
+                    hist[i + 15] >>= 1;
+                }
             }
         }
     }
