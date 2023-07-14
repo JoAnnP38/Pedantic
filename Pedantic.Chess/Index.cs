@@ -22,8 +22,8 @@ namespace Pedantic.Chess
 {
     public static class Index
     {
-        public const int MAX_VALUE = 63;
-        public const int MIN_VALUE = 0;
+        public const sbyte MAX_VALUE = 63;
+        public const sbyte MIN_VALUE = 0;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsValid(int value)
@@ -166,79 +166,79 @@ namespace Pedantic.Chess
 
         #region Named Indices
 
-        public const int NONE = -1;
-        public const int A1 = 0;
-        public const int B1 = 1;
-        public const int C1 = 2;
-        public const int D1 = 3;
-        public const int E1 = 4;
-        public const int F1 = 5;
-        public const int G1 = 6;
-        public const int H1 = 7;
-        public const int A2 = 8;
-        public const int B2 = 9;
-        public const int C2 = 10;
-        public const int D2 = 11;
-        public const int E2 = 12;
-        public const int F2 = 13;
-        public const int G2 = 14;
-        public const int H2 = 15;
-        public const int A3 = 16;
-        public const int B3 = 17;
-        public const int C3 = 18;
-        public const int D3 = 19;
-        public const int E3 = 20;
-        public const int F3 = 21;
-        public const int G3 = 22;
-        public const int H3 = 23;
-        public const int A4 = 24;
-        public const int B4 = 25;
-        public const int C4 = 26;
-        public const int D4 = 27;
-        public const int E4 = 28;
-        public const int F4 = 29;
-        public const int G4 = 30;
-        public const int H4 = 31;
-        public const int A5 = 32;
-        public const int B5 = 33;
-        public const int C5 = 34;
-        public const int D5 = 35;
-        public const int E5 = 36;
-        public const int F5 = 37;
-        public const int G5 = 38;
-        public const int H5 = 39;
-        public const int A6 = 40;
-        public const int B6 = 41;
-        public const int C6 = 42;
-        public const int D6 = 43;
-        public const int E6 = 44;
-        public const int F6 = 45;
-        public const int G6 = 46;
-        public const int H6 = 47;
-        public const int A7 = 48;
-        public const int B7 = 49;
-        public const int C7 = 50;
-        public const int D7 = 51;
-        public const int E7 = 52;
-        public const int F7 = 53;
-        public const int G7 = 54;
-        public const int H7 = 55;
-        public const int A8 = 56;
-        public const int B8 = 57;
-        public const int C8 = 58;
-        public const int D8 = 59;
-        public const int E8 = 60;
-        public const int F8 = 61;
-        public const int G8 = 62;
-        public const int H8 = 63;
+        public const sbyte NONE = -1;
+        public const sbyte A1 = 0;
+        public const sbyte B1 = 1;
+        public const sbyte C1 = 2;
+        public const sbyte D1 = 3;
+        public const sbyte E1 = 4;
+        public const sbyte F1 = 5;
+        public const sbyte G1 = 6;
+        public const sbyte H1 = 7;
+        public const sbyte A2 = 8;
+        public const sbyte B2 = 9;
+        public const sbyte C2 = 10;
+        public const sbyte D2 = 11;
+        public const sbyte E2 = 12;
+        public const sbyte F2 = 13;
+        public const sbyte G2 = 14;
+        public const sbyte H2 = 15;
+        public const sbyte A3 = 16;
+        public const sbyte B3 = 17;
+        public const sbyte C3 = 18;
+        public const sbyte D3 = 19;
+        public const sbyte E3 = 20;
+        public const sbyte F3 = 21;
+        public const sbyte G3 = 22;
+        public const sbyte H3 = 23;
+        public const sbyte A4 = 24;
+        public const sbyte B4 = 25;
+        public const sbyte C4 = 26;
+        public const sbyte D4 = 27;
+        public const sbyte E4 = 28;
+        public const sbyte F4 = 29;
+        public const sbyte G4 = 30;
+        public const sbyte H4 = 31;
+        public const sbyte A5 = 32;
+        public const sbyte B5 = 33;
+        public const sbyte C5 = 34;
+        public const sbyte D5 = 35;
+        public const sbyte E5 = 36;
+        public const sbyte F5 = 37;
+        public const sbyte G5 = 38;
+        public const sbyte H5 = 39;
+        public const sbyte A6 = 40;
+        public const sbyte B6 = 41;
+        public const sbyte C6 = 42;
+        public const sbyte D6 = 43;
+        public const sbyte E6 = 44;
+        public const sbyte F6 = 45;
+        public const sbyte G6 = 46;
+        public const sbyte H6 = 47;
+        public const sbyte A7 = 48;
+        public const sbyte B7 = 49;
+        public const sbyte C7 = 50;
+        public const sbyte D7 = 51;
+        public const sbyte E7 = 52;
+        public const sbyte F7 = 53;
+        public const sbyte G7 = 54;
+        public const sbyte H7 = 55;
+        public const sbyte A8 = 56;
+        public const sbyte B8 = 57;
+        public const sbyte C8 = 58;
+        public const sbyte D8 = 59;
+        public const sbyte E8 = 60;
+        public const sbyte F8 = 61;
+        public const sbyte G8 = 62;
+        public const sbyte H8 = 63;
 
         #endregion
 
         #region mapping of indices so white oriented artifacts can be used for black
 
-        public static readonly int[][] NormalizedIndex = 
+        public static readonly sbyte[][] NormalizedIndex = 
         {
-            new[]
+            new sbyte[]
             {
                 A1, B1, C1, D1, E1, F1, G1, H1,
                 A2, B2, C2, D2, E2, F2, G2, H2,
@@ -249,7 +249,7 @@ namespace Pedantic.Chess
                 A7, B7, C7, D7, E7, F7, G7, H7,
                 A8, B8, C8, D8, E8, F8, G8, H8
             },
-            new[]
+            new sbyte[]
             {
                 A8, B8, C8, D8, E8, F8, G8, H8,
                 A7, B7, C7, D7, E7, F7, G7, H7,

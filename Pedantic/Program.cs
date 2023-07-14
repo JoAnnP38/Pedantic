@@ -1367,12 +1367,19 @@ namespace Pedantic
             WriteLine($"{wts[ChessWeights.ROOK_ON_7TH_RANK]},");
             WriteLine();
             WriteLine($"/* {section} passed pawn */");
-            WriteIndent();
-            for (int n = Coord.RANK_1; n <= Coord.RANK_8; n++)
+            for (int n = 0; n < Constants.MAX_SQUARES; n++)
             {
-                Console.Write($"{wts[ChessWeights.PASSED_PAWN + n]}, ");
+                if (n % 8 == 0)
+                {
+                    if (n != 0)
+                    {
+                        Console.WriteLine();
+                    }
+                    WriteIndent();
+                }
+                Console.Write($"{wts[ChessWeights.PASSED_PAWN + n],4}, ");
             }
-            WriteLine();
+            Console.WriteLine();
             WriteLine();
             WriteLine($"/* {section} bad bishop pawns */");
             for (int n = 0; n < Constants.MAX_SQUARES; n++)

@@ -254,9 +254,9 @@ namespace Pedantic.Chess
 
                 if ((otherPawns & PassedPawnMasks[c, sq]) == 0 && (pawns & doubledFriends) == 0)
                 {
-                    int normalRank = Index.GetRank(Index.NormalizedIndex[c][sq]);
-                    opPawnScore[c] += wt.OpeningPassedPawn(normalRank);
-                    egPawnScore[c] += wt.EndGamePassedPawn(normalRank);
+                    int normalSq = Index.NormalizedIndex[c][sq];
+                    opPawnScore[c] += wt.OpeningPassedPawn(normalSq);
+                    egPawnScore[c] += wt.EndGamePassedPawn(normalSq);
                 }
 
                 if ((pawns & IsolatedPawnMasks[sq]) == 0)

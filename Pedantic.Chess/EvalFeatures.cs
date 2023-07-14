@@ -73,9 +73,10 @@ namespace Pedantic.Chess
          * [1571]           # queens on open file
          * [1572]           # queens on half-open file
          * [1573]           # rooks on seventh rank
-         * [1574 - 1581]    # passed pawns on rank
+         * [1574 - 1637]    0-1 passed pawns on square
+         * [1638 - 1701]    0-1 bad bishop pawn on square
          */
-        public const int FEATURE_SIZE = 1646;
+        public const int FEATURE_SIZE = 1702;
         public const int GAME_PHASE_BOUNDARY = 0;
         public const int MATERIAL = 1;
         public const int PIECE_SQUARE_TABLES = 7;
@@ -103,7 +104,7 @@ namespace Pedantic.Chess
         public const int QUEEN_HALF_OPEN_FILE = 1572;
         public const int ROOK_ON_7TH_RANK = 1573;
         public const int PASSED_PAWNS = 1574;
-        public const int BAD_BISHOP_PAWN = 1582;
+        public const int BAD_BISHOP_PAWN = 1638;
 
         private readonly SparseArray<short>[] sparse = { new(), new() };
 		private readonly short[][] features = { Array.Empty<short>(), Array.Empty<short>() };
@@ -182,7 +183,7 @@ namespace Pedantic.Chess
                     ulong doubledFriends = color == Color.White ? ray.North : ray.South;
                     if ((otherPawns & Evaluation.PassedPawnMasks[c, sq]) == 0 && (pawns & doubledFriends) == 0)
                     {
-                        IncrementPassedPawns(v, Index.GetRank(Index.NormalizedIndex[c][sq]));
+                        SetPassedPawns(v, Index.NormalizedIndex[c][sq]);
 
                         ulong bb;
                         if (color == Color.White)
@@ -580,16 +581,9 @@ namespace Pedantic.Chess
             }
         }
 
-        private static void IncrementPassedPawns(IDictionary<int, short> v, int rank)
+        private static void SetPassedPawns(IDictionary<int, short> v, int square)
         {
-            if (v.ContainsKey(PASSED_PAWNS + rank))
-            {
-                v[PASSED_PAWNS + rank]++;
-            }
-            else
-            {
-                v.Add(PASSED_PAWNS + rank, 1);
-            }
+            v[PASSED_PAWNS + square] = 1;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
