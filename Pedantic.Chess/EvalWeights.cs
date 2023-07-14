@@ -154,15 +154,15 @@ namespace Pedantic.Chess
         public short EndGameRookOnSeventhRank => wt[ChessWeights.ROOK_ON_7TH_RANK + ChessWeights.ENDGAME_WEIGHTS];
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public short OpeningPassedPawn(int rank)
+        public short OpeningPassedPawn(int square)
         {
-            return wt[ChessWeights.PASSED_PAWN + rank];
+            return wt[ChessWeights.PASSED_PAWN + square];
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public short EndGamePassedPawn(int rank)
+        public short EndGamePassedPawn(int square)
         {
-            return wt[ChessWeights.PASSED_PAWN + ChessWeights.ENDGAME_WEIGHTS + rank];
+            return wt[ChessWeights.PASSED_PAWN + ChessWeights.ENDGAME_WEIGHTS + square];
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
