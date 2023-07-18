@@ -16,6 +16,7 @@
 // ***********************************************************************
 
 using System.Runtime.CompilerServices;
+using Pedantic.Collections;
 using Pedantic.Genetics;
 using Pedantic.Tablebase;
 using Pedantic.Utilities;
@@ -81,7 +82,6 @@ namespace Pedantic.Chess
                 while (++Depth <= maxSearchDepth && time.CanSearchDeeper())
                 {
                     time.StartInterval();
-                    history.RescaleHistory();
                     UpdateTtWithPv(PV, Depth);
                     int alpha = -Constants.INFINITE_WINDOW;
                     int beta = Constants.INFINITE_WINDOW;
@@ -216,8 +216,10 @@ namespace Pedantic.Chess
             int expandedNodes = 0;
             bool raisedAlpha = false;
             history.SetContext(board);
+            StackList<ulong> quiets = new (stackalloc ulong[64]);
             MoveList moveList = GetMoveList();
             ulong bestMove = 0ul;
+            int score = -Constants.INFINITE_WINDOW;
             IEnumerable<ulong> moves = board.Moves(0, killerMoves, history, moveList);
 
             foreach (ulong move in moves)
@@ -250,7 +252,6 @@ namespace Pedantic.Chess
                     R--;
                 }
 
-                int score;
                 if (!raisedAlpha)
                 {
                     score = -Search(-beta, -alpha, depth + X - 1, 1, checkingMove);
@@ -288,13 +289,18 @@ namespace Pedantic.Chess
                         if (isQuiet)
                         {
                             killerMoves.Add(move, 0);
-                            history.Update(move, HistoryBonus(depth));
+                            history.UpdateCutoff(move, ref quiets, depth);
                         }
 
                         break;
                     }
 
                     MergePv(0, move);
+                }
+
+                if (isQuiet)
+                {
+                    quiets.Add(move);
                 }
             }
 
@@ -442,6 +448,7 @@ namespace Pedantic.Chess
 
             int expandedNodes = 0;
             history.SetContext(board);
+            StackList<ulong> quiets = new (stackalloc ulong[64]);
             MoveList moveList = GetMoveList();
             bestMove = 0ul;
             IEnumerable<ulong> moves = board.Moves(ply, killerMoves, history, moveList);
@@ -542,13 +549,18 @@ namespace Pedantic.Chess
                         if (isQuiet)
                         {
                             killerMoves.Add(move, ply);
-                            history.Update(move, HistoryBonus(depth));
+                            history.UpdateCutoff(move, ref quiets, depth);
                         }
 
                         break;
                     }
 
                     MergePv(ply, move);
+                }
+
+                if (isQuiet)
+                {
+                    quiets.Add(move);
                 }
             }
 

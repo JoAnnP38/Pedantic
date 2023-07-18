@@ -69,7 +69,7 @@ namespace Pedantic.Chess
             public int FullMoveCounter;
             public ulong Hash;
 
-            public void Restore(Board board)
+            public readonly void Restore(Board board)
             {
                 board.sideToMove = SideToMove;
                 board.castling = Castling;
@@ -2033,7 +2033,7 @@ namespace Pedantic.Chess
 
         private class FakeHistory : IHistory
         {
-            public short this[Piece piece, int to] => 0;
+            public int this[Piece piece, int to] => 0;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -2143,7 +2143,7 @@ namespace Pedantic.Chess
             int score = short.MinValue;
             for (int i = n; i < length; ++i)
             {
-                short mvScore = Move.GetScore(moves[i]);
+                int mvScore = Move.GetScore(moves[i]);
                 if (mvScore > score)
                 {
                     largest = i;

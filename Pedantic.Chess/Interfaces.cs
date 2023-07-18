@@ -2,6 +2,6 @@
 {
     public interface IHistory
     {
-        public short this[Piece piece, int to] { get; }
+        public int this[Piece piece, int to] { get; }
     }
 }
