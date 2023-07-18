@@ -42,22 +42,24 @@ namespace Pedantic.Chess
                 this.hash = hash ^ data;
             }
 
-            public ulong Hash => hash ^ data;
-            public ulong Data => data;
-            public ulong BestMove => (ulong)BitOps.BitFieldExtract(data, 0, 25);
-            public short Score => (short)BitOps.BitFieldExtract(data, 25, 16);
-            public TtFlag Flag => (TtFlag)BitOps.BitFieldExtract(data, 41, 2);
-            public sbyte Depth => (sbyte)BitOps.BitFieldExtract(data, 43, 8);
+            public readonly ulong Hash => hash ^ data;
+            public readonly ulong Data => data;
+            public readonly ulong BestMove => (ulong)BitOps.BitFieldExtract(data, 0, 25);
+            public readonly short Score => (short)BitOps.BitFieldExtract(data, 25, 16);
+            public readonly TtFlag Flag => (TtFlag)BitOps.BitFieldExtract(data, 41, 2);
+            public readonly sbyte Depth => (sbyte)BitOps.BitFieldExtract(data, 43, 8);
             public ushort Age
             {
+#pragma warning disable IDE0251 // Make member 'readonly'
                 get => (ushort) BitOps.BitFieldExtract(data, 51, 13);
                 set => BitOps.BitFieldSet(data, value, 51, 13);
+#pragma warning restore IDE0251 // Make member 'readonly'
             }
 
             public bool InUse => Age == generation;
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public bool IsValid(ulong hash)
+            public readonly bool IsValid(ulong hash)
             {
                 return (this.hash ^ data)  == hash;
             }
@@ -136,7 +138,7 @@ namespace Pedantic.Chess
 
         public static void Clear()
         {
-            Span<TtTranItem> spn = new Span<TtTranItem>(table);
+            Span<TtTranItem> spn = new(table);
             spn.Clear();
             used = 0;
             generation = 1;

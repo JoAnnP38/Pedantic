@@ -28,14 +28,15 @@ namespace Pedantic.Chess
         {
             Util.Assert(Index.IsValid(from));
             Util.Assert(Index.IsValid(to));
-            Util.Assert(score is >= -Constants.HISTORY_SCORE and <= short.MaxValue);
+            Util.Assert(score is >= Constants.HISTORY_SCORE_MIN and <= Constants.HISTORY_SCORE_MAX);
             ulong move = ((ulong)piece & 0x07) |
                         (((ulong)from & 0x3f) << 3) |
                         (((ulong)to & 0x3f) << 9) |
                         (((ulong)type & 0x0f) << 15) |
                         (((ulong)capture & 0x07) << 19) |
-                        (((ulong)promote & 0x07) << 22) |
-                        (((ulong)score & 0x0ffff) << 25);
+                        (((ulong)promote & 0x07) << 22) | 
+                        /* note the gap here between promote & score*/
+                        (((ulong)score) << 32);
 
             return move;
         }
@@ -43,19 +44,19 @@ namespace Pedantic.Chess
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong ClearScore(ulong move)
         {
-            return move & 0x01fffffful;
+            return move & 0x0fffffffful;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static ulong SetScore(ulong move, short score)
+        public static ulong SetScore(ulong move, int score)
         {
-            return BitOps.BitFieldSet(move, score, 25, 16);
+            return ClearScore(move) | ((ulong)score << 32);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static ulong AdjustScore(ulong move, short adjustment)
+        public static ulong AdjustScore(ulong move, int adjustment)
         {
-            return SetScore(move, (short)(GetScore(move) + adjustment));
+            return SetScore(move, GetScore(move) + adjustment);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -75,6 +76,12 @@ namespace Pedantic.Chess
         public static int GetTo(ulong move)
         {
             return BitOps.BitFieldExtract(move, 9, 6);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int GetFromTo(ulong move)
+        {
+            return BitOps.BitFieldExtract(move, 3, 12);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -98,9 +105,9 @@ namespace Pedantic.Chess
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static short GetScore(ulong move)
+        public static int GetScore(ulong move)
         {
-            return (short)BitOps.BitFieldExtract(move, 25, 16);
+            return (int)(move >> 32);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -197,7 +204,6 @@ namespace Pedantic.Chess
 
         public static string ToString(ulong move)
         {
-            Piece piece = GetPiece(move);
             int from = GetFrom(move);
             int to = GetTo(move);
             Piece promote = GetPromote(move);

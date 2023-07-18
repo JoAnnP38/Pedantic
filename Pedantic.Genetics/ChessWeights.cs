@@ -20,7 +20,7 @@ namespace Pedantic.Genetics
 {
     public sealed class ChessWeights
     {
-        public static readonly Guid DEFAULT_IMMORTAL_ID = new Guid("da5e310e-b0dc-4c77-902c-5a46cc81bb73");
+        public static readonly Guid DEFAULT_IMMORTAL_ID = new("da5e310e-b0dc-4c77-902c-5a46cc81bb73");
         public const int MAX_WEIGHTS = 3404;
         public const int ENDGAME_WEIGHTS = 1702;
         public const int PIECE_WEIGHT_LENGTH = 6;
