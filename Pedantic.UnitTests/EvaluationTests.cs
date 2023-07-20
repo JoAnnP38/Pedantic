@@ -108,12 +108,12 @@ namespace Pedantic.UnitTests
             board.GenerateMoves(list1);
             SortedSet<ulong> s1 = new(list1);
             MoveList list2 = new();
-            ulong[] moves = board.Moves(0, km, h, list2)
+            ulong[] moves = board.Moves(0, km, h, new SearchStack(board), list2)
                 .Select(m => Move.ClearScore(m))
                 .ToArray();
             Assert.IsTrue(s1.SetEquals(moves));
 
-            ulong move = Move.Pack(Piece.Pawn, Index.H4, Index.H5, MoveType.PawnMove);
+            ulong move = Move.Pack(board.SideToMove, Piece.Pawn, Index.H4, Index.H5, MoveType.PawnMove);
             board.MakeMove(move);
 
             int eval1 = evaluation.Compute(board);
@@ -122,7 +122,7 @@ namespace Pedantic.UnitTests
 
             board.UnmakeMove();
 
-            move = Move.Pack(Piece.Pawn, Index.C3, Index.C4, MoveType.PawnMove);
+            move = Move.Pack(board.SideToMove, Piece.Pawn, Index.C3, Index.C4, MoveType.PawnMove);
             board.MakeMove(move);
             int eval2 = evaluation.Compute(board);
 
@@ -157,6 +157,24 @@ namespace Pedantic.UnitTests
             Board bd = new("rn1k4/ppq3pp/3p1bb1/2pP1Nn1/N1P1Q1B1/1P2R3/P6r/2K1R3 w - - 0 1");
             Assert.IsTrue(Evaluation.IsDoubled(bd, bd.Pieces(Color.White, Piece.Rook) & Board.MaskFile(Index.E1)));
             Assert.IsFalse(Evaluation.IsDoubled(bd, bd.Pieces(Color.Black, Piece.Rook) & Board.MaskFile(Index.H1)));
+        }
+
+        [TestMethod]
+        [DataRow("5rk1/1ppb3p/p1pb4/6q1/3P1p1r/2P1R2P/PP1BQ1P1/5RKN w - - 0 1", "5rkn/pp1bq1p1/2p1r2p/3p1P1R/6Q1/P1PB4/1PPB3P/5RK1 b - - 0 1")]
+        [DataRow("1k3r2/1p4p1/p3p1Np/3b1p2/1bq5/2P2P2/PP1Q1PBP/1K1R2R1 w - - 5 27", "1k1r2r1/pp1q1pbp/2p2p2/1BQ5/3B1P2/P3P1nP/1P4P1/1K3R2 b - - 5 27")]
+        [DataRow("r1b1kb1r/3q1ppp/pBp1pn2/8/Np3P2/5B2/PPP3PP/R2Q1RK1 w kq - 0 1 ", "r2q1rk1/ppp3pp/5b2/nP3p2/8/PbP1PN2/3Q1PPP/R1B1KB1R b KQ - 0 1")]
+        [DataRow("8/k1b5/P4p2/1Pp2p1p/K1P2P1P/8/3B4/8 w - - 0 1", "8/3b4/8/k1p2p1p/1pP2P1P/p4P2/K1B5/8 b - - 0 1")]
+        public void WhiteVsBlackTest(string whiteFen, string blackFen)
+        {
+            Board bdWhite = new(whiteFen);
+            Board bdBlack = new(blackFen);
+
+            Evaluation eval = new(false);
+
+            short evalWhite = eval.Compute(bdWhite);
+            short evalBlack = eval.Compute(bdBlack);
+
+            Assert.AreEqual(evalWhite, evalBlack);
         }
     }
 }

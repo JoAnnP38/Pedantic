@@ -87,7 +87,8 @@ namespace Pedantic
                 Infinite = true
             };
             Board bd = new();
-            BasicSearch search = new(bd, tc, 0)
+            SearchStack searchStack = new();
+            BasicSearch search = new(searchStack, bd, tc, 0)
             {
                 Eval = new Evaluation(false)
             };

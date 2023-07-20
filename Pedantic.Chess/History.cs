@@ -25,71 +25,49 @@ namespace Pedantic.Chess
     public sealed class History : IHistory
     {
         public const int HISTORY_LEN = Constants.MAX_COLORS * Constants.MAX_PIECES * Constants.MAX_SQUARES;
-        private Color sideToMove = Color.White;
         private readonly short[] hhHistory = new short[HISTORY_LEN];
         private readonly uint[] counters = new uint[HISTORY_LEN];
-        private Piece cmPiece = Piece.None;
-        private int cmTo = Index.NONE;
 
-        public Color SideToMove
+        public ulong CounterMove(ulong lastMove)
         {
-            get => sideToMove;
-            set => sideToMove = value;
+            if (lastMove == 0 || lastMove == Move.NullMove)
+            {
+                return 0;
+            }
+            return counters[GetIndex(Move.GetStm(lastMove), Move.GetPiece(lastMove), Move.GetTo(lastMove))];
         }
 
-        public void SetContext(Board board)
-        {
-            SideToMove = board.SideToMove;
-            ulong lastMove = board.LastMove;
-            if (lastMove != Move.NullMove)
-            {
-                cmPiece = Move.GetPiece(lastMove);
-                cmTo = Move.GetTo(lastMove);
-            }
-            else
-            {
-                cmPiece = Piece.None;
-                cmTo = Index.NONE;
-            }
-        }
-
-        public ulong CounterMove
+        public short this[Color stm, Piece piece, int to]
         {
             get
             {
-                if (cmPiece == Piece.None)
-                {
-                    return 0ul;
-                }
-                else
-                {
-                    return counters[GetIndex(cmPiece, cmTo)];
-                }
+                return hhHistory[GetIndex(stm, piece, to)];
             }
         }
 
-        public int this[Piece piece, int to]
+        public short this[ulong move]
         {
             get
             {
-                return hhHistory[GetIndex(piece, to)];
+                return hhHistory[GetIndex(Move.GetStm(move), Move.GetPiece(move), Move.GetTo(move))];
             }
         }
 
-        public void UpdateCutoff(ulong move, ref StackList<ulong> quiets, int depth)
+        public void UpdateCutoff(ulong move, int ply, ref StackList<uint> quiets, SearchStack searchStack, int depth)
         {
             short bonus = (short)(((depth * depth) >> 1) + (depth << 1) - 1);
-            UpdateHistory(ref hhHistory[GetIndex(Move.GetPiece(move), Move.GetTo(move))], bonus);
+            UpdateHistory(ref hhHistory[GetIndex(Move.GetStm(move), Move.GetPiece(move), Move.GetTo(move))], bonus);
 
-            if (cmPiece != Piece.None)
+            ulong lastMove = searchStack[ply - 1].Move;
+            if (lastMove != Move.NullMove)
             {
-                counters[GetIndex(cmPiece, cmTo)] = (uint)Move.ClearScore(move);
+                counters[GetIndex(Move.GetStm(lastMove), Move.GetPiece(lastMove), Move.GetTo(lastMove))] = (uint)Move.ClearScore(move);
             }
 
             for (int n = 0; n < quiets.Count; n++)
             {
                 ulong quiet = quiets[n];
-                UpdateHistory(ref hhHistory[GetIndex(Move.GetPiece(quiet), Move.GetTo(quiet))], (short)-bonus);
+                UpdateHistory(ref hhHistory[GetIndex(Move.GetStm(quiet), Move.GetPiece(quiet), Move.GetTo(quiet))], (short)-bonus);
             }
         }
 
@@ -100,19 +78,13 @@ namespace Pedantic.Chess
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void UpdateHistory(ref short hist, short bonus)
+        public static void UpdateHistory(ref short hist, short bonus)
         {
             hist += (short)(bonus - hist * Math.Abs(bonus) / Constants.HISTORY_SCORE_MAX);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private int GetIndex(Piece piece, int to)
-        {
-            return GetIndex(sideToMove, piece, to);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static int GetIndex(Color color, Piece piece, int to)
+        public static int GetIndex(Color color, Piece piece, int to)
         {
             return ((int)color * 384) + ((int)piece * 64) + to;
         }

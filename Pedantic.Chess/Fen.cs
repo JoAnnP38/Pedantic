@@ -61,6 +61,34 @@ namespace Pedantic.Chess
             fenString = sb.ToString();
         }
 
+        private Fen(List<(Color Color, Piece Piece, int Square)> squares, Color stm, CastlingRights castling, int ep, int halfMove, int fullMove)
+        {
+            this.squares = squares;
+            this.sideToMove = stm;
+            this.castling = castling;
+            this.enPassant = ep;
+            this.halfMoveClock = halfMove;
+            this.fullMoveCounter = fullMove;
+
+            Square[] board = new Square[Constants.MAX_SQUARES];
+            for (int n = 0; n <  Constants.MAX_SQUARES; n++)
+            {
+                board[n] = Square.Empty;
+            }
+            foreach (var sq in this.squares)
+            {
+                board[sq.Square] = new Square(sq.Color, sq.Piece);
+            }
+
+            StringBuilder sb = new();
+            FormatPieces(sb, board);
+            sb.Append(sideToMove == Color.White ? " w" : " b");
+            FormatCastling(sb, castling);
+            sb.Append(enPassant == Index.NONE ? " -" : $" {Index.ToString(enPassant)}");
+            sb.Append($" {halfMoveClock} {fullMoveCounter}");
+            fenString = sb.ToString();
+        }
+
         public ICollection<(Color Color, Piece Piece, int Square)> Squares => squares;
         public Color SideToMove => sideToMove;
         public CastlingRights Castling => castling;
@@ -71,6 +99,40 @@ namespace Pedantic.Chess
         public override string ToString()
         {
             return fenString;
+        }
+
+        public static Fen Flip(Fen fen)
+        {
+            List<(Color Color, Piece Piece, int Square)> squares = new();
+
+            foreach (var sq in fen.squares)
+            {
+                squares.Add((sq.Color.Other(), sq.Piece, Index.Flip(sq.Square)));
+            }
+            Color sideToMove = fen.SideToMove.Other();
+            CastlingRights castling = CastlingRights.None;
+            if ((fen.Castling & CastlingRights.WhiteKingSide) == CastlingRights.WhiteKingSide)
+            {
+                castling |= CastlingRights.BlackKingSide;
+            }
+            if ((fen.Castling & CastlingRights.WhiteQueenSide) == CastlingRights.WhiteQueenSide)
+            {
+                castling |= CastlingRights.BlackQueenSide;
+            }
+            if ((fen.Castling & CastlingRights.BlackKingSide) == CastlingRights.BlackKingSide)
+            {
+                castling |= CastlingRights.WhiteKingSide;
+            }
+            if ((fen.Castling & CastlingRights.BlackQueenSide) == CastlingRights.BlackQueenSide)
+            {
+                castling |= CastlingRights.WhiteQueenSide;
+            }
+            
+            int enPassant = fen.EnPassant == Index.NONE ? Index.NONE : Index.Flip(fen.EnPassant);
+            int halfMoveClock = fen.HalfMoveClock;
+            int fullMoveCounter = fen.FullMoveCounter;
+
+            return new Fen(squares, sideToMove, castling, enPassant, halfMoveClock, fullMoveCounter);
         }
 
         private void Parse()

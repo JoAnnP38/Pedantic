@@ -226,6 +226,19 @@ namespace Pedantic.Chess
             }
         }
 
+        public ulong PrevLastMove
+        {
+            get
+            {
+                if (gameStack.Count > 1)
+                {
+                    return gameStack.AsSpan()[^2].Move;
+                }
+
+                return Move.NullMove;
+            }
+        }
+
         public void Clear()
         {
             Array.Fill(board, Square.Empty);
@@ -495,7 +508,7 @@ namespace Pedantic.Chess
             hash = ZobristHash.HashCastling(hash, castling);
             Color opponent = OpponentColor;
 
-            Move.Unpack(move, out Piece piece, out int from, out int to, out MoveType type, out Piece capture, out Piece promote, out int _);
+            Move.Unpack(move, out Color _, out Piece piece, out int from, out int to, out MoveType type, out Piece capture, out Piece promote, out int _);
 
             switch (type)
             {
@@ -609,7 +622,7 @@ namespace Pedantic.Chess
             Color opponent = sideToMove.Other();
 
             BoardState state = gameStack.Peek();
-            Move.Unpack(state.Move, out Piece piece, out int from, out int to, out MoveType type, out Piece capture, out Piece promote, out int _);
+            Move.Unpack(state.Move, out Color _, out Piece piece, out int from, out int to, out MoveType type, out Piece capture, out Piece promote, out int _);
 
             switch (type)
             {
@@ -908,7 +921,7 @@ namespace Pedantic.Chess
 
         #region Move Generation
 
-        public IEnumerable<ulong> Moves(int ply, KillerMoves killerMoves, History history, MoveList moveList)
+        public IEnumerable<ulong> Moves(int ply, KillerMoves killerMoves, History history, SearchStack searchStack, MoveList moveList)
         {
             ulong[] bc = badCaptures[ply];
             int bcIndex = 0;
@@ -918,9 +931,18 @@ namespace Pedantic.Chess
                 yield return bestMove;
             }
 
+            /*
+            ulong lastMoveRefute = GenerateLastMoveCapture(searchStack[ply - 1].Move);
+            if (lastMoveRefute != 0)
+            {
+                yield return lastMoveRefute;
+            }
+            */
+
             moveList.Clear();
             GenerateCaptures(moveList);
             moveList.Remove(bestMove);
+            //moveList.Remove(lastMoveRefute);
 
             for (int n = 0; n < moveList.Count; n++)
             {
@@ -961,9 +983,10 @@ namespace Pedantic.Chess
                 yield return km.Killer1;
             }
 
-            if (moveList.Remove(history.CounterMove))
+            ulong counter = history.CounterMove(searchStack[ply - 1].Move);
+            if (moveList.Remove(counter))
             {
-                yield return history.CounterMove;
+                yield return counter;
             }
 
             // now return the bad captures deferred from earlier
@@ -1049,7 +1072,7 @@ namespace Pedantic.Chess
             }
         }
 
-        public IEnumerable<ulong> EvasionMoves2(int ply, KillerMoves killerMoves, History history, MoveList moveList)
+        public IEnumerable<ulong> EvasionMoves2(int ply, KillerMoves killerMoves, History history, SearchStack searchStack, MoveList moveList)
         {
             if (TtTran.TryGetBestMove(hash, out ulong bestMove))
             {
@@ -1072,9 +1095,10 @@ namespace Pedantic.Chess
                 yield return km.Killer1;
             }
 
-            if (moveList.Remove(history.CounterMove))
+            ulong counter = searchStack[ply - 1].Move;
+            if (moveList.Remove(counter))
             {
-                yield return history.CounterMove;
+                yield return counter;
             }
 
             for (int n = 0; n < moveList.Count; n++)
@@ -1112,13 +1136,13 @@ namespace Pedantic.Chess
 
                 if (bb1 != 0 && to == PawnPlus[(int)sideToMove, from] && normalRank != Coord.MAX_VALUE)
                 {
-                    validMove = Move.Pack(Piece.Pawn, from, to, MoveType.PawnMove);
+                    validMove = Move.Pack(sideToMove, Piece.Pawn, from, to, MoveType.PawnMove);
                     return true;
                 }
 
                 if (bb2 != 0 && to == pawnDouble[(int)sideToMove, from])
                 {
-                    validMove = Move.Pack(Piece.Pawn, from, to, MoveType.DblPawnMove);
+                    validMove = Move.Pack(sideToMove, Piece.Pawn, from, to, MoveType.DblPawnMove);
                     return true;
                 }
             }
@@ -1127,7 +1151,7 @@ namespace Pedantic.Chess
                 ulong bb = BitOps.AndNot(GetPieceMoves(piece, from), All) & (1ul << to);
                 if (bb != 0)
                 {
-                    validMove = Move.Pack(piece, from, to);
+                    validMove = Move.Pack(sideToMove, piece, from, to);
                     return true;
                 }
             }
@@ -1255,12 +1279,12 @@ namespace Pedantic.Chess
                     {
                         int to = BitOps.TzCount(bb3);
                         Piece capture = board[to].Piece;
-                        list.Add(piece, from, to, MoveType.Capture, capture, score: CaptureScore(capture, piece));
+                        list.Add(sideToMove, piece, from, to, MoveType.Capture, capture, score: CaptureScore(capture, piece));
                     }
                     for (ulong bb3 = BitOps.AndNot(bb2, All); bb3 != 0; bb3 = BitOps.ResetLsb(bb3))
                     {
                         int to = BitOps.TzCount(bb3);
-                        list.Add(piece, from, to, score: hist[piece, to]);
+                        list.Add(sideToMove, piece, from, to, score: hist[sideToMove, piece, to]);
                     }
                 }
             }
@@ -1274,12 +1298,12 @@ namespace Pedantic.Chess
             {
                 int to = BitOps.TzCount(bb3);
                 Piece capture = board[to].Piece;
-                list.Add(piece, from, to, MoveType.Capture, capture, score: CaptureScore(capture, piece));
+                list.Add(sideToMove, piece, from, to, MoveType.Capture, capture, score: CaptureScore(capture, piece));
             }
             for (ulong bb3 = BitOps.AndNot(bb2, All); bb3 != 0; bb3 = BitOps.ResetLsb(bb3))
             {
                 int to = BitOps.TzCount(bb3);
-                list.Add(piece, from, to, score: hist[piece, to]);
+                list.Add(sideToMove, piece, from, to, score: hist[sideToMove, piece, to]);
             }
         }
 
@@ -1318,7 +1342,7 @@ namespace Pedantic.Chess
                     {
                         int to = BitOps.TzCount(bb3);
                         Util.Assert(Index.IsValid(to), $"'to' out of range: {to}");
-                        list.Add(piece, from, to, score: history[piece, to]);
+                        list.Add(sideToMove, piece, from, to, score: history[sideToMove, piece, to]);
                     }
                 }
             }
@@ -1341,7 +1365,7 @@ namespace Pedantic.Chess
                     {
                         int to = BitOps.TzCount(bb3);
                         Piece capture = board[to].Piece;
-                        list.Add(piece, from, to, MoveType.Capture, capture, score: CaptureScore(capture, piece));
+                        list.Add(sideToMove, piece, from, to, MoveType.Capture, capture, score: CaptureScore(capture, piece));
                     }
                 }
             }
@@ -1361,9 +1385,9 @@ namespace Pedantic.Chess
                 int from = BitOps.TzCount(bb);
                 int to = PawnPlus[(int)sideToMove, from];
                 int score = Constants.PROMOTE_SCORE + Piece.Knight.Value();
-                list.Add(Piece.Pawn, from, to, MoveType.Promote, promote: Piece.Knight, score: score);
+                list.Add(sideToMove, Piece.Pawn, from, to, MoveType.Promote, promote: Piece.Knight, score: score);
                 score = Constants.PROMOTE_SCORE + Piece.Queen.Value();
-                list.Add(Piece.Pawn, from, to, MoveType.Promote, promote: Piece.Queen, score: score);
+                list.Add(sideToMove, Piece.Pawn, from, to, MoveType.Promote, promote: Piece.Queen, score: score);
             }
         }
 
@@ -1381,7 +1405,7 @@ namespace Pedantic.Chess
                         int from = BitOps.TzCount(bb);
                         int captIndex = enPassantValidated + EpOffset(sideToMove);
                         Piece capture = board[captIndex].Piece;
-                        list.Add(Piece.Pawn, from, enPassantValidated, MoveType.EnPassant, capture: capture,
+                        list.Add(sideToMove, Piece.Pawn, from, enPassantValidated, MoveType.EnPassant, capture: capture,
                             score: CaptureScore(capture, Piece.Pawn));
                     }
                 }
@@ -1394,24 +1418,24 @@ namespace Pedantic.Chess
             {
                 if ((castling & CastlingRights.WhiteKingSide) != 0 && (WHITE_KS_CLEAR_MASK & All) == 0)
                 {
-                    list.Add(Piece.King, Index.E1, Index.G1, MoveType.Castle, score: hist[Piece.King, Index.G1]);
+                    list.Add(sideToMove, Piece.King, Index.E1, Index.G1, MoveType.Castle, score: hist[sideToMove, Piece.King, Index.G1]);
                 }
 
                 if ((castling & CastlingRights.WhiteQueenSide) != 0 && (WHITE_QS_CLEAR_MASK & All) == 0)
                 {
-                    list.Add(Piece.King, Index.E1, Index.C1, MoveType.Castle, score: hist[Piece.King, Index.C1]);
+                    list.Add(sideToMove, Piece.King, Index.E1, Index.C1, MoveType.Castle, score: hist[sideToMove, Piece.King, Index.C1]);
                 }
             }
             else
             {
                 if ((castling & CastlingRights.BlackKingSide) != 0 && (BLACK_KS_CLEAR_MASK & All) == 0)
                 {
-                    list.Add(Piece.King, Index.E8, Index.G8, MoveType.Castle, score: hist[Piece.King, Index.G8]);
+                    list.Add(sideToMove, Piece.King, Index.E8, Index.G8, MoveType.Castle, score: hist[sideToMove, Piece.King, Index.G8]);
                 }
 
                 if ((castling & CastlingRights.BlackQueenSide) != 0 && (BLACK_QS_CLEAR_MASK & All) == 0)
                 {
-                    list.Add(Piece.King, Index.E8, Index.C8, MoveType.Castle, score: hist[Piece.King, Index.C8]);
+                    list.Add(sideToMove, Piece.King, Index.E8, Index.C8, MoveType.Castle, score: hist[sideToMove, Piece.King, Index.C8]);
                 }
             }
         }
@@ -1436,14 +1460,14 @@ namespace Pedantic.Chess
             {
                 from = BitOps.TzCount(bb1);
                 to = PawnPlus[(int)sideToMove, from];
-                AddPawnMove(list, from, to, score: hist[Piece.Pawn, to]);
+                AddPawnMove(list, sideToMove, from, to, score: hist[sideToMove, Piece.Pawn, to]);
             }
 
             for (; bb2 != 0; bb2 = BitOps.ResetLsb(bb2))
             {
                 from = BitOps.TzCount(bb2);
                 to = pawnDouble[(int)sideToMove, from];
-                list.Add(Piece.Pawn, from, to, MoveType.DblPawnMove, score: hist[Piece.Pawn, to]);
+                list.Add(sideToMove, Piece.Pawn, from, to, MoveType.DblPawnMove, score: hist[sideToMove, Piece.Pawn, to]);
             }
         }
 
@@ -1470,28 +1494,28 @@ namespace Pedantic.Chess
             {
                 from = BitOps.TzCount(bb1);
                 to = PawnLeft(sideToMove, from);
-                AddPawnMove(list, from, to, MoveType.Capture, (Piece)board[to], score: CaptureScore(from, to));
+                AddPawnMove(list, sideToMove, from, to, MoveType.Capture, (Piece)board[to], score: CaptureScore(from, to));
             }
 
             for (; bb2 != 0; bb2 = BitOps.ResetLsb(bb2))
             {
                 from = BitOps.TzCount(bb2);
                 to = PawnRight(sideToMove, from);
-                AddPawnMove(list, from, to, MoveType.Capture, (Piece)board[to], score: CaptureScore(from, to));
+                AddPawnMove(list, sideToMove, from, to, MoveType.Capture, (Piece)board[to], score: CaptureScore(from, to));
             }
 
             for (; bb3 != 0; bb3 = BitOps.ResetLsb(bb3))
             {
                 from = BitOps.TzCount(bb3);
                 to = PawnPlus[(int)sideToMove, from];
-                AddPawnMove(list, from, to, MoveType.PawnMove, score: hist[Piece.Pawn, to]);
+                AddPawnMove(list, sideToMove, from, to, MoveType.PawnMove, score: hist[sideToMove, Piece.Pawn, to]);
             }
 
             for (; bb4 != 0; bb4 = BitOps.ResetLsb(bb4))
             {
                 from = BitOps.TzCount(bb4);
                 to = pawnDouble[(int)sideToMove, from];
-                list.Add(Piece.Pawn, from, to, MoveType.DblPawnMove, score: hist[Piece.Pawn, to]);
+                list.Add(sideToMove, Piece.Pawn, from, to, MoveType.DblPawnMove, score: hist[sideToMove, Piece.Pawn, to]);
             }
         }
 
@@ -1520,14 +1544,14 @@ namespace Pedantic.Chess
             {
                 from = BitOps.TzCount(bb1);
                 to = PawnLeft(sideToMove, from);
-                AddPawnMove(list, from, to, MoveType.Capture, (Piece)board[to], score: CaptureScore(from, to));
+                AddPawnMove(list, sideToMove, from, to, MoveType.Capture, (Piece)board[to], score: CaptureScore(from, to));
             }
 
             for (; bb2 != 0; bb2 = BitOps.ResetLsb(bb2))
             {
                 from = BitOps.TzCount(bb2);
                 to = PawnRight(sideToMove, from);
-                AddPawnMove(list, from, to, MoveType.Capture, (Piece)board[to], score: CaptureScore(from, to));
+                AddPawnMove(list, sideToMove, from, to, MoveType.Capture, (Piece)board[to], score: CaptureScore(from, to));
             }
 
             for (; bb3 != 0; bb3 = BitOps.ResetLsb(bb3))
@@ -1536,7 +1560,7 @@ namespace Pedantic.Chess
                 to = PawnPlus[(int)sideToMove, from];
                 if (BitOps.GetBit(validSquares, to) != 0)
                 {
-                    AddPawnMove(list, from, to, score: hist[Piece.Pawn, to]);
+                    AddPawnMove(list, sideToMove, from, to, score: hist[sideToMove, Piece.Pawn, to]);
                 }
             }
 
@@ -1546,7 +1570,7 @@ namespace Pedantic.Chess
                 to = pawnDouble[(int)sideToMove, from];
                 if (BitOps.GetBit(validSquares, to) != 0)
                 {
-                    list.Add(Piece.Pawn, from, to, MoveType.DblPawnMove, score: hist[Piece.Pawn, to]);
+                    list.Add(sideToMove, Piece.Pawn, from, to, MoveType.DblPawnMove, score: hist[sideToMove, Piece.Pawn, to]);
                 }
             }
         }
@@ -1572,14 +1596,14 @@ namespace Pedantic.Chess
             {
                 from = BitOps.TzCount(bb1);
                 to = PawnLeft(sideToMove, from);
-                AddSearchedPawnMove(list, from, to, MoveType.Capture, (Piece)board[to], score: CaptureScore(from, to));
+                AddSearchedPawnMove(list, sideToMove, from, to, MoveType.Capture, (Piece)board[to], score: CaptureScore(from, to));
             }
 
             for (; bb2 != 0; bb2 = BitOps.ResetLsb(bb2))
             {
                 from = BitOps.TzCount(bb2);
                 to = PawnRight(sideToMove, from);
-                AddSearchedPawnMove(list, from, to, MoveType.Capture, (Piece)board[to], score: CaptureScore(from, to));
+                AddSearchedPawnMove(list, sideToMove, from, to, MoveType.Capture, (Piece)board[to], score: CaptureScore(from, to));
             }
         }
 
@@ -1726,13 +1750,13 @@ namespace Pedantic.Chess
             {
                 int to = BitOps.TzCount(bb);
                 Piece capture = board[to].Piece;
-                moveList.Add(Piece.King, kingIndex, to, MoveType.Capture, capture, score: CaptureScore(capture, Piece.King));
+                moveList.Add(sideToMove, Piece.King, kingIndex, to, MoveType.Capture, capture, score: CaptureScore(capture, Piece.King));
             }
 
             for (ulong bb = kingMoves[kingIndex] & ~all; bb != 0; bb = BitOps.ResetLsb(bb))
             {
                 int to = BitOps.TzCount(bb);
-                moveList.Add(Piece.King, kingIndex, to, score: hist[Piece.King, to]);
+                moveList.Add(sideToMove, Piece.King, kingIndex, to, score: hist[sideToMove, Piece.King, to]);
             }
 
             if (checkCount > 1)
@@ -1756,7 +1780,7 @@ namespace Pedantic.Chess
                     {
                         int to = BitOps.TzCount(bb3);
                         Piece capture = board[to].Piece;
-                        ulong move = Move.Pack(piece, from, to, MoveType.Capture, capture, score: CaptureScore(capture, piece));
+                        ulong move = Move.Pack(sideToMove, piece, from, to, MoveType.Capture, capture, score: CaptureScore(capture, piece));
 
                         if (piece.Value() > capture.Value() && PreMoveStaticExchangeEval(SideToMove, move) < 0)
                         {
@@ -1771,7 +1795,7 @@ namespace Pedantic.Chess
                         int to = BitOps.TzCount(bb3);
                         if (BitOps.GetBit(attacksFrom, to) != 0)
                         {
-                            moveList.Add(piece, from, to, score: hist[piece, to]);
+                            moveList.Add(sideToMove, piece, from, to, score: hist[sideToMove, piece, to]);
                         }
                     }
                 }
@@ -1796,13 +1820,92 @@ namespace Pedantic.Chess
                     {
                         int to = BitOps.TzCount(bb3);
                         Piece capture = board[to].Piece;
-                        moveList.Add(piece, from, to, MoveType.Capture, capture, score: CaptureScore(capture, piece));
+                        moveList.Add(sideToMove, piece, from, to, MoveType.Capture, capture, score: CaptureScore(capture, piece));
                     }
                 }
             }
         }
 
-        public static void AddPawnMove(MoveList list, int from, int to, MoveType flags = MoveType.PawnMove, Piece capture = Piece.None, int score = 0)
+        public ulong GenerateLastMoveCapture(ulong lastMove)
+        {
+            ulong bb1, bb2;
+            int from, to, rank;
+            Piece promote;
+            MoveType moveType;
+
+            if (lastMove == Move.NullMove)
+            {
+                return 0;
+            }
+
+            Piece capture = Move.GetPiece(lastMove);
+            Color opponent = sideToMove.Other();
+            ulong captureMask = (1ul << Move.GetTo(lastMove)) & Units(opponent);
+            ulong pawns = Pieces(sideToMove, Piece.Pawn);
+            
+            if (sideToMove == Color.White)
+            {
+                bb1 = pawns & (BitOps.AndNot(captureMask, MaskFile(7)) >> 7);
+                bb2 = pawns & (BitOps.AndNot(captureMask, MaskFile(0)) >> 9);
+            }
+            else
+            {
+                bb1 = pawns & (BitOps.AndNot(captureMask, MaskFile(7)) << 9);
+                bb2 = pawns & (BitOps.AndNot(captureMask, MaskFile(0)) << 7);
+            }
+
+            if (bb1 != 0)
+            {
+                from = BitOps.TzCount(bb1);
+                to = PawnLeft(sideToMove, from);
+                rank = Index.GetRank(Index.NormalizedIndex[(int)sideToMove][to]);
+                moveType = MoveType.Capture;
+                promote = Piece.None;
+                if (rank == Coord.MAX_VALUE)
+                {
+                    moveType = MoveType.PromoteCapture;
+                    promote = Piece.Queen;
+                }
+                
+                return Move.Pack(sideToMove, Piece.Pawn, from, to, moveType, capture, promote);
+            }
+
+            if (bb2 != 0)
+            {
+                from = BitOps.TzCount(bb2);
+                to = PawnRight(sideToMove, from);
+                rank = Index.GetRank(Index.NormalizedIndex[(int)sideToMove][to]);
+                moveType = MoveType.Capture;
+                promote = Piece.None;
+                if (rank == Coord.MAX_VALUE)
+                {
+                    moveType = MoveType.PromoteCapture;
+                    promote = Piece.Queen;
+                }
+                
+                return Move.Pack(sideToMove, Piece.Pawn, from, to, moveType, capture, promote);
+            }
+
+            for (Piece piece = Piece.Knight; piece <= Piece.Queen && piece.Value() <= capture.Value(); ++piece)
+            {
+                for (ulong bb = Pieces(sideToMove, piece); bb != 0; bb = BitOps.ResetLsb(bb))
+                {
+                    from = BitOps.TzCount(bb);
+                    ulong toMask = GetPieceMoves(piece, from) & captureMask;
+
+                    if (toMask != 0)
+                    {
+                        to = BitOps.TzCount(toMask);
+                        return Move.Pack(sideToMove, piece, from, to, MoveType.Capture, capture);
+                    }
+                    
+                }
+            }
+
+            return 0;
+        }
+
+        public static void AddPawnMove(MoveList list, Color stm, int from, int to, MoveType flags = MoveType.PawnMove, Piece capture = Piece.None, int score = 0)
         {
             int rank = Index.GetRank(to);
             if (rank == Coord.MIN_VALUE || rank == Coord.MAX_VALUE)
@@ -1811,16 +1914,16 @@ namespace Pedantic.Chess
                 for (Piece p = Piece.Knight; p <= Piece.Queen; ++p)
                 {
                     score = flags == MoveType.PromoteCapture ? CaptureScore(capture, Piece.Pawn, p) : Constants.PROMOTE_SCORE + p.Value();
-                    list.Add(Piece.Pawn, from, to, flags, capture, p, score);
+                    list.Add(stm, Piece.Pawn, from, to, flags, capture, p, score);
                 }
             }
             else
             {
-                list.Add(Piece.Pawn, from, to, flags, capture: capture, score: score);
+                list.Add(stm, Piece.Pawn, from, to, flags, capture: capture, score: score);
             }
         }
 
-        public static void AddSearchedPawnMove(MoveList list, int from, int to, MoveType flags = MoveType.PawnMove, Piece capture = Piece.None, int score = 0)
+        public static void AddSearchedPawnMove(MoveList list, Color stm, int from, int to, MoveType flags = MoveType.PawnMove, Piece capture = Piece.None, int score = 0)
         {
             int rank = Index.GetRank(to);
             if (rank == Coord.MIN_VALUE || rank == Coord.MAX_VALUE)
@@ -1829,16 +1932,16 @@ namespace Pedantic.Chess
                 score = flags == MoveType.PromoteCapture ?
                     CaptureScore(capture, Piece.Pawn, Piece.Knight) :
                     Constants.PROMOTE_SCORE + Piece.Knight.Value();
-                list.Add(Piece.Pawn, from, to, flags, capture, Piece.Knight, score);
+                list.Add(stm, Piece.Pawn, from, to, flags, capture, Piece.Knight, score);
 
                 score = flags == MoveType.PromoteCapture ? 
                     CaptureScore(capture, Piece.Pawn, Piece.Queen) : 
                     Constants.PROMOTE_SCORE + Piece.Queen.Value();
-                list.Add(Piece.Pawn, from, to, flags, capture, Piece.Queen, score);
+                list.Add(stm, Piece.Pawn, from, to, flags, capture, Piece.Queen, score);
             }
             else
             {
-                list.Add(Piece.Pawn, from, to, flags, capture: capture, score: score);
+                list.Add(stm, Piece.Pawn, from, to, flags, capture: capture, score: score);
             }
         }
 
@@ -2033,7 +2136,8 @@ namespace Pedantic.Chess
 
         private class FakeHistory : IHistory
         {
-            public int this[Piece piece, int to] => 0;
+            public short this[Color stm, Piece piece, int to] => 0;
+            public short this[ulong move] => 0;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

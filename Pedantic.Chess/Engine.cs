@@ -28,6 +28,7 @@ namespace Pedantic.Chess
         private static PolyglotEntry[]? bookEntries;
         private static Color color = Color.White;
         private static BasicSearch? search = null;
+        private static readonly SearchStack searchStack = new();
 
         public static bool Debug { get; set; } = false;
         public static bool IsRunning { get; private set; } = true;
@@ -402,12 +403,12 @@ namespace Pedantic.Chess
             }
 
             ++MovesOutOfBook;
-            search = new(Board, time, maxDepth, maxNodes, UciOptions.RandomSearch)
+            searchStack.Initialize(Board);
+            search = new(searchStack, Board, time, maxDepth, maxNodes, UciOptions.RandomSearch)
             {
                 CanPonder = UciOptions.Ponder,
                 CollectStats = UciOptions.CollectStatistics
             };
-            Debugger.Break();
             searchThread = new Thread(() => search.Search())
             {
                 Priority = ThreadPriority.Highest

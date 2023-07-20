@@ -2,6 +2,7 @@
 {
     public interface IHistory
     {
-        public int this[Piece piece, int to] { get; }
+        public short this[Color stm, Piece piece, int to] { get; }
+        public short this[ulong move] { get; }
     }
 }

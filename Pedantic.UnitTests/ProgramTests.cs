@@ -5,6 +5,7 @@ using Pedantic.Chess;
 using Pedantic.Utilities;
 using Index = Pedantic.Chess.Index;
 using Pedantic.Tablebase;
+using static Pedantic.PgnPositionReader;
 
 namespace Pedantic.UnitTests
 {
@@ -277,13 +278,13 @@ namespace Pedantic.UnitTests
             Program.ParseCommand("go depth 14");
             Engine.Wait();
 
-            ulong move = Move.Pack(Piece.Rook, Index.B6, Index.B1);
+            ulong move = Move.Pack(Color.White, Piece.Rook, Index.B6, Index.B1);
             //Engine.Infinite = true;
             Engine.Board.MakeMove(move);
             Program.ParseCommand("go depth 14");
             Engine.Wait();
             
-            move = Move.Pack(Piece.Pawn, Index.A2, Index.A1, MoveType.Promote, promote: Piece.Queen);
+            move = Move.Pack(Color.Black, Piece.Pawn, Index.A2, Index.A1, MoveType.Promote, promote: Piece.Queen);
             Engine.Board.MakeMove(move);
             Program.ParseCommand("go depth 14");
 
@@ -366,6 +367,38 @@ namespace Pedantic.UnitTests
         }
 
         [TestMethod]
+        [DataRow("5rk1/1ppb3p/p1pb4/6q1/3P1p1r/2P1R2P/PP1BQ1P1/5RKN w - - 0 1")]
+        [DataRow("1k3r2/1p4p1/p3p1Np/3b1p2/1bq5/2P2P2/PP1Q1PBP/1K1R2R1 w - - 5 27")]
+        [DataRow("r1b1kb1r/3q1ppp/pBp1pn2/8/Np3P2/5B2/PPP3PP/R2Q1RK1 w kq - 0 1 ")]
+        [DataRow("8/k1b5/P4p2/1Pp2p1p/K1P2P1P/8/3B4/8 w - - 0 1")]
+        public void BlackMovesVsWhiteTest(string fen)
+        {
+            Fen fenString = new(fen);
+
+            Console.WriteLine(fenString.ToString());
+            Program.ParseCommand($"position fen {fenString}");
+            Program.ParseCommand("go depth 14");
+            Engine.Wait();
+
+            Evaluation eval = new(false, false, false);
+            short evalScore1 = eval.Compute(Engine.Board);
+
+            Engine.ClearHashTable();
+
+            Fen fenFlip = Fen.Flip(fenString);
+            Console.WriteLine(fenFlip.ToString());
+            Program.ParseCommand($"position fen {fenFlip}");
+            Program.ParseCommand("go depth 14");
+            Engine.Wait();
+
+            short evalScore2 = eval.Compute(Engine.Board);
+
+            Assert.AreEqual(evalScore1, evalScore2);
+
+            Engine.ClearHashTable();
+        }
+
+        [TestMethod]
         public void TimeNotUsedTest()
         {
             Engine.MovesOutOfBook = 11;
@@ -413,7 +446,7 @@ namespace Pedantic.UnitTests
             //Engine.Infinite = true;
             Program.ParseCommand("position startpos moves g1f3 d7d5 d2d4 e7e6 c2c4 g8f6 b1c3 c7c6 e2e3 b8d7 f1d3 d5c4 d3c4 b7b5 c4d3 a7a6 a2a4 b5b4 c3e4 c6c5 e4f6 d7f6 e1g1 c5d4 e3d4 f8d6 f3e5 c8b7 c1f4 e8g8 a1c1 d6c7 c1c4 a6a5 d1d2 d8d5 f2f3 c7e5 f4e5 f6d7 f1e1 b7a6 c4c2 d7e5 d3e4 d5a2 d4e5 a8d8 d2e3 a2a4 b2b3 a4a3 c2c1 a3b2 c1c6 a6b5 c6c5 d8b8 e1b1 b2a3 h2h3 f8d8 c5c7 a3a2 b1c1 b5e8");
             Console.WriteLine(Engine.Board.ToFenString());
-            Program.ParseCommand("go depth 15");
+            Program.ParseCommand("go depth 14");
             Engine.Wait();
         }
 
@@ -467,7 +500,7 @@ namespace Pedantic.UnitTests
             Program.ParseCommand("position fen 8/8/6p1/8/3k1P1p/5KpP/8/8 w - - 4 49");
             Console.WriteLine(Engine.Board.ToString());
             Console.WriteLine(Engine.Board.ToFenString());
-            Program.ParseCommand("go depth 23");
+            Program.ParseCommand("go depth 22");
             Engine.Wait();
 
         }
@@ -522,5 +555,18 @@ namespace Pedantic.UnitTests
             Program.ParseCommand("go depth 16");
             Engine.Wait();
         }
+
+        [TestMethod]
+        public void SearchIndexOutOfBoundsTest()
+        {
+            //Syzygy.Initialize("e:/tablebases/syzygy/3-4-5");
+            Program.ParseCommand("setoption name Hash value 128");
+            Program.ParseCommand("position fen r2r2k1/pb3ppp/1p1bp3/7q/3n2nP/PP1B2P1/1B1N1P2/RQ2NRK1 b - - 0 1");
+            Console.WriteLine(Engine.Board.ToString());
+            Console.WriteLine(Engine.Board.ToFenString());
+            Program.ParseCommand("go depth 18");
+            Engine.Wait();        
+        }
+
     }
 }

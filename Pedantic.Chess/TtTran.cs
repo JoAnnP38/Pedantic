@@ -34,25 +34,25 @@ namespace Pedantic.Chess
             public TtTranItem(ulong hash, short score, sbyte depth, TtFlag ttFlag, ulong bestMove)
             {
                 data = Move.ClearScore(bestMove) |
-                       (((ulong)score & 0x0fffful) << 25) |
-                       (((ulong)ttFlag & 0x03ul) << 41) |
-                       (((byte)depth & 0x0fful) << 43) |
-                       (((ulong)generation & 0x01ffful) << 51); 
+                       (((ulong)score & 0x0fffful) << 27) |
+                       (((ulong)ttFlag & 0x03ul) << 43) |
+                       (((byte)depth & 0x0fful) << 45) |
+                       (((ulong)generation & 0x07fful) << 53); 
 
                 this.hash = hash ^ data;
             }
 
             public readonly ulong Hash => hash ^ data;
             public readonly ulong Data => data;
-            public readonly ulong BestMove => (ulong)BitOps.BitFieldExtract(data, 0, 25);
-            public readonly short Score => (short)BitOps.BitFieldExtract(data, 25, 16);
-            public readonly TtFlag Flag => (TtFlag)BitOps.BitFieldExtract(data, 41, 2);
-            public readonly sbyte Depth => (sbyte)BitOps.BitFieldExtract(data, 43, 8);
+            public readonly ulong BestMove => (ulong)BitOps.BitFieldExtract(data, 0, 27);
+            public readonly short Score => (short)BitOps.BitFieldExtract(data, 27, 16);
+            public readonly TtFlag Flag => (TtFlag)BitOps.BitFieldExtract(data, 43, 2);
+            public readonly sbyte Depth => (sbyte)BitOps.BitFieldExtract(data, 45, 8);
             public ushort Age
             {
 #pragma warning disable IDE0251 // Make member 'readonly'
-                get => (ushort) BitOps.BitFieldExtract(data, 51, 13);
-                set => BitOps.BitFieldSet(data, value, 51, 13);
+                get => (ushort) BitOps.BitFieldExtract(data, 53, 11);
+                set => BitOps.BitFieldSet(data, value, 53, 11);
 #pragma warning restore IDE0251 // Make member 'readonly'
             }
 
@@ -68,10 +68,10 @@ namespace Pedantic.Chess
                 TtFlag flag, ulong bestMove)
             {
                 item.data = Move.ClearScore(bestMove) |
-                            (((ulong)score & 0x0fffful) << 25) |
-                            (((ulong)flag & 0x03ul) << 41) |
-                            (((byte)depth & 0x0fful) << 43) |
-                            (((ulong)generation & 0x01ffful) << 51);
+                            (((ulong)score & 0x0fffful) << 27) |
+                            (((ulong)flag & 0x03ul) << 43) |
+                            (((byte)depth & 0x0fful) << 45) |
+                            (((ulong)generation & 0x07fful) << 53);
                 item.hash = hash ^ item.data;
             }
         }
@@ -94,7 +94,9 @@ namespace Pedantic.Chess
 
         public static void IncrementVersion() 
         { 
-            if (generation + 4 < 0x2000)
+            // this will allow the generation to advance for 512 moves before 
+            // it will stop
+            if (generation + 4 < 0x0800)
             {
                 generation += 4;
             }
@@ -246,6 +248,7 @@ namespace Pedantic.Chess
                 return index ^ 1;
             }
 
+            // TODO: Check to see if Age - Depth is a better criteria (SPRT)
             return (item0.Age + item0.Depth) > (item1.Age + item1.Depth) ? index ^ 1 : index;
         }
 

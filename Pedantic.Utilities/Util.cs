@@ -13,7 +13,7 @@
 //     Methods used to ensure correctness of the application in real-time.
 // </summary>
 // ***********************************************************************
-//#undef DEBUG
+#undef DEBUG
 using System.Diagnostics;
 
 namespace Pedantic.Utilities
