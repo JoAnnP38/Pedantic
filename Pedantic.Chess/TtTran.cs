@@ -191,11 +191,12 @@ namespace Pedantic.Chess
             return bestMove != 0;
         }
 
-        public static bool TryGetScore(ulong hash, int depth, int ply, int alpha, int beta, out int score,
-            out ulong move)
+        public static bool TryGetScore(ulong hash, int depth, int ply, int alpha, int beta, 
+            out bool avoidNmp, out int score, out ulong move)
         {
             score = 0;
             move = 0;
+            avoidNmp = false;
 
             if (GetLoadIndex(hash, out int index))
             {
@@ -204,6 +205,14 @@ namespace Pedantic.Chess
 
                 if (item.Depth < depth)
                 {
+                    // even if the TT entry is not good enough to return a score,
+                    // it may be good enough to determine if NMP should be run
+                    if (item.Depth > 0 && item.Flag == TtFlag.UpperBound && 
+                        depth - BasicSearch.NMP[depth] - 1 <= item.Depth &&
+                        item.Score < beta)
+                    {
+                        avoidNmp = true;
+                    }
                     return false;
                 }
 

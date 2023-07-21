@@ -33,8 +33,8 @@ namespace Pedantic.Chess
         internal const int STATIC_NULL_MOVE_MAX_DEPTH = 6;
         internal const int STATIC_NULL_MOVE_MARGIN = 75; 
         internal const int NMP_MIN_DEPTH = 3;
-        internal const int NMP_BASE_REDUCTION = 2;
-        internal const int NMP_INC_DIVISOR = 4; 
+        internal const int NMP_BASE_REDUCTION = 3;
+        internal const int NMP_INC_DIVISOR = 5; 
         internal const int RAZOR_MAX_DEPTH = 3;
         internal const int IID_MIN_DEPTH = 5;
         internal const int LMP_MAX_HISTORY = 32;
@@ -357,7 +357,7 @@ namespace Pedantic.Chess
                 return alpha;
             }
 
-            if (TtTran.TryGetScore(board.Hash, depth, ply, alpha, beta, out int score, out ulong bestMove))
+            if (TtTran.TryGetScore(board.Hash, depth, ply, alpha, beta, out bool avoidNmp, out int score, out ulong bestMove))
             { 
                 return score;
             }
@@ -394,7 +394,7 @@ namespace Pedantic.Chess
                 }
 
                 // null move pruning
-                if (canNull && depth >= NMP_MIN_DEPTH && eval >= beta && board.PieceCount(board.SideToMove) > 1)
+                if (!avoidNmp && canNull && depth >= NMP_MIN_DEPTH && eval >= beta && board.PieceCount(board.SideToMove) > 1)
                 {
                     int R = NMP[depth];
                     //int R = NmpReduction(depth);
@@ -619,7 +619,7 @@ namespace Pedantic.Chess
                 return Contempt;
             }
 
-            if (TtTran.TryGetScore(board.Hash, -qsPly, ply, alpha, beta, out int score, move: out ulong _))
+            if (TtTran.TryGetScore(board.Hash, -qsPly, ply, alpha, beta, out bool _, out int score, move: out ulong _))
             { 
                 return score;
             }
@@ -1054,9 +1054,9 @@ namespace Pedantic.Chess
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static int NmpReduction(int depth)
+        public static int NmpReduction(int depth)
         {
-            return NMP_BASE_REDUCTION + Math.Max(depth - 3, 0) / NMP_INC_DIVISOR + 1;
+            return depth < 3 ? 0 : NMP_BASE_REDUCTION + Math.Max(depth - 3, 0) / NMP_INC_DIVISOR;
         }
 
         private readonly Board board;
@@ -1545,9 +1545,9 @@ namespace Pedantic.Chess
         internal static readonly sbyte[] NMP =
         {
             #region nmp data
-            0, 0, 0, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 7, 7, 7, 7, 8, 8, 8, 8, 9, 9, 9, 9, 10, 
-            10, 10, 10, 11, 11, 11, 11, 12, 12, 12, 12, 13, 13, 13, 13, 14, 14, 14, 14, 15, 15, 15, 15, 16, 16, 16, 16, 
-            17, 17, 17, 17, 18
+            0, 0, 0, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 8, 8, 8, 8, 
+            8, 9, 9, 9, 9, 9, 10, 10, 10, 10, 10, 11, 11, 11, 11, 11, 12, 12, 12, 12, 12, 13, 13, 13, 13, 13, 
+            14, 14, 14, 14, 14, 15
             #endregion nmp data
         };
 
