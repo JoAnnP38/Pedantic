@@ -19,24 +19,24 @@
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <DebugType>full</DebugType>
+    <DebugType>portable</DebugType>
     <DefineConstants>$(DefineConstants);USE_TB</DefineConstants>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <DebugType>full</DebugType>
+    <DebugType>portable</DebugType>
     <DefineConstants>$(DefineConstants);USE_TB</DefineConstants>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <Optimize>True</Optimize>
-    <DebugType>full</DebugType>
+    <DebugType>embedded</DebugType>
     <DefineConstants>$(DefineConstants);USE_TB</DefineConstants>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Optimize>True</Optimize>
-    <DebugType>full</DebugType>
+    <DebugType>embedded</DebugType>
     <DefineConstants>$(DefineConstants);USE_TB</DefineConstants>
   </PropertyGroup>
 

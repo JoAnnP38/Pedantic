@@ -33,9 +33,11 @@ namespace Pedantic
         public const string APP_NAME_VER = APP_NAME + " " + APP_VERSION;
         public const string AUTHOR = "JoAnn D. Peeler";
         public const string PROGRAM_URL = "https://github.com/JoAnnP38/Pedantic";
-        public const double CONVERGENCE_TOLERANCE = 0.00000005;
-        public const int MAX_CONVERGENCE_FAILURE = 5;
-        public const int MINI_BATCH_COUNT = 30;
+        public const double MINI_CONVERGENCE_TOLERANCE = 0.00000005;
+        public const double FULL_CONVERGENCE_TOLERANCE = 0.0000001;
+        public const int MAX_CONVERGENCE_FAILURE = 2;
+        public const int MINI_BATCH_COUNT = 40;
+        public const int MINI_BATCH_REDUCE = 10;
         public const int MINI_BATCH_MIN_SIZE = 10000;
 
         private enum PerftRunType
@@ -100,6 +102,14 @@ namespace Pedantic
                 name: "--save",
                 description: "If specified the sample will be saved in file.",
                 getDefaultValue: () => false);
+            var fullOption = new Option<int>(
+                name: "--full",
+                description: "Specify the number of full batch optimization iterations to complete optimization.",
+                getDefaultValue: () => 0);
+            var resetOption = new Option<bool>(
+                name: "--reset",
+                description: "Reset most starting weights to zero before learning begins.",
+                getDefaultValue: () => false);
             var immortalOption = new Option<string?>(
                 name: "--immortal",
                 description: "Designate a new immortal set of weights.",
@@ -147,7 +157,9 @@ namespace Pedantic
                 sampleOption,
                 iterOption,
                 preserveOption,
-                saveOption
+                saveOption,
+                fullOption,
+                resetOption
             };
 
             var weightsCommand = new Command("weights", "Manipulate the weight database.")
@@ -168,7 +180,7 @@ namespace Pedantic
             uciCommand.SetHandler(RunUci, commandFileOption, errorFileOption, randomSearchOption, statsOption, magicOption);
             perftCommand.SetHandler(RunPerft, typeOption, depthOption, fenOption, magicOption);
             labelCommand.SetHandler(RunLabel, pgnFileOption, dataFileOption, maxPositionsOption);
-            learnCommand.SetHandler(RunLearn, dataFileOption, sampleOption, iterOption, preserveOption, saveOption);
+            learnCommand.SetHandler(RunLearn, dataFileOption, sampleOption, iterOption, preserveOption, saveOption, fullOption, resetOption);
             weightsCommand.SetHandler(RunWeights, immortalOption, displayOption);
             rootCommand.SetHandler(async () => await RunUci(null, null, false, false, false));
 
@@ -696,7 +708,7 @@ namespace Pedantic
             }
         }
 
-        private static void RunLearn(string? dataFile, int sampleSize, int maxPass = 200, bool preserve = false, bool save = false)
+        private static void RunLearn(string? dataFile, int sampleSize, int maxPass = 200, bool preserve = false, bool save = false, int full = 0, bool reset = false)
         {
             if (string.IsNullOrEmpty(dataFile))
             {
@@ -719,40 +731,80 @@ namespace Pedantic
             TextReader savedIn = Console.In;
             StreamReader streamReader = new(dataFile, Encoding.UTF8);
             Console.SetIn(streamReader);
+            full = Math.Max(Math.Min(full, 10), 0);
 
             try
             {
+                bool[] fixedWeights = new bool[ChessWeights.MAX_WEIGHTS];
+                /*
+                fixedWeights[ChessWeights.GAME_PHASE_MATERIAL] = true;
+                fixedWeights[ChessWeights.GAME_PHASE_MATERIAL + ChessWeights.ENDGAME_WEIGHTS] = true;
+                
+                for (int pc = 0; pc < Constants.MAX_PIECES; pc++)
+                {
+                    fixedWeights[ChessWeights.PIECE_VALUES + pc] = true;
+                    fixedWeights[ChessWeights.PIECE_VALUES + ChessWeights.ENDGAME_WEIGHTS + pc] = true;
+                }
+                */
+
                 List<Memory<PosRecord>> slices;
+                PosRecord[] records;
                 if (sampleSize == -1)
                 {
                     sampleSize = GetDataSize(streamReader);
                     Console.WriteLine($@"Sample size: {sampleSize}, Start time: {DateTime.Now:G}");
-                    slices = CreateSlices(LoadDataFile(streamReader, sampleSize));
+                    records = LoadDataFile(streamReader, sampleSize);
+                    slices = CreateSlices(records);
                 }
                 else
                 {
                     Console.WriteLine($@"Sample size: {sampleSize}, Start time: {DateTime.Now:G}");
                     string savedSampleName = $"Pedantic_Sample_{sampleSize}_{DateTime.Now:yyyyMMdd_HHmmss}.csv";
                     using StreamWriter? streamWriter = save ? new(savedSampleName, false, Encoding.UTF8) : null;
-                    slices = CreateSlices(LoadSample(ref sampleSize, streamReader, streamWriter));
+                    records = LoadSample(ref sampleSize, streamReader, streamWriter);
+                    slices = CreateSlices(records);
                     streamWriter?.Close();
                 }
+
                 ChessDb rep = new();
-                ChessWeights? startingWeight = rep.Weights
+                ChessWeights? startingWeight = null;
+                
+                if (!reset)
+                {
+                    startingWeight = rep.Weights
                     .Where(w => w.IsActive && w.IsImmortal)
                     .MinBy(w => w.CreatedOn);
+                }
+                else
+                {
+                    short[] resetWts = new short[ChessWeights.MAX_WEIGHTS];
+                    resetWts[ChessWeights.GAME_PHASE_MATERIAL] = 6900;
+                    resetWts[ChessWeights.GAME_PHASE_MATERIAL + ChessWeights.ENDGAME_WEIGHTS] = 1000;
+                    resetWts[ChessWeights.PIECE_VALUES + (int)Piece.Pawn] = 100;
+                    resetWts[ChessWeights.PIECE_VALUES + (int)Piece.Knight] = 300;
+                    resetWts[ChessWeights.PIECE_VALUES + (int)Piece.Bishop] = 325;
+                    resetWts[ChessWeights.PIECE_VALUES + (int)Piece.Rook] = 500;
+                    resetWts[ChessWeights.PIECE_VALUES + (int)Piece.Queen] = 900;
+                    resetWts[ChessWeights.PIECE_VALUES + ChessWeights.ENDGAME_WEIGHTS + (int)Piece.Pawn] = 100;
+                    resetWts[ChessWeights.PIECE_VALUES + ChessWeights.ENDGAME_WEIGHTS + (int)Piece.Knight] = 300;
+                    resetWts[ChessWeights.PIECE_VALUES + ChessWeights.ENDGAME_WEIGHTS + (int)Piece.Bishop] = 325;
+                    resetWts[ChessWeights.PIECE_VALUES + ChessWeights.ENDGAME_WEIGHTS + (int)Piece.Rook] = 500;
+                    resetWts[ChessWeights.PIECE_VALUES + ChessWeights.ENDGAME_WEIGHTS + (int)Piece.Queen] = 900;
+                    startingWeight = new ChessWeights(resetWts);
+                }
+
                 if (startingWeight != null)
                 {
                     short[] weights = ArrayEx.Clone(startingWeight.Weights);
-                    double k = SolveKParallel(weights, slices);
-                    Console.WriteLine($@"K = {k:F2}");
+                    double k = reset ? 0.00385 : SolveKParallel(weights, slices);
+                    Console.WriteLine($@"K = {k:F4}");
                     startingWeight.Fitness = (float)EvalErrorParallel(weights, slices, k);
                     ChessWeights guess = new(startingWeight)
                     {
                         IsImmortal = false
                     };
-                    ChessWeights optimized = LocalOptimize(guess, weights, slices, k, maxPass,
-                        preserve);
+                    ChessWeights optimized = LocalOptimize(guess, weights, fixedWeights, slices, k, maxPass,
+                        preserve, full, records);
                     optimized.Description = "Optimized";
                     optimized.UpdatedOn = DateTime.UtcNow;
                     rep.Weights.Insert(optimized);
@@ -773,13 +825,14 @@ namespace Pedantic
             }
         }
 
-        private static ChessWeights LocalOptimize(ChessWeights guess, short[] weights, List<Memory<PosRecord>> slices, double k, int maxPass, bool preserve = false)
+        private static ChessWeights LocalOptimize(ChessWeights guess, short[] weights, bool[] fixedWeights, 
+            List<Memory<PosRecord>> slices, double k, int maxPass, bool preserve, int full, PosRecord[] records)
         {
             DateTime startTime = DateTime.Now;
             bool improved = true;
             double curError = guess.Fitness;
             double refError = MiniEvalErrorParallel(weights, slices, k, 0);
-            double bestError = curError + CONVERGENCE_TOLERANCE * 2;
+            double bestError = curError + MINI_CONVERGENCE_TOLERANCE * 2;
             short[] bestWeights = ArrayEx.Clone(weights);
             int wtLen = weights.Length;
             int passes = 0;
@@ -788,6 +841,8 @@ namespace Pedantic
             int sampleSize = slices.Sum(s => s.Length);
             var rep = new ChessDb();
 
+            miniBatchCount = MINI_BATCH_COUNT;
+            Console.WriteLine($"\nMini-batch optimization to begin ({miniBatchCount} batch count)\n");
             Console.WriteLine($"Pass stats {passes,3} - \u03B5: {curError:F6}");
             int[] index = new int[wtLen];
             for (int n = 0; n < wtLen; n++)
@@ -821,8 +876,13 @@ namespace Pedantic
                     double completed = ((double)n / wtLen) * 100.0;
                     TimeSpan deltaT = DateTime.Now - wtOptTime;
                     effRate = optAttempts > 0 ? (float)optHits / optAttempts : 0;
-                    Console.Write($"Pass stats {completed,3:F0}%- \u03B5: {refError * errAdjust:F6}, \u0394t: {deltaT:mm\\:ss}, eff: {effRate:F3} ({optHits}/{optAttempts})...\r");
+                    Console.Write($"Pass stats {completed,3:F0}%- \u03B5: {refError * errAdjust:F6}, \u0394t: {deltaT:h\\:mm\\:ss}, eff: {effRate:F3} ({optHits}/{optAttempts})...\r");
                     int i = index[n];
+                    if (fixedWeights[i])
+                    {
+                        continue;
+                    }
+
                     short increment = EvalFeatures.GetOptimizationIncrement(i);
                     if (increment > 0)
                     {
@@ -863,7 +923,7 @@ namespace Pedantic
                 TimeSpan passT = now - wtOptTime;
                 curError = EvalErrorParallel(weights, slices, k);
 
-                if (curError + CONVERGENCE_TOLERANCE < bestError)
+                if (curError + MINI_CONVERGENCE_TOLERANCE < bestError)
                 {
                     failureCount = 0;
                     ++passes;
@@ -871,6 +931,18 @@ namespace Pedantic
                 else
                 {
                     ++failureCount;
+
+                    if (failureCount >= 2 && (miniBatchCount / 2) > 2)
+                    {
+                        failureCount = 0;
+                        miniBatchCount /= 2;
+                        Random.Shared.Shuffle(records);
+                        failureCount = 0;
+                        Console.WriteLine(
+                            $"Pass stats {passes, 3} - \u03B5: {curError:F6}, Δt: {passT:h\\:mm\\:ss}, NO IMPROVEMENT                              ");
+                        Console.WriteLine($"\nIncreasing mini-batch size ({miniBatchCount} batch count)\n");
+                        continue;
+                    }
                 }
 
                 if (failureCount == 0)
@@ -889,18 +961,134 @@ namespace Pedantic
                         rep.Weights.Insert(intermediate);
                         rep.Save();
                         Console.WriteLine(
-                            $"Pass stats {passes,3} - \u03B5: {curError:F6}, Δt: {passT:mm\\:ss}, eff: {effRate:F3}, OID: {intermediate.Id}");
+                            $"Pass stats {passes,3} - \u03B5: {curError:F6}, Δt: {passT:h\\:mm\\:ss}, eff: {effRate:F3}, OID: {intermediate.Id}");
                     }
                     else
                     {
                         Console.WriteLine(
-                            $"Pass stats {passes,3} - \u03B5: {curError:F6}, Δt: {passT:mm\\:ss}, eff: {effRate:F3}                        ");
+                            $"Pass stats {passes,3} - \u03B5: {curError:F6}, Δt: {passT:h\\:mm\\:ss}, eff: {effRate:F3}                        ");
                     }
                 }
                 else
                 {
                     Console.WriteLine(
-                        $"Pass stats {passes, 3} - \u03B5: {curError:F6}, Δt: {passT:mm\\:ss}, NO IMPROVEMENT                              ");
+                        $"Pass stats {passes, 3} - \u03B5: {curError:F6}, Δt: {passT:h\\:mm\\:ss}, NO IMPROVEMENT                              ");
+                }
+            }
+
+            if (full > 0 && passes < maxPass)
+            {
+                // if we still have passes left to perform, do the rest of the using non-mini-batch optimization
+                improved = true;
+                failureCount = 0;
+                maxPass = passes + full;   // only do "full" more iterations with full batch
+
+                Console.WriteLine($"\nMini-batch optimization complete. Full batch optimization to begin.\n");
+                while (improved && failureCount == 0 && passes < maxPass)
+                {
+                    improved = false;
+                    if (curError < bestError)
+                    {
+                        bestError = curError;
+                        Array.Copy(weights, bestWeights, bestWeights.Length);
+                    }
+                    else
+                    {
+                        Array.Copy(bestWeights, weights, weights.Length);
+                    }
+
+                    DateTime wtOptTime = DateTime.Now;
+                    Random.Shared.Shuffle(index);
+                    int optAttempts = 0;
+                    int optHits = 0;
+                    float effRate = 0;
+                    refError = EvalErrorParallel(weights, slices, k);
+                    
+                    for (int n = 0; n < wtLen; n++)
+                    {
+                        double completed = ((double)n / wtLen) * 100.0;
+                        TimeSpan deltaT = DateTime.Now - wtOptTime;
+                        effRate = optAttempts > 0 ? (float)optHits / optAttempts : 0;
+                        Console.Write($"Pass stats {completed,3:F0}%- \u03B5: {refError:F7}, \u0394t: {deltaT:h\\:mm\\:ss}, eff: {effRate:F3} ({optHits}/{optAttempts})... \r");
+                        int i = index[n];
+                        if (fixedWeights[i])
+                        {
+                            continue;
+                        }
+
+                        short increment = EvalFeatures.GetOptimizationIncrement(i);
+                        if (increment > 0)
+                        {
+                            if (Random.Shared.NextBoolean())
+                            {
+                                increment = (short)-increment;
+                            }
+                            short oldValue = weights[i];
+                            weights[i] += increment;
+                            double error = EvalErrorParallel(weights, slices, k);
+                            optAttempts++;
+                            bool goodIncrement = error < refError;
+                            improved = improved || goodIncrement;
+
+                            if (!goodIncrement)
+                            {
+                                weights[i] -= (short)(increment * 2);
+                                error = EvalErrorParallel(weights, slices, k);
+                                optAttempts++;
+                                goodIncrement = error < refError;
+                                improved = improved || goodIncrement;
+                            }
+
+                            if (goodIncrement)
+                            {
+                                optHits++;
+                                refError = error;
+                            }
+                            else
+                            {
+                                weights[i] = oldValue;
+                            }
+                        }
+                    }
+
+                    DateTime now = DateTime.Now;
+                    TimeSpan passT = now - wtOptTime;
+                    curError = refError;
+
+                    if (curError + FULL_CONVERGENCE_TOLERANCE < bestError)
+                    {
+                        ++passes;
+                    }
+                    else
+                    {
+                        failureCount = 1;
+                    }
+
+                    if (failureCount == 0)
+                    {
+                        if (preserve && passes % 10 == 0 && improved)
+                        {
+                            ChessWeights intermediate = new (weights)
+                            {
+                                Description = $"Pass {passes}",
+                                Fitness = (float)curError,
+                                K = (float)k,
+                                TotalPasses = (short)passes,
+                                SampleSize = sampleSize,
+                                UpdatedOn = DateTime.UtcNow
+                            };
+
+                            rep.Weights.Insert(intermediate);
+                            rep.Save();
+                            Console.WriteLine(
+                                $"Pass stats {passes,3} - \u03B5: {curError:F7}, Δt: {passT:h\\:mm\\:ss}, eff: {effRate:F3}, OID: {intermediate.Id}");
+                        }
+                        else
+                        {
+                            Console.WriteLine(
+                                $"Pass stats {passes,3} - \u03B5: {curError:F7}, Δt: {passT:h\\:mm\\:ss}, eff: {effRate:F3}                        ");
+                        }
+                    }
                 }
             }
 
@@ -1086,7 +1274,7 @@ namespace Pedantic
         {
             get
             {
-                int processorCount = Math.Max(Environment.ProcessorCount - 2, 1);
+                int processorCount = Math.Max(Environment.ProcessorCount - 4, 1);
                 return processorCount;
             }
         }
@@ -1114,7 +1302,7 @@ namespace Pedantic
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static double Sigmoid(double k, int qScore)
         {
-            return 1.0 / (1.0 + Math.Pow(10.0, -k * qScore / 400.0));
+            return 1.0 / (1.0 + Math.Exp(-k * qScore));
         }
 
         private static double ErrorSquared(ReadOnlySpan<short> opWeights, ReadOnlySpan<short> egWeights, PosRecord rec, double k)
@@ -1161,7 +1349,7 @@ namespace Pedantic
         public static double MiniEvalErrorParallel(short[] weights, List<Memory<PosRecord>> slices, double k, int batch)
         {
             int totalLength = slices.Sum(s => s.Length);
-            int miniBatchSize = totalLength / MINI_BATCH_COUNT;
+            int miniBatchSize = totalLength / miniBatchCount;
             if (miniBatchSize < MINI_BATCH_MIN_SIZE)
             {
                 miniBatchSize = totalLength;
@@ -1190,13 +1378,13 @@ namespace Pedantic
             return result;
         }
 
-        private static double SolveKParallel(short[] weights, List<Memory<PosRecord>> slices, double a = 0.0, double b = 2.0)
+        private static double SolveKParallel(short[] weights, List<Memory<PosRecord>> slices, double a = 0.0, double b = 10.0)
         {
-            const double gr = 1.61803399; // golden ratio?
+            const double gr = 1.6180339887; // golden ratio?
             double k1 = b - (b - a) / gr;
             double k2 = a + (b - a) / gr;
 
-            while (Math.Abs(b - a) > 0.01)
+            while (Math.Abs(b - a) > 0.000025)
             {
                 double f1 = EvalErrorParallel(weights, slices, k1);
                 double f2 = EvalErrorParallel(weights, slices, k2);
@@ -1445,5 +1633,7 @@ namespace Pedantic
         }
 
         private static int indentLevel = 0;
+        private static int miniBatchCount = MINI_BATCH_COUNT;
+        private static Encoding savedOsEncoding;
     }
 }

@@ -41,11 +41,11 @@ Pedantic is my first step in advancing my knowledge of computer chess to the poi
 * Static Exchange Evaluation (SEE)
 #### Machine Learning
 * Transform PGN Files into Labeled Training Data
-* Random Sample Selection from Training Data (currently 30 million positions and growing)
+* Random Sample Selection from Training Data (currently 50 million positions and growing)
 * Evaluation weight tuning using Texel inspired local search
 * Logistic Regression using Local Search 
 * Performance Enhanced Regression (16X faster than simple Texel)
-* Tuned weights automatically written to weights database
+* Tuned weights automatically written to weights file (pedantic.json)
 ### Command-Line Description
     Description:
         The pedantic chess engine.
@@ -108,9 +108,12 @@ Pedantic is my first step in advancing my knowledge of computer chess to the poi
 
     Options:
         --data <data>       The name of the labeled data file.
-        --sample <sample>   Specify the number of samples to use from the training data.
-        --iter <iter>       Specify the maximum number of iterations before a solution is declared. [default: 200]
+        --sample <sample>   Specify the number of samples to use from the training data. [default: -1]
+        --iter <iter>       Specify the maximum number of iterations before a solution is declared. [default: 100]
         --preserve          When specified intermediate versions of the solution will be saved.
+        --save              If specified the sample will be saved in file. [default: false]
+        --full <full>       Specifies the number of full batch optimization iterations. [default: 0]
+        --reset             Reset all starting weights (except for piece material and phase) to zero. [default: false]
         -?, -h, --help      Show help and usage information
 
     Description:

@@ -25,7 +25,7 @@ namespace Pedantic.Chess
 {
     public sealed class BasicSearch
     {
-        public const int CHECK_TC_NODES_MASK = 127;
+        public const int CHECK_TC_NODES_MASK = 1023;
         internal const int WAIT_TIME = 50;
         internal const int ONE_MOVE_MAX_DEPTH = 5;
         internal const int LMR_DEPTH_LIMIT = 63;
@@ -527,7 +527,7 @@ namespace Pedantic.Chess
                     R--;
                 }
 
-                if (expandedNodes == 1)
+                if (expandedNodes == 1 /* TODO: || isPv*/)
                 {
                     score = -Search(-beta, -alpha, depth + X - 1, ply + 1, true, isPv);
                 }
@@ -535,11 +535,13 @@ namespace Pedantic.Chess
                 {
                     score = -Search(-alpha - 1, -alpha, Math.Max(depth + X - R - 1, 0), ply + 1, isPv: false);
 
+                    // TODO: if (score > alpha && score < beta && R > 0)
                     if (score > alpha && R > 0)
                     {
                         score = -Search(-alpha - 1, -alpha, depth + X - 1, ply + 1, isPv: false);
                     }
 
+                    // TODO: if (score > alpha && score < beta)
                     if (score > alpha)
                     {
                         score = -Search(-beta, -alpha, depth + X - 1, ply + 1);
