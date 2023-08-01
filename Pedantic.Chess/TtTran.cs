@@ -257,7 +257,6 @@ namespace Pedantic.Chess
                 return index ^ 1;
             }
 
-            // TODO: Check to see if Age - Depth is a better criteria (SPRT)
             return (item0.Age + item0.Depth) > (item1.Age + item1.Depth) ? index ^ 1 : index;
         }
 

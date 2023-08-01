@@ -37,7 +37,6 @@ namespace Pedantic
         public const double FULL_CONVERGENCE_TOLERANCE = 0.0000001;
         public const int MAX_CONVERGENCE_FAILURE = 2;
         public const int MINI_BATCH_COUNT = 40;
-        public const int MINI_BATCH_REDUCE = 10;
         public const int MINI_BATCH_MIN_SIZE = 10000;
 
         private enum PerftRunType
@@ -272,6 +271,7 @@ namespace Pedantic
                     Console.WriteLine(@"option name SyzygyProbeRoot type check default true");
                     Console.WriteLine($@"option name SyzygyProbeDepth type spin default 2 min 0 max {Constants.MAX_PLY - 1}");
 #endif
+                    Console.WriteLine($@"option name UCI_AnalyseMode type check default false");
                     Console.WriteLine($@"option name UCI_EngineAbout type string default {APP_NAME_VER} by {AUTHOR}, see {PROGRAM_URL}");
                     Console.WriteLine(@"uciok");
                     break;
@@ -422,6 +422,12 @@ namespace Pedantic
 
                         break;
 
+                    case "UCI_AnalyseMode":
+                        if (tokens[3] == "value" && bool.TryParse(tokens[4], out bool analyseMode))
+                        {
+                            UciOptions.AnalyseMode = analyseMode;
+                        }
+                        break;
 #if USE_TB
                     case "SyzygyPath":
                         string valueToken = " value ";
@@ -739,7 +745,6 @@ namespace Pedantic
                 /*
                 fixedWeights[ChessWeights.GAME_PHASE_MATERIAL] = true;
                 fixedWeights[ChessWeights.GAME_PHASE_MATERIAL + ChessWeights.ENDGAME_WEIGHTS] = true;
-                
                 for (int pc = 0; pc < Constants.MAX_PIECES; pc++)
                 {
                     fixedWeights[ChessWeights.PIECE_VALUES + pc] = true;

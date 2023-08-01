@@ -16,6 +16,7 @@ namespace Pedantic.Chess
         public const string DEFAULT_SYZYGY_PATH = "";
         public const bool DEFAULT_SYZYGY_PROBE_ROOT = true;
         public const int DEFAULT_SYZYGY_PROBE_DEPTH = 2;
+        public const bool DEFAULT_ANALYSE_MODE = false;
 
         static UciOptions()
         {
@@ -28,6 +29,7 @@ namespace Pedantic.Chess
             SyzygyPath = DEFAULT_SYZYGY_PATH;
             SyzygyProbeRoot = DEFAULT_SYZYGY_PROBE_ROOT;
             SyzygyProbeDepth = DEFAULT_SYZYGY_PROBE_DEPTH;
+            AnalyseMode = DEFAULT_ANALYSE_MODE;
         }
 
         public static bool CollectStatistics { get; set; }
@@ -39,5 +41,6 @@ namespace Pedantic.Chess
         public static string SyzygyPath { get; set; }
         public static bool SyzygyProbeRoot { get; set; }
         public static int SyzygyProbeDepth { get; set; }
+        public static bool AnalyseMode { get; set; }
     }
 }

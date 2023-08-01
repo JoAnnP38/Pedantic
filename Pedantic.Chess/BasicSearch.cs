@@ -114,12 +114,12 @@ namespace Pedantic.Chess
                         if (result <= alpha)
                         {
                             ++iAlpha;
-                            ReportSearchResults(result, TtFlag.UpperBound);
+                            ReportSearchResults(result, TtFlag.UpperBound, ref bestMove, ref ponderMove);
                         }
                         else if (result >= beta)
                         {
                             ++iBeta;
-                            ReportSearchResults(result, TtFlag.LowerBound);
+                            ReportSearchResults(result, TtFlag.LowerBound, ref bestMove, ref ponderMove);
                         }
                     } while (result <= alpha || result >= beta);
 
@@ -207,7 +207,7 @@ namespace Pedantic.Chess
             depth = Math.Min(depth, Constants.MAX_PLY - 1);
             InitPv(0);
             
-            int X = CalcExtension(inCheck);
+            int X = CalcExtension(0);
 
             NodesVisited++;
 
@@ -370,7 +370,7 @@ namespace Pedantic.Chess
             }
 #endif
 
-            int X = CalcExtension(inCheck);
+            int X = CalcExtension(ply);
             if (depth + X <= 0)
             {
                 return Quiesce(alpha, beta, ply, inCheck);
@@ -782,11 +782,24 @@ namespace Pedantic.Chess
         }
 #endif
 
-        private void ReportSearchResults(int score, TtFlag flag)
+        private void ReportSearchResults(int score, TtFlag flag, ref ulong bestMove, ref ulong? ponderMove)
         {
             if (Depth > Constants.WINDOW_MIN_DEPTH)
             {
                 Uci.Info(Depth, seldepth, score, NodesVisited, time.Elapsed, PV, TtTran.Usage, tbHits, flag);
+            }
+            if (flag == TtFlag.LowerBound)
+            {
+                // when an iteration fails high, go ahead a preserve the best move. if time runs out
+                // we can still use this as our best move.
+                PV = GetPv();
+                //PV = ExtractPv(PV);
+                if (PV.Length > 0)
+                {
+                    bestMove = PV[0];
+                }
+
+                ponderMove = PV.Length > 1 ? PV[1] : null;
             }
         }
 
@@ -943,26 +956,25 @@ namespace Pedantic.Chess
         public bool MustAbort => NodesVisited >= maxNodes ||
                          ((NodesVisited & CHECK_TC_NODES_MASK) == 0 && time.CheckTimeBudget());
 
-        public int CalcExtension(bool inCheck)
+        public int CalcExtension(int ply)
         {
             int extension = 0;
-            if (inCheck)
+            if (searchStack[ply - 1].IsCheckingMove)
             {
                 extension++;
             }
 
-            if (Move.IsPromote(board.LastMove))
+            ulong lastMove = searchStack[ply - 1].Move;
+            if (Move.IsPromote(lastMove))
             {
                 extension++;
             }
 
             if (extension > 0)
             {
-                ulong move = board.LastMove;
-                Piece capture = Move.GetCapture(move);
-                int pieceValue = capture != Piece.None ? capture.Value() : 0;
-                if (Move.Compare(move, Move.NullMove) == 0 ||
-                    board.PostMoveStaticExchangeEval(board.SideToMove.Other(), move) - pieceValue <= 0)
+                int pieceValue = Move.GetCapture(lastMove).Value();
+                if (Move.Compare(lastMove, Move.NullMove) == 0 ||
+                    board.PostMoveStaticExchangeEval(board.SideToMove.Other(), lastMove) - pieceValue <= 0)
                 {
                     return 1;
                 }
@@ -1085,7 +1097,7 @@ namespace Pedantic.Chess
 
         internal static readonly ulong[] EmptyPv = Array.Empty<ulong>();
         // Optimized 6/21/2023: 33, 100, 200, 300, INF
-        internal static readonly int[] Window = { 33, 100, 200, 300, Constants.INFINITE_WINDOW };
+        internal static readonly int[] Window = { 33, 100, 300, Constants.INFINITE_WINDOW };
         internal static readonly int[] FutilityMargin = { 0, 200, 400, 600, 800 };
 
         internal static readonly sbyte[][] LMR =

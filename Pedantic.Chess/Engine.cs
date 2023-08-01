@@ -402,6 +402,11 @@ namespace Pedantic.Chess
                 }
             }
 
+            if (UciOptions.AnalyseMode)
+            {
+                ClearHashTable();
+            }
+
             ++MovesOutOfBook;
             searchStack.Initialize(Board);
             search = new(searchStack, Board, time, maxDepth, maxNodes, UciOptions.RandomSearch)
