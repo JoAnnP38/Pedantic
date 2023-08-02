@@ -520,14 +520,14 @@ namespace Pedantic.Chess
                 if (!interesting)
                 {
                     R = LMR[Math.Min(depth, LMR_DEPTH_LIMIT)][Math.Min(expandedNodes - 1, LMR_MOVE_LIMIT)];
+
+                    if (X > 0 && R > 0)
+                    {
+                        R--;
+                    }
                 }
 
-                if (X > 0 && R > 0)
-                {
-                    R--;
-                }
-
-                if (expandedNodes == 1 /* TODO: || isPv*/)
+                if (expandedNodes == 1)
                 {
                     score = -Search(-beta, -alpha, depth + X - 1, ply + 1, true, isPv);
                 }
@@ -535,13 +535,11 @@ namespace Pedantic.Chess
                 {
                     score = -Search(-alpha - 1, -alpha, Math.Max(depth + X - R - 1, 0), ply + 1, isPv: false);
 
-                    // TODO: if (score > alpha && score < beta && R > 0)
                     if (score > alpha && R > 0)
                     {
                         score = -Search(-alpha - 1, -alpha, depth + X - 1, ply + 1, isPv: false);
                     }
 
-                    // TODO: if (score > alpha && score < beta)
                     if (score > alpha)
                     {
                         score = -Search(-beta, -alpha, depth + X - 1, ply + 1);
@@ -1096,7 +1094,7 @@ namespace Pedantic.Chess
         private readonly int[] pvLength = new int[Constants.MAX_PLY];
 
         internal static readonly ulong[] EmptyPv = Array.Empty<ulong>();
-        // Optimized 6/21/2023: 33, 100, 200, 300, INF
+        // Optimized 8/1/2023: 33, 100, 300, INF
         internal static readonly int[] Window = { 33, 100, 300, Constants.INFINITE_WINDOW };
         internal static readonly int[] FutilityMargin = { 0, 200, 400, 600, 800 };
 

@@ -931,18 +931,9 @@ namespace Pedantic.Chess
                 yield return bestMove;
             }
 
-            /*
-            ulong lastMoveRefute = GenerateLastMoveCapture(searchStack[ply - 1].Move);
-            if (lastMoveRefute != 0)
-            {
-                yield return lastMoveRefute;
-            }
-            */
-
             moveList.Clear();
             GenerateCaptures(moveList);
             moveList.Remove(bestMove);
-            //moveList.Remove(lastMoveRefute);
 
             for (int n = 0; n < moveList.Count; n++)
             {
