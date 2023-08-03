@@ -145,7 +145,7 @@ namespace Pedantic.Chess
                     ReportSearchResults(ref bestMove, ref ponderMove);
 
                     location = "8";
-                    if (Depth == ONE_MOVE_MAX_DEPTH && oneLegalMove)
+                    if (Depth == ONE_MOVE_MAX_DEPTH && oneLegalMove && !UciOptions.AnalyseMode)
                     {
                         break;
                     }
