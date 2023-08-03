@@ -20,7 +20,7 @@ namespace Pedantic.UnitTests
             list.Add(Move.Pack(Color.White, Piece.Rook, Index.H1, Index.H3, MoveType.Capture, Piece.Pawn, score: Board.CaptureScore(Piece.Pawn, Piece.Rook)));
 
             ulong move = list.Sort(0);
-            Assert.AreEqual(30003, Move.GetScore(move));
+            Assert.AreEqual(166003, Move.GetScore(move));
             
             move = list.Sort(1);
             Assert.AreEqual(0, Move.GetScore(move));

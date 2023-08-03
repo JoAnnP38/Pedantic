@@ -21,11 +21,11 @@ namespace Pedantic.UnitTests
         {
             ulong move = Move.Pack(Color.White, Piece.Pawn, Index.E4, Index.D5, MoveType.Capture, Piece.Pawn, score: Board.CaptureScore(Piece.Pawn, Piece.Pawn));
             int moveScore = Move.GetScore(move);
-            Assert.AreEqual(30006, moveScore);
+            Assert.AreEqual(166006, moveScore);
 
             move = Move.AdjustScore(move, Constants.BAD_CAPTURE - Constants.CAPTURE_SCORE);
             moveScore = Move.GetScore(move);
-            Assert.AreEqual(25006, moveScore);
+            Assert.AreEqual(66006, moveScore);
         }
 
         [TestMethod]
