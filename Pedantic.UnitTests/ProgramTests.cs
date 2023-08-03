@@ -375,23 +375,30 @@ namespace Pedantic.UnitTests
         {
             Fen fenString = new(fen);
 
+            /*
             Console.WriteLine(fenString.ToString());
             Program.ParseCommand($"position fen {fenString}");
             Program.ParseCommand("go depth 14");
             Engine.Wait();
-
+            */
+            Board board = new(fen);
             Evaluation eval = new(false, false, false);
-            short evalScore1 = eval.Compute(Engine.Board);
+            eval.ShowIntermediateResults = true;
+            short evalScore1 = eval.Compute(board);
 
             Engine.ClearHashTable();
 
             Fen fenFlip = Fen.Flip(fenString);
+
+            /*
             Console.WriteLine(fenFlip.ToString());
             Program.ParseCommand($"position fen {fenFlip}");
             Program.ParseCommand("go depth 14");
             Engine.Wait();
+            */
 
-            short evalScore2 = eval.Compute(Engine.Board);
+            board = new(fenFlip.ToString());
+            short evalScore2 = eval.Compute(board);
 
             Assert.AreEqual(evalScore1, evalScore2);
 

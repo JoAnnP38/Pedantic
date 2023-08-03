@@ -393,8 +393,8 @@ namespace Pedantic.Chess
                 GamePhase gamePhase = GetGamePhase(opWeights[GAME_PHASE_BOUNDARY],
                     egWeights[GAME_PHASE_BOUNDARY], out int opWt, out int egWt);
 
-                short score = (short)((((opScore[0] - opScore[1]) * opWt) >> 7 /* / 128 */) +
-                                      (((egScore[0] - egScore[1]) * egWt) >> 7 /* / 128 */));
+                short score = (short)((((opScore[0] - opScore[1]) * opWt) / 128) +
+                                      (((egScore[0] - egScore[1]) * egWt) / 128));
 
                 return sideToMove == Color.White ? score : (short)-score;
             }

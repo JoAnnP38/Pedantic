@@ -39,10 +39,17 @@ namespace Pedantic.Chess
             this.useMopUp = useMopUp;
         }
 
+        public bool ShowIntermediateResults
+        {
+            get => showIntermediateResults;
+            set => showIntermediateResults = value;
+        }
+
         public short Compute(Board board, int alpha = -Constants.INFINITE_WINDOW, int beta = Constants.INFINITE_WINDOW)
         {
             if (TtEval.TryGetScore(board.Hash, out short score))
             {
+                Util.WriteLineIf(ShowIntermediateResults, $"Eval cache hit: {score}");
                 return score;
             }
 
@@ -110,12 +117,28 @@ namespace Pedantic.Chess
             opScore[0] += (short)(AdjustMaterial(board.OpeningMaterial[0], adjust[0]) + board.OpeningPieceSquare[0, kp]);
             egScore[0] += (short)(AdjustMaterial(board.EndGameMaterial[0], adjust[0]) + board.EndGamePieceSquare[0, kp]);
 
+            Util.WriteLineIf(ShowIntermediateResults, $"OpeningMaterial[0]: {board.OpeningMaterial[0]}");
+            Util.WriteLineIf(ShowIntermediateResults, $"EndGameMaterial[0]: {board.EndGameMaterial[0]}");
+            Util.WriteLineIf(ShowIntermediateResults, $"White KP: 0x{kp:x1}");
+            Util.WriteLineIf(ShowIntermediateResults, $"Initial opScore[0]: {opScore[0]}");
+            Util.WriteLineIf(ShowIntermediateResults, $"Initial egScore[0]: {egScore[0]}\n");
+
             kp = (int)Index.GetKingPlacement(kingIndex[1], kingIndex[0]);
             opScore[1] += (short)(AdjustMaterial(board.OpeningMaterial[1], adjust[1]) + board.OpeningPieceSquare[1, kp]);
             egScore[1] += (short)(AdjustMaterial(board.EndGameMaterial[1], adjust[1]) + board.EndGamePieceSquare[1, kp]);
 
-            int score = (((opScore[0] - opScore[1]) * opWt) >> 7) +
-                        (((egScore[0] - egScore[1]) * egWt) >> 7);
+            Util.WriteLineIf(ShowIntermediateResults, $"OpeningMaterial[1]: {board.OpeningMaterial[1]}");
+            Util.WriteLineIf(ShowIntermediateResults, $"EndGameMaterial[1]: {board.EndGameMaterial[1]}");
+            Util.WriteLineIf(ShowIntermediateResults, $"Black KP: 0x{kp:x1}");
+            Util.WriteLineIf(ShowIntermediateResults, $"Initial opScore[1]: {opScore[1]}");
+            Util.WriteLineIf(ShowIntermediateResults, $"Initial egScore[1]: {egScore[1]}\n");
+
+            int score = (((opScore[0] - opScore[1]) * opWt) / 128) +
+                        (((egScore[0] - egScore[1]) * egWt) / 128);
+
+            Util.WriteLineIf(ShowIntermediateResults, $"opWt: {opWt}");
+            Util.WriteLineIf(ShowIntermediateResults, $"egWt: {egWt}");
+            Util.WriteLineIf(ShowIntermediateResults, $"score: {score}\n");
 
             isLazy = true;
             int evalScore = board.SideToMove == Color.White ? score : -score;
@@ -150,8 +173,8 @@ namespace Pedantic.Chess
                     TtPawnEval.Add(board.PawnHash, opPawnScore, egPawnScore);
                 }
 
-                score = (short)((((opScore[0] - opScore[1]) * opWt) >> 7) +
-                                (((egScore[0] - egScore[1]) * egWt) >> 7));
+                score = (short)((((opScore[0] - opScore[1]) * opWt) / 128) +
+                                (((egScore[0] - egScore[1]) * egWt) / 128));
 
                 if (random)
                 {
@@ -162,11 +185,11 @@ namespace Pedantic.Chess
             (bool whiteCanWin, bool blackCanWin) = CanWin(board);
             if ((score > 0 && !whiteCanWin) || (score < 0 && !blackCanWin))
             {
-                score >>= 3;
+                score /= 8;
             }
             else if (board.HalfMoveClock > 84)
             {
-                score = (short)((score * Math.Min(100 - Math.Min(board.HalfMoveClock, 100), 16)) >> 4);
+                score = (short)((score * Math.Min(100 - Math.Min(board.HalfMoveClock, 100), 16)) / 16);
             }
 
             return (short)score;
@@ -645,6 +668,7 @@ namespace Pedantic.Chess
 
         public static short[] Weights => wt.Weights;
 
+        private bool showIntermediateResults = false;
         private readonly bool adjustMaterial;
         private readonly bool random;
         private int totalPawns;

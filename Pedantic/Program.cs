@@ -1639,6 +1639,5 @@ namespace Pedantic
 
         private static int indentLevel = 0;
         private static int miniBatchCount = MINI_BATCH_COUNT;
-        private static Encoding savedOsEncoding;
     }
 }
