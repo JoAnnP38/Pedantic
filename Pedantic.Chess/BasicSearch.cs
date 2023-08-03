@@ -849,7 +849,7 @@ namespace Pedantic.Chess
 
             if (Depth > 4)
             {
-                time.AdjustTime(oneLegalMove, bestMoveChanged, rootChanges);
+                time.AdjustTime(oneLegalMove && !UciOptions.AnalyseMode, bestMoveChanged, rootChanges);
             }
 
             if (IsCheckmate(Score, out int mateIn))
