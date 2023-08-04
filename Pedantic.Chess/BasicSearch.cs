@@ -790,14 +790,13 @@ namespace Pedantic.Chess
             {
                 // when an iteration fails high, go ahead a preserve the best move. if time runs out
                 // we can still use this as our best move.
-                PV = GetPv();
-                //PV = ExtractPv(PV);
-                if (PV.Length > 0)
+                ulong[] pv = GetPv();
+                if (pv.Length > 0)
                 {
-                    bestMove = PV[0];
+                    bestMove = pv[0];
                 }
 
-                ponderMove = PV.Length > 1 ? PV[1] : null;
+                ponderMove = pv.Length > 1 ? pv[1] : null;
             }
         }
 
