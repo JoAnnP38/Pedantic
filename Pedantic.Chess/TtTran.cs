@@ -148,6 +148,7 @@ namespace Pedantic.Chess
 
         public static void Resize(int sizeMb)
         {
+            sizeMb = Math.Max(Math.Min(sizeMb, 2048), 2);
             if (!BitOps.IsPow2(sizeMb))
             {
                 sizeMb = BitOps.GreatestPowerOfTwoLessThan(sizeMb);
