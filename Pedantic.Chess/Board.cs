@@ -39,8 +39,6 @@ namespace Pedantic.Chess
         private ulong all = 0ul;
         private short phase = 0;
 
-        //private readonly short[] material = new short[Constants.MAX_COLORS];
-
         #region Incrementally updated values used by Evaluation
 
         private readonly short[] opMaterial = new short[Constants.MAX_COLORS];
@@ -166,14 +164,6 @@ namespace Pedantic.Chess
         public bool[] HasCastled => hasCastled;
         public short Phase => phase;
 
-        /*
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public short Material(Color color) => material[(int)color];
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public short MaterialNoKing(Color color) => (short)(material[(int)color] - Piece.King.Value());
-        */
-
         public short PieceMaterial(Color color)
         {
             short pieceMaterial = 0;
@@ -208,11 +198,6 @@ namespace Pedantic.Chess
         {
             return MinorPieceCount(color) + MajorPieceCount(color);
         }
-
-        /*
-        public short TotalMaterial => (short)(material[0] + material[1]);
-        public short TotalMaterialNoKings => (short)(MaterialNoKing(Color.White) + MaterialNoKing(Color.Black));
-        */
 
         public ulong PawnHash => pawnHash;
         public short[] OpeningMaterial => opMaterial;
