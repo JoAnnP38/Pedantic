@@ -17,6 +17,7 @@ using Pedantic.Genetics;
 using Pedantic.Utilities;
 using System.Runtime.CompilerServices;
 using Pedantic.Collections;
+using System.Numerics;
 
 namespace Pedantic.Chess
 {
@@ -49,7 +50,6 @@ namespace Pedantic.Chess
         {
             if (TtEval.TryGetScore(board.Hash, out short score))
             {
-                Util.WriteLineIf(ShowIntermediateResults, $"Eval cache hit: {score}");
                 return score;
             }
 
@@ -121,8 +121,8 @@ namespace Pedantic.Chess
             opScore[1] += (short)(AdjustMaterial(board.OpeningMaterial[1], adjust[1]) + board.OpeningPieceSquare[1, kp]);
             egScore[1] += (short)(AdjustMaterial(board.EndGameMaterial[1], adjust[1]) + board.EndGamePieceSquare[1, kp]);
 
-            int score = (((opScore[0] - opScore[1]) * opWt) / 128) +
-                        (((egScore[0] - egScore[1]) * egWt) / 128);
+            int score = (((opScore[0] - opScore[1]) * opWt) / Constants.MAX_PHASE) +
+                        (((egScore[0] - egScore[1]) * egWt) / Constants.MAX_PHASE);
 
             isLazy = true;
             int evalScore = board.SideToMove == Color.White ? score : -score;
@@ -157,8 +157,8 @@ namespace Pedantic.Chess
                     TtPawnEval.Add(board.PawnHash, opPawnScore, egPawnScore);
                 }
 
-                score = (short)((((opScore[0] - opScore[1]) * opWt) / 128) +
-                                (((egScore[0] - egScore[1]) * egWt) / 128));
+                score = (short)((((opScore[0] - opScore[1]) * opWt) / Constants.MAX_PHASE) +
+                                (((egScore[0] - egScore[1]) * egWt) / Constants.MAX_PHASE));
 
                 if (random)
                 {
@@ -192,14 +192,18 @@ namespace Pedantic.Chess
         public static (bool WhiteCanWin, bool BlackCanWin) CanWin(Board board)
         {
             bool whiteCanWin = false, blackCanWin = false;
+            short materialWhite = board.EndGameMaterial[(int)Color.White];
+            short materialBlack = board.EndGameMaterial[(int)Color.Black];
+            short pawnValue = EndGamePieceValues(Piece.Pawn);
+
             if (board.Pieces(Color.White, Piece.Pawn) != 0 ||
-                board.MaterialNoKing(Color.White) - board.MaterialNoKing(Color.Black) >= 400)
+                materialWhite - materialBlack >= (pawnValue << 2))
             {
                 whiteCanWin = true;
             }
 
             if (board.Pieces(Color.Black, Piece.Pawn) != 0 ||
-                board.MaterialNoKing(Color.Black) - board.MaterialNoKing(Color.White) >= 400)
+                materialBlack - materialWhite >= (pawnValue << 2))
             {
                 blackCanWin = true;
             }
@@ -472,8 +476,9 @@ namespace Pedantic.Chess
 
         public void CalcMaterialAdjustment(Board board)
         {
-            int materialWhite = board.MaterialNoKing(Color.White);
-            int materialBlack = board.MaterialNoKing(Color.Black);
+            int materialWhite = board.EndGameMaterial[(int)Color.White];
+            int materialBlack = board.EndGameMaterial[(int)Color.Black];
+            int pawnValue = EndGamePieceValues(Piece.Pawn);
 
             ulong move = board.LastMove;
             int seeValue = 0;
@@ -483,10 +488,10 @@ namespace Pedantic.Chess
                 seeValue = board.SideToMove == Color.White ? seeValue : -seeValue;
             }
 
-            if (materialWhite > 0 && materialBlack > 0 && Math.Abs(materialWhite - materialBlack + seeValue) >= 200)
+            if (materialWhite > 0 && materialBlack > 0 && Math.Abs(materialWhite - materialBlack + seeValue) >= pawnValue * 2)
             {
-                adjust[0] = Math.Max(Math.Min((materialBlack << 5) / materialWhite, 32), 31);
-                adjust[1] = Math.Max(Math.Min((materialWhite << 5) / materialBlack, 32), 31);
+                adjust[0] = Math.Max(Math.Min((materialBlack * 32) / materialWhite, 32), 31);
+                adjust[1] = Math.Max(Math.Min((materialWhite * 32) / materialBlack, 32), 31);
             }
             else
             {
@@ -497,48 +502,36 @@ namespace Pedantic.Chess
 
         public GamePhase GetGamePhase(Board board, out int opWt, out int egWt)
         {
-            int totalMaterial = board.MaterialNoKing(Color.White) + board.MaterialNoKing(Color.Black);
-            GamePhase phase = GamePhase.Opening;
-            opWt = 128;
-            egWt = 0;
+            opWt = board.Phase;
+            egWt = Constants.MAX_PHASE - board.Phase;
+            GamePhase gamePhase = board.GamePhase;
 
-            if (totalMaterial < wt.EndGamePhaseMaterial)
+            if (gamePhase == GamePhase.EndGame)
             {
-                opWt = 0;
-                egWt = 128;
-                phase = GamePhase.EndGame;
+                short materialWhite = board.EndGameMaterial[(int)Color.White];
+                short materialBlack = board.EndGameMaterial[(int)Color.Black];
+                short pawnValue = EndGamePieceValues(Piece.Pawn);
 
                 if (useMopUp &&
-                    Math.Abs(board.MaterialNoKing(Color.White) - board.MaterialNoKing(Color.Black)) >= 400 &&
-                    Math.Min(board.MaterialNoKing(Color.White), board.MaterialNoKing(Color.Black)) <= 700)
+                    (board.Pieces(Color.White, Piece.Pawn) | board.Pieces(Color.Black, Piece.Pawn)) == 0ul && 
+                    Math.Abs(materialWhite - materialBlack) >= (pawnValue << 2) &&
+                    Math.Min(materialWhite, materialBlack) <= pawnValue * 7)
                 {
-                    winning = board.MaterialNoKing(Color.White) > board.MaterialNoKing(Color.Black)
-                        ? Color.White
-                        : Color.Black;
+                    winning = materialWhite > materialBlack ? Color.White : Color.Black;
 
                     int numKnights = BitOps.PopCount(board.Pieces(winning, Piece.Knight));
                     int numBishops = BitOps.PopCount(board.Pieces(winning, Piece.Bishop));
                     bool case1 = BitOps.PopCount(board.Pieces(winning, Piece.Queen) | board.Pieces(winning, Piece.Rook)) >= 1;
-                    bool case2 = board.Pieces(winning, Piece.Pawn) == 0;
-                    bool case3 = (numKnights >= 1 && numBishops >= 1) || numBishops >= 2 || numKnights >= 3;
+                    bool case2 = (numKnights >= 1 && numBishops >= 1) || numBishops >= 2 || numKnights >= 3;
 
-                    if (case1 || (case2 && case3))
+                    if (case1 || case2)
                     {
-                        phase = GamePhase.EndGameMopup;
+                        gamePhase = GamePhase.EndGameMopup;
                     }
                 }
             }
-            else if (totalMaterial < wt.OpeningPhaseMaterial && totalMaterial >= wt.EndGamePhaseMaterial)
-            {
-                /* taper values from opening to end game */
-                phase = GamePhase.MidGame;
-                int rngMaterial = wt.OpeningPhaseMaterial - wt.EndGamePhaseMaterial;
-                int curMaterial = totalMaterial - wt.EndGamePhaseMaterial;
-                opWt = (curMaterial * 128) / rngMaterial;
-                egWt = 128 - opWt;
-            }
 
-            return phase;
+            return gamePhase;
         }
 
         public void ClearScores()
@@ -596,6 +589,11 @@ namespace Pedantic.Chess
             return canonicalPieceValues[(int)piece + 1];
         }
 
+        public static short PiecePhaseValue(Piece piece)
+        {
+            return piecePhaseValues[(int)piece + 1];
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static short OpeningPieceValues(Piece piece)
         {
@@ -641,9 +639,6 @@ namespace Pedantic.Chess
             rank ^= (rank-4) >> 8;
             return (file + rank) & 7;
         }
-
-        public static short OpeningPhaseMaterial => wt.OpeningPhaseMaterial;
-        public static short EndGamePhaseMaterial => wt.EndGamePhaseMaterial;
 
         private GamePhase currentPhase;
         private int opWt, egWt;
@@ -709,6 +704,8 @@ namespace Pedantic.Chess
 
             #endregion PassedPawnMasks data
         };
+
+        public static readonly sbyte[] piecePhaseValues = { 0, 1, 2, 2, 4, 8, 0 };
 
         public static readonly UnsafeArray<ulong> IsolatedPawnMasks = new (Constants.MAX_SQUARES)
         {

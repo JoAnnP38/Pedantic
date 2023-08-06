@@ -87,7 +87,7 @@ namespace Pedantic.Chess
             sw.Stop();
             long fancyElapsed = 0;
             long pextElapsed = 0;
-            for (int n = 0; n < 4; n++)
+            for (int n = 0; n < 5; n++)
             {
                 sw.Restart();
                 for (int m = 0; m < 10; m++)
@@ -99,7 +99,10 @@ namespace Pedantic.Chess
                 }
 
                 sw.Stop();
-                fancyElapsed = sw.ElapsedTicks;
+                if (n > 0)
+                {
+                    fancyElapsed += sw.ElapsedTicks;
+                }
 
                 sw.Restart();
                 for (int m = 0; m < 10; m++)
@@ -111,7 +114,11 @@ namespace Pedantic.Chess
                 }
 
                 sw.Stop();
-                pextElapsed = sw.ElapsedTicks;
+
+                if (n > 0)
+                {
+                    pextElapsed += sw.ElapsedTicks;
+                }
             }
 
             return pextElapsed < fancyElapsed;

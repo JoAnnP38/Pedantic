@@ -36,7 +36,7 @@ namespace Pedantic
         public const double MINI_CONVERGENCE_TOLERANCE = 0.00000005;
         public const double FULL_CONVERGENCE_TOLERANCE = 0.0000001;
         public const int MAX_CONVERGENCE_FAILURE = 2;
-        public const int MINI_BATCH_COUNT = 40;
+        public const int MINI_BATCH_COUNT = 80;
         public const int MINI_BATCH_MIN_SIZE = 10000;
 
         private enum PerftRunType
@@ -783,8 +783,6 @@ namespace Pedantic
                 else
                 {
                     short[] resetWts = new short[ChessWeights.MAX_WEIGHTS];
-                    resetWts[ChessWeights.GAME_PHASE_MATERIAL] = 6900;
-                    resetWts[ChessWeights.GAME_PHASE_MATERIAL + ChessWeights.ENDGAME_WEIGHTS] = 1000;
                     resetWts[ChessWeights.PIECE_VALUES + (int)Piece.Pawn] = 100;
                     resetWts[ChessWeights.PIECE_VALUES + (int)Piece.Knight] = 300;
                     resetWts[ChessWeights.PIECE_VALUES + (int)Piece.Bishop] = 325;
@@ -1431,9 +1429,6 @@ namespace Pedantic
             int centerLength = (60 - sectionTitle.Length) / 2;
             string line = new('-', centerLength - 3);
             WriteLine($"/*{line} {sectionTitle} {line}*/");
-            WriteLine();
-            WriteLine($"/* {section} phase material boundary */");
-            WriteLine($"{wts[ChessWeights.GAME_PHASE_MATERIAL]},");
             WriteLine();
             WriteLine($"/* {section} piece values */");
             WriteIndent();

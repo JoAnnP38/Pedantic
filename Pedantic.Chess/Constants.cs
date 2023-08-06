@@ -43,6 +43,7 @@ namespace Pedantic.Chess
         public const int WINDOW_MIN_DEPTH = 6;
         public const int LAZY_EVAL_MARGIN = 500;
         public const int INVALID_PROBE = int.MinValue;
+        public const short MAX_PHASE = 64;
 
         public const string REGEX_FEN = @"^\s*([rnbqkpRNBQKP1-8]+/){7}[rnbqkpRNBQKP1-8]+\s[bw]\s(-|K?Q?k?q?)\s(-|[a-h][36])\s\d+\s\d+\s*$";
         public const string REGEX_MOVE = @"^[a-h][1-8][a-h][1-8](n|b|r|q)?$";
