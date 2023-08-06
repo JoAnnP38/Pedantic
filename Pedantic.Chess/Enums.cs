@@ -133,6 +133,12 @@ namespace Pedantic.Chess
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static short PhaseValue(this Piece piece)
+        {
+            return Evaluation.PiecePhaseValue(piece);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static char ToChar(this Piece piece)
         {
             return piece == Piece.None ? '-' : pieceChar[(int)piece];

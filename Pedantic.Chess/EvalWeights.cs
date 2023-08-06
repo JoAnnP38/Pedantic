@@ -28,8 +28,6 @@ namespace Pedantic.Chess
         }
 
         public short[] Weights => wt;
-        public short OpeningPhaseMaterial => wt[ChessWeights.GAME_PHASE_MATERIAL];
-        public short EndGamePhaseMaterial => wt[ChessWeights.GAME_PHASE_MATERIAL + ChessWeights.ENDGAME_WEIGHTS];
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public short OpeningPieceValues(Piece piece)

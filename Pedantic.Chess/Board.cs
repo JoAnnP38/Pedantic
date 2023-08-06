@@ -37,7 +37,9 @@ namespace Pedantic.Chess
         private readonly Array2D<ulong> pieces = new (Constants.MAX_COLORS, Constants.MAX_PIECES, true);
         private readonly ulong[] units = new ulong[Constants.MAX_COLORS];
         private ulong all = 0ul;
-        private readonly short[] material = new short[Constants.MAX_COLORS];
+        private short phase = 0;
+
+        //private readonly short[] material = new short[Constants.MAX_COLORS];
 
         #region Incrementally updated values used by Evaluation
 
@@ -124,7 +126,6 @@ namespace Pedantic.Chess
             fullMoveCounter = other.fullMoveCounter;
             hash = other.hash;
             gameStack = new(other.gameStack);
-            Array.Copy(other.material, material, material.Length);
             Array.Copy(other.opMaterial, opMaterial, opMaterial.Length);
             Array.Copy(other.egMaterial, egMaterial, egMaterial.Length);
             opPcSquare.Copy(other.opPcSquare);
@@ -163,12 +164,15 @@ namespace Pedantic.Chess
         public int FullMoveCounter => fullMoveCounter;
         public ulong Hash => hash;
         public bool[] HasCastled => hasCastled;
+        public short Phase => phase;
 
+        /*
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public short Material(Color color) => material[(int)color];
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public short MaterialNoKing(Color color) => (short)(material[(int)color] - Piece.King.Value());
+        */
 
         public short PieceMaterial(Color color)
         {
@@ -205,8 +209,11 @@ namespace Pedantic.Chess
             return MinorPieceCount(color) + MajorPieceCount(color);
         }
 
+        /*
         public short TotalMaterial => (short)(material[0] + material[1]);
         public short TotalMaterialNoKings => (short)(MaterialNoKing(Color.White) + MaterialNoKing(Color.Black));
+        */
+
         public ulong PawnHash => pawnHash;
         public short[] OpeningMaterial => opMaterial;
         public short[] EndGameMaterial => egMaterial;
@@ -253,13 +260,13 @@ namespace Pedantic.Chess
             fullMoveCounter = 0;
             hash = 0;
             gameStack.Clear();
-            Array.Clear(material);
             Array.Clear(opMaterial);
             Array.Clear(egMaterial);
             opPcSquare.Clear();
             egPcSquare.Clear();
             Array.Fill(hasCastled, false);
             pawnHash = 0;
+            phase = 0;
         }
 
         public bool IsLegalMove(ulong move)
@@ -447,21 +454,16 @@ namespace Pedantic.Chess
             return BitOps.PopCount(Units(color) & ~Pieces(color, Piece.Pawn));
         }
 
-        public GamePhase Phase
+        public GamePhase GamePhase
         {
             get
             {
-                if (TotalMaterialNoKings >= Evaluation.OpeningPhaseMaterial)
+                return phase switch
                 {
-                    return GamePhase.Opening;
-                }
-
-                if (TotalMaterialNoKings <= Evaluation.EndGamePhaseMaterial)
-                {
-                    return GamePhase.EndGame;
-                }
-
-                return GamePhase.MidGame;
+                    > 54 => GamePhase.Opening,
+                    < 10 => GamePhase.EndGame,
+                    _ => GamePhase.MidGame
+                };
             }
         }
 
@@ -2055,7 +2057,7 @@ namespace Pedantic.Chess
             pieces[(int)color, (int)piece] = BitOps.SetBit(pieces[(int)color, (int)piece], square);
             units[(int)color] = BitOps.SetBit(units[(int)color], square);
             all = BitOps.SetBit(all, square);
-            material[(int)color] += Evaluation.CanonicalPieceValues(piece);
+            phase += piece.PhaseValue();
             opMaterial[(int)color] += Evaluation.OpeningPieceValues(piece);
             egMaterial[(int)color] += Evaluation.EndGamePieceValues(piece);
             opPcSquare[(int)color, 0] +=
@@ -2093,7 +2095,7 @@ namespace Pedantic.Chess
             pieces[(int)color, (int)piece] = BitOps.ResetBit(pieces[(int)color, (int)piece], square);
             units[(int)color] = BitOps.ResetBit(Units(color), square);
             all = BitOps.ResetBit(all, square);
-            material[(int)color] -= Evaluation.CanonicalPieceValues(piece);
+            phase -= piece.PhaseValue();
             opMaterial[(int)color] -= Evaluation.OpeningPieceValues(piece);
             egMaterial[(int)color] -= Evaluation.EndGamePieceValues(piece);
             opPcSquare[(int)color, 0] -=
