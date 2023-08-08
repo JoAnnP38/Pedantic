@@ -21,6 +21,7 @@ using System.CommandLine;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.CommandLine.Parsing;
 
 // ReSharper disable LocalizableElement
 
@@ -37,7 +38,8 @@ namespace Pedantic
         public const double FULL_CONVERGENCE_TOLERANCE = 0.0000001;
         public const int MAX_CONVERGENCE_FAILURE = 2;
         public const int MINI_BATCH_COUNT = 80;
-        public const int MINI_BATCH_MIN_SIZE = 10000;
+        public const int MINI_BATCH_MIN_SIZE = 25000;
+        public const int MINI_BATCH_MIN_COUNT = 5;
 
         private enum PerftRunType
         {
@@ -45,6 +47,14 @@ namespace Pedantic
             Average,
             Details,
             Divide
+        }
+
+        static Program()
+        {
+            for (int n = 0; n < ChessWeights.MAX_WEIGHTS; n++)
+            {
+                incMomentums[n] = new IncMomentum((sbyte)EvalFeatures.GetOptimizationIncrement(n));
+            }
         }
 
         private static int Main(string[] args)
@@ -770,6 +780,7 @@ namespace Pedantic
                     slices = CreateSlices(records);
                     streamWriter?.Close();
                 }
+                SetMiniBatchSize(sampleSize);
 
                 ChessDb rep = new();
                 ChessWeights? startingWeight = null;
@@ -782,39 +793,57 @@ namespace Pedantic
                 }
                 else
                 {
-                    short[] resetWts = new short[ChessWeights.MAX_WEIGHTS];
-                    resetWts[ChessWeights.PIECE_VALUES + (int)Piece.Pawn] = 100;
-                    resetWts[ChessWeights.PIECE_VALUES + (int)Piece.Knight] = 300;
-                    resetWts[ChessWeights.PIECE_VALUES + (int)Piece.Bishop] = 325;
-                    resetWts[ChessWeights.PIECE_VALUES + (int)Piece.Rook] = 500;
-                    resetWts[ChessWeights.PIECE_VALUES + (int)Piece.Queen] = 900;
-                    resetWts[ChessWeights.PIECE_VALUES + ChessWeights.ENDGAME_WEIGHTS + (int)Piece.Pawn] = 100;
-                    resetWts[ChessWeights.PIECE_VALUES + ChessWeights.ENDGAME_WEIGHTS + (int)Piece.Knight] = 300;
-                    resetWts[ChessWeights.PIECE_VALUES + ChessWeights.ENDGAME_WEIGHTS + (int)Piece.Bishop] = 325;
-                    resetWts[ChessWeights.PIECE_VALUES + ChessWeights.ENDGAME_WEIGHTS + (int)Piece.Rook] = 500;
-                    resetWts[ChessWeights.PIECE_VALUES + ChessWeights.ENDGAME_WEIGHTS + (int)Piece.Queen] = 900;
-                    startingWeight = new ChessWeights(resetWts);
+                    startingWeight = CreateZeroWeights();
                 }
 
                 if (startingWeight != null)
                 {
+                    ResetMomentums();
                     short[] weights = ArrayEx.Clone(startingWeight.Weights);
                     double k = reset ? 0.00385 : SolveKParallel(weights, slices);
-                    Console.WriteLine($@"K = {k:F4}");
+                    Console.WriteLine($@"K = {k:F6}");
                     startingWeight.Fitness = (float)EvalErrorParallel(weights, slices, k);
                     ChessWeights guess = new(startingWeight)
                     {
                         IsImmortal = false
                     };
-                    ChessWeights optimized = LocalOptimize(guess, weights, fixedWeights, slices, k, maxPass,
-                        preserve, full, records);
-                    optimized.Description = "Optimized";
-                    optimized.UpdatedOn = DateTime.UtcNow;
-                    rep.Weights.Insert(optimized);
-                    rep.Save();
-                    DateTime end = DateTime.Now;
-                    Console.WriteLine($@"Optimization complete at: {DateTime.Now:G}, Elapsed: {end - start:g}");
-                    PrintSolution(optimized);
+
+                    int epochs = 0;
+                    ChessWeights? optimized = null;
+
+                    if (miniBatchCount >= MINI_BATCH_MIN_COUNT)
+                    {
+                        Console.WriteLine($"\nMini-batch optimization to begin ({miniBatchCount} batch count)\n");
+                        Console.WriteLine($"Pass stats {epochs,3} - \u03B5: {guess.Fitness:F6}");
+                        
+                        optimized = MiniLocalOptimize(guess, weights, fixedWeights, slices, k, maxPass, records, out epochs);
+                        Console.WriteLine();
+                        if (epochs > 0)
+                        {
+                            Console.WriteLine("Mini-batch optimization complete.");
+                        }
+                    }
+
+                    if (full > 0 || miniBatchCount == 1)
+                    {
+                        Console.WriteLine("Full batch optimization to begin.\n");
+                        if (optimized != null)
+                        {
+                            weights = optimized.Weights;
+                        }
+                        optimized = FullLocalOptimize(optimized ?? guess, weights, fixedWeights, slices, k, maxPass, full, ref epochs);
+                    }
+
+                    if (optimized != null)
+                    {
+                        optimized.Description = "Optimized";
+                        optimized.UpdatedOn = DateTime.UtcNow;
+                        rep.Weights.Insert(optimized);
+                        rep.Save();
+                        DateTime end = DateTime.Now;
+                        Console.WriteLine($@"Optimization complete at: {DateTime.Now:G}, Elapsed: {end - start:g}");
+                        PrintSolution(optimized);
+                    }
                 }
             }
             catch (Exception ex)
@@ -828,34 +857,66 @@ namespace Pedantic
             }
         }
 
-        private static ChessWeights LocalOptimize(ChessWeights guess, short[] weights, bool[] fixedWeights, 
-            List<Memory<PosRecord>> slices, double k, int maxPass, bool preserve, int full, PosRecord[] records)
+        private static void SetMiniBatchSize(int positionCount)
         {
-            DateTime startTime = DateTime.Now;
-            bool improved = true;
+            for (miniBatchCount = MINI_BATCH_MIN_COUNT; positionCount / miniBatchCount > MINI_BATCH_MIN_SIZE; miniBatchCount *= 2)
+            { }
+
+            miniBatchCount /= 2;
+            if (miniBatchCount < MINI_BATCH_MIN_COUNT)
+            {
+                miniBatchCount = 1;
+            }
+        }
+
+        private static ChessWeights CreateZeroWeights()
+        {
+            short[] resetWts = new short[ChessWeights.MAX_WEIGHTS];
+            resetWts[ChessWeights.PIECE_VALUES + (int)Piece.Pawn] = 100;
+            resetWts[ChessWeights.PIECE_VALUES + (int)Piece.Knight] = 300;
+            resetWts[ChessWeights.PIECE_VALUES + (int)Piece.Bishop] = 325;
+            resetWts[ChessWeights.PIECE_VALUES + (int)Piece.Rook] = 500;
+            resetWts[ChessWeights.PIECE_VALUES + (int)Piece.Queen] = 900;
+            resetWts[ChessWeights.PIECE_VALUES + ChessWeights.ENDGAME_WEIGHTS + (int)Piece.Pawn] = 100;
+            resetWts[ChessWeights.PIECE_VALUES + ChessWeights.ENDGAME_WEIGHTS + (int)Piece.Knight] = 300;
+            resetWts[ChessWeights.PIECE_VALUES + ChessWeights.ENDGAME_WEIGHTS + (int)Piece.Bishop] = 325;
+            resetWts[ChessWeights.PIECE_VALUES + ChessWeights.ENDGAME_WEIGHTS + (int)Piece.Rook] = 500;
+            resetWts[ChessWeights.PIECE_VALUES + ChessWeights.ENDGAME_WEIGHTS + (int)Piece.Queen] = 900;
+
+            return new ChessWeights(resetWts);
+        }
+
+        private static int[] GetIndices(int maxIndex)
+        {
+            int[] indices = new int[maxIndex];
+            for (int n = 0; n < indices.Length; ++n)
+            {
+                indices[n] = n;
+            }
+            return indices;
+        }
+
+        private static ChessWeights MiniLocalOptimize(ChessWeights guess, short[] weights, bool[] fixedWeights,
+            List<Memory<PosRecord>> slices, double k, int maxPass, PosRecord[] records, out int epochs)
+        {
+            epochs = 0;
+            if (miniBatchCount < 5)
+            {
+                return guess;
+            }
+
+            int failureCount = 0;
             double curError = guess.Fitness;
-            double refError = MiniEvalErrorParallel(weights, slices, k, 0);
+            double refError = guess.Fitness;
             double bestError = curError + MINI_CONVERGENCE_TOLERANCE * 2;
             short[] bestWeights = ArrayEx.Clone(weights);
             int wtLen = weights.Length;
-            int passes = 0;
             int batchCounter = 0;
-            int failureCount = 0;
-            int sampleSize = slices.Sum(s => s.Length);
-            var rep = new ChessDb();
+            int sampleSize = records.Length;
+            int[] index = GetIndices(wtLen);
 
-            miniBatchCount = MINI_BATCH_COUNT;
-            Console.WriteLine($"\nMini-batch optimization to begin ({miniBatchCount} batch count)\n");
-            Console.WriteLine($"Pass stats {passes,3} - \u03B5: {curError:F6}");
-            int[] index = new int[wtLen];
-            for (int n = 0; n < wtLen; n++)
+            while (failureCount < MAX_CONVERGENCE_FAILURE && epochs < maxPass)
             {
-                index[n] = n;
-            }
-
-            while (improved && failureCount < MAX_CONVERGENCE_FAILURE && passes < maxPass)
-            {
-                improved = false;
                 if (curError < bestError)
                 {
                     bestError = curError;
@@ -870,17 +931,146 @@ namespace Pedantic
                 Random.Shared.Shuffle(index);
                 int optAttempts = 0;
                 int optHits = 0;
-                float effRate = 0;
+                double effRate = 0;
                 refError = MiniEvalErrorParallel(weights, slices, k, batchCounter);
                 double errAdjust = curError / refError;
 
                 for (int n = 0; n < wtLen; n++)
                 {
-                    double completed = ((double)n / wtLen) * 100.0;
+                    double pctCompleted = (n * 100.0) / wtLen;
                     TimeSpan deltaT = DateTime.Now - wtOptTime;
-                    effRate = optAttempts > 0 ? (float)optHits / optAttempts : 0;
-                    Console.Write($"Pass stats {completed,3:F0}%- \u03B5: {refError * errAdjust:F6}, \u0394t: {deltaT:h\\:mm\\:ss}, eff: {effRate:F3} ({optHits}/{optAttempts})...\r");
+                    effRate = optAttempts > 0 ? (double)optHits / optAttempts : 0;
+                    Console.Write($"Pass stats {pctCompleted,3:F0}%- \u03B5: {refError * errAdjust:F6}, \u0394t: {deltaT:h\\:mm\\:ss}, eff: {effRate:F3} ({optHits}/{optAttempts})...\r");
+
                     int i = index[n];
+                    if (fixedWeights[i])
+                    {
+                        continue;
+                    }
+
+                    short increment = incMomentums[i].BestIncrement;
+                    if (increment != 0)
+                    {
+                        short oldValue = weights[i];
+                        weights[i] += increment;
+                        double error = MiniEvalErrorParallel(weights, slices, k, batchCounter);
+                        optAttempts++;
+                        bool goodIncrement = error < refError;
+
+                        if (!goodIncrement)
+                        {
+                            increment = incMomentums[i].NegIncrement(increment);
+                            weights[i] += increment;
+                            error = MiniEvalErrorParallel(weights, slices, k, batchCounter);
+                            optAttempts++;
+                            goodIncrement = error < refError;
+                        }
+
+                        if (goodIncrement)
+                        {
+                            optHits++;
+                            refError = error;
+                            incMomentums[i].AddImprovingIncrement((sbyte)increment);
+                        }
+                        else
+                        {
+                            weights[i] = oldValue;
+                            incMomentums[i].Reset();
+                        }
+                    }
+                }
+
+                ++batchCounter;
+                TimeSpan epochT = DateTime.Now - wtOptTime;
+                curError = EvalErrorParallel(weights, slices, k);
+
+                if (curError + MINI_CONVERGENCE_TOLERANCE < bestError)
+                {
+                    failureCount = 0;
+                    ++epochs;
+                }
+                else
+                {
+                    failureCount++;
+
+                    if (failureCount >= MAX_CONVERGENCE_FAILURE && (miniBatchCount / 2) >= MINI_BATCH_MIN_COUNT)
+                    {
+                        failureCount = 0;
+                        miniBatchCount /= 2;
+                        Random.Shared.Shuffle(records);
+                        Console.WriteLine(
+                            $"Pass stats {epochs, 3} - \u03B5: {curError:F6}, Δt: {epochT:h\\:mm\\:ss}, NO IMPROVEMENT                              ");
+                        Console.WriteLine($"\nIncreasing mini-batch size ({miniBatchCount} batch count)\n");
+                        continue;
+                    }
+                }
+
+                if (failureCount == 0)
+                {
+                    Console.WriteLine(
+                        $"Pass stats {epochs,3} - \u03B5: {curError:F6}, Δt: {epochT:h\\:mm\\:ss}, eff: {effRate:F3}                        ");
+                }
+                else
+                {
+                    Console.WriteLine(
+                        $"Pass stats {epochs, 3} - \u03B5: {curError:F6}, Δt: {epochT:h\\:mm\\:ss}, NO IMPROVEMENT                              ");
+                }
+            }
+
+            ChessWeights optimized = new(bestWeights)
+            {
+                Description = "Optimized",
+                Fitness = (float)curError,
+                K = (float)k,
+                TotalPasses = (short)epochs,
+                SampleSize = sampleSize,
+                UpdatedOn = DateTime.UtcNow
+            };
+
+            return optimized;
+        }
+
+        private static ChessWeights FullLocalOptimize(ChessWeights guess, short[] weights, bool[] fixedWeights,
+            List<Memory<PosRecord>> slices, double k, int maxPass, int full, ref int epochs)
+        {
+            if (full == 0 && miniBatchCount > 1)
+            {
+                return guess;
+            }
+
+            bool improved = true;
+            double curError = guess.Fitness;
+            double refError = guess.Fitness;
+            double bestError = guess.Fitness + FULL_CONVERGENCE_TOLERANCE * 2;
+            short[] bestWeights = ArrayEx.Clone(weights);
+            int wtLen = weights.Length;
+            int[] index = GetIndices(wtLen);
+
+            
+            if (full > 0)
+            {
+                maxPass = epochs + full;
+            }
+
+            while (improved && curError + FULL_CONVERGENCE_TOLERANCE < bestError && epochs < maxPass)
+            {
+                ++epochs;
+                improved = false;
+                bestError = curError;
+                Array.Copy(weights, bestWeights, bestWeights.Length);
+                DateTime wtOptTime = DateTime.Now;
+                Random.Shared.Shuffle(index);
+                int optAttempts = 0;
+                int optHits = 0;
+                double effRate = 0;
+
+                for (int n = 0; n < wtLen; n++)
+                {
+                    int i = index[n];
+                    double pctCompleted = (n * 100.0) / wtLen;
+                    TimeSpan deltaT = DateTime.Now - wtOptTime;
+                    effRate = optAttempts > 0 ? (double)optHits / optAttempts : 0;
+                    Console.Write($"Pass stats {pctCompleted,3:F0}%- \u03B5: {refError:F7}, \u0394t: {deltaT:h\\:mm\\:ss}, eff: {effRate:F3} ({optHits}/{optAttempts})... \r");
                     if (fixedWeights[i])
                     {
                         continue;
@@ -893,20 +1083,19 @@ namespace Pedantic
                         {
                             increment = (short)-increment;
                         }
+
                         short oldValue = weights[i];
                         weights[i] += increment;
-                        double error = MiniEvalErrorParallel(weights, slices, k, batchCounter);
+                        double error = EvalErrorParallel(weights, slices, k);
                         optAttempts++;
                         bool goodIncrement = error < refError;
-                        improved = improved || goodIncrement;
 
                         if (!goodIncrement)
                         {
                             weights[i] -= (short)(increment * 2);
-                            error = MiniEvalErrorParallel(weights, slices, k, batchCounter);
+                            error = EvalErrorParallel(weights, slices, k);
                             optAttempts++;
                             goodIncrement = error < refError;
-                            improved = improved || goodIncrement;
                         }
 
                         if (goodIncrement)
@@ -918,75 +1107,193 @@ namespace Pedantic
                         {
                             weights[i] = oldValue;
                         }
+                        improved = improved || goodIncrement;
                     }
                 }
 
-                ++batchCounter;
-                DateTime now = DateTime.Now;
-                TimeSpan passT = now - wtOptTime;
-                curError = EvalErrorParallel(weights, slices, k);
+                TimeSpan epochT = DateTime.Now - wtOptTime;
+                curError = refError;
+                Console.WriteLine($"Pass stats {epochs,3} - \u03B5: {curError:F7}, Δt: {epochT:h\\:mm\\:ss}, eff: {effRate:F3}                        ");
+            }
 
-                if (curError + MINI_CONVERGENCE_TOLERANCE < bestError)
-                {
-                    failureCount = 0;
-                    ++passes;
-                }
-                else
-                {
-                    ++failureCount;
+            ChessWeights optimized = new(bestWeights)
+            {
+                Description = "Optimized",
+                Fitness = (float)curError,
+                K = (float)k,
+                TotalPasses = (short)epochs,
+                SampleSize = guess.SampleSize,
+                UpdatedOn = DateTime.UtcNow
+            };
 
-                    if (failureCount >= 2 && (miniBatchCount / 2) > 2)
+            return optimized;
+        }
+
+        private static ChessWeights LocalOptimize(ChessWeights guess, short[] weights, bool[] fixedWeights, 
+            List<Memory<PosRecord>> slices, double k, int maxPass, bool preserve, int full, PosRecord[] records)
+        {
+            bool improved = true;
+            double curError = guess.Fitness;
+            double refError = MiniEvalErrorParallel(weights, slices, k, 0);
+            double bestError = curError + MINI_CONVERGENCE_TOLERANCE * 2;
+            short[] bestWeights = ArrayEx.Clone(weights);
+            int wtLen = weights.Length;
+            int passes = 0;
+            int batchCounter = 0;
+            int failureCount = 0;
+            int sampleSize = slices.Sum(s => s.Length);
+            var rep = new ChessDb();
+            int[] index = new int[wtLen];
+            for (int n = 0; n < wtLen; n++)
+            {
+                index[n] = n;
+            }
+
+            if (miniBatchCount >= 5)
+            {
+                Console.WriteLine($"\nMini-batch optimization to begin ({miniBatchCount} batch count)\n");
+                Console.WriteLine($"Pass stats {passes,3} - \u03B5: {curError:F6}");
+
+                while (improved && failureCount < MAX_CONVERGENCE_FAILURE && passes < maxPass)
+                {
+                    improved = false;
+                    if (curError < bestError)
                     {
-                        failureCount = 0;
-                        miniBatchCount /= 2;
-                        Random.Shared.Shuffle(records);
-                        failureCount = 0;
-                        Console.WriteLine(
-                            $"Pass stats {passes, 3} - \u03B5: {curError:F6}, Δt: {passT:h\\:mm\\:ss}, NO IMPROVEMENT                              ");
-                        Console.WriteLine($"\nIncreasing mini-batch size ({miniBatchCount} batch count)\n");
-                        continue;
+                        bestError = curError;
+                        Array.Copy(weights, bestWeights, bestWeights.Length);
                     }
-                }
-
-                if (failureCount == 0)
-                {
-                    if (preserve && passes % 10 == 0 && improved)
+                    else
                     {
-                        ChessWeights intermediate = new(weights)
+                        Array.Copy(bestWeights, weights, weights.Length);
+                    }
+
+                    DateTime wtOptTime = DateTime.Now;
+                    Random.Shared.Shuffle(index);
+                    int optAttempts = 0;
+                    int optHits = 0;
+                    float effRate = 0;
+                    refError = MiniEvalErrorParallel(weights, slices, k, batchCounter);
+                    double errAdjust = curError / refError;
+
+                    for (int n = 0; n < wtLen; n++)
+                    {
+                        double completed = ((double)n / wtLen) * 100.0;
+                        TimeSpan deltaT = DateTime.Now - wtOptTime;
+                        effRate = optAttempts > 0 ? (float)optHits / optAttempts : 0;
+                        Console.Write($"Pass stats {completed,3:F0}%- \u03B5: {refError * errAdjust:F6}, \u0394t: {deltaT:h\\:mm\\:ss}, eff: {effRate:F3} ({optHits}/{optAttempts})...\r");
+                        int i = index[n];
+                        if (fixedWeights[i])
                         {
-                            Description = $"Pass {passes}",
-                            Fitness = (float)curError,
-                            K = (float)k,
-                            TotalPasses = (short)passes,
-                            SampleSize = sampleSize,
-                            UpdatedOn = DateTime.UtcNow
-                        };
-                        rep.Weights.Insert(intermediate);
-                        rep.Save();
-                        Console.WriteLine(
-                            $"Pass stats {passes,3} - \u03B5: {curError:F6}, Δt: {passT:h\\:mm\\:ss}, eff: {effRate:F3}, OID: {intermediate.Id}");
+                            continue;
+                        }
+
+                        short increment = EvalFeatures.GetOptimizationIncrement(i);
+                        if (increment > 0)
+                        {
+                            if (Random.Shared.NextBoolean())
+                            {
+                                increment = (short)-increment;
+                            }
+                            short oldValue = weights[i];
+                            weights[i] += increment;
+                            double error = MiniEvalErrorParallel(weights, slices, k, batchCounter);
+                            optAttempts++;
+                            bool goodIncrement = error < refError;
+                            improved = improved || goodIncrement;
+
+                            if (!goodIncrement)
+                            {
+                                weights[i] -= (short)(increment * 2);
+                                error = MiniEvalErrorParallel(weights, slices, k, batchCounter);
+                                optAttempts++;
+                                goodIncrement = error < refError;
+                                improved = improved || goodIncrement;
+                            }
+
+                            if (goodIncrement)
+                            {
+                                optHits++;
+                                refError = error;
+                            }
+                            else
+                            {
+                                weights[i] = oldValue;
+                            }
+                        }
+                    }
+
+                    ++batchCounter;
+                    DateTime now = DateTime.Now;
+                    TimeSpan passT = now - wtOptTime;
+                    curError = EvalErrorParallel(weights, slices, k);
+
+                    if (curError + MINI_CONVERGENCE_TOLERANCE < bestError)
+                    {
+                        failureCount = 0;
+                        ++passes;
+                    }
+                    else
+                    {
+                        ++failureCount;
+
+                        if (failureCount >= 2 && (miniBatchCount / 2) > 2)
+                        {
+                            failureCount = 0;
+                            miniBatchCount /= 2;
+                            Random.Shared.Shuffle(records);
+                            failureCount = 0;
+                            Console.WriteLine(
+                                $"Pass stats {passes, 3} - \u03B5: {curError:F6}, Δt: {passT:h\\:mm\\:ss}, NO IMPROVEMENT                              ");
+                            Console.WriteLine($"\nIncreasing mini-batch size ({miniBatchCount} batch count)\n");
+                            continue;
+                        }
+                    }
+
+                    if (failureCount == 0)
+                    {
+                        if (preserve && passes % 10 == 0 && improved)
+                        {
+                            ChessWeights intermediate = new(weights)
+                            {
+                                Description = $"Pass {passes}",
+                                Fitness = (float)curError,
+                                K = (float)k,
+                                TotalPasses = (short)passes,
+                                SampleSize = sampleSize,
+                                UpdatedOn = DateTime.UtcNow
+                            };
+                            rep.Weights.Insert(intermediate);
+                            rep.Save();
+                            Console.WriteLine(
+                                $"Pass stats {passes,3} - \u03B5: {curError:F6}, Δt: {passT:h\\:mm\\:ss}, eff: {effRate:F3}, OID: {intermediate.Id}");
+                        }
+                        else
+                        {
+                            Console.WriteLine(
+                                $"Pass stats {passes,3} - \u03B5: {curError:F6}, Δt: {passT:h\\:mm\\:ss}, eff: {effRate:F3}                        ");
+                        }
                     }
                     else
                     {
                         Console.WriteLine(
-                            $"Pass stats {passes,3} - \u03B5: {curError:F6}, Δt: {passT:h\\:mm\\:ss}, eff: {effRate:F3}                        ");
+                            $"Pass stats {passes, 3} - \u03B5: {curError:F6}, Δt: {passT:h\\:mm\\:ss}, NO IMPROVEMENT                              ");
                     }
-                }
-                else
-                {
-                    Console.WriteLine(
-                        $"Pass stats {passes, 3} - \u03B5: {curError:F6}, Δt: {passT:h\\:mm\\:ss}, NO IMPROVEMENT                              ");
                 }
             }
 
-            if (full > 0 && passes < maxPass)
+            if (passes == 0 || (full > 0 && passes < maxPass))
             {
                 // if we still have passes left to perform, do the rest of the using non-mini-batch optimization
                 improved = true;
                 failureCount = 0;
                 maxPass = passes + full;   // only do "full" more iterations with full batch
 
-                Console.WriteLine($"\nMini-batch optimization complete. Full batch optimization to begin.\n");
+                Console.WriteLine();
+                if (passes > 0)
+                {
+                    Console.Write("Mini-batch optimization complete. ");
+                }
+                Console.WriteLine($"Full batch optimization to begin.\n");
                 while (improved && failureCount == 0 && passes < maxPass)
                 {
                     improved = false;
@@ -1632,7 +1939,16 @@ namespace Pedantic
             }
         }
 
+        private static void ResetMomentums()
+        {
+            for (int n = 0; n < ChessWeights.MAX_WEIGHTS; n++)
+            {
+                incMomentums[n].Reset();
+            }
+        }
+
         private static int indentLevel = 0;
         private static int miniBatchCount = MINI_BATCH_COUNT;
+        private static IncMomentum[] incMomentums = new IncMomentum[ChessWeights.MAX_WEIGHTS];
     }
 }
