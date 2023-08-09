@@ -1526,8 +1526,8 @@ namespace Pedantic
             WriteLine($"/* {section} adjacent/connected pawns */");
             WriteLine($"{wts[ChessWeights.CONNECTED_PAWN]},");
             WriteLine();
-            WriteLine($"/* {section} tempo bonus for side to move */");
-            WriteLine($"{wts[ChessWeights.TEMPO]},");
+            WriteLine($"/* UNUSED (was {section} king adjacent open file) */");
+            WriteLine($"{wts[ChessWeights.UNUSED]},");
             WriteLine();
             WriteLine($"/* {section} knight on outpost */");
             WriteLine($"{wts[ChessWeights.KNIGHT_OUTPOST]},");
