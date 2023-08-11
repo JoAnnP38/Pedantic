@@ -18,7 +18,6 @@
 // ***********************************************************************
 using Pedantic.Collections;
 using Pedantic.Utilities;
-using System.Drawing;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 
@@ -28,7 +27,6 @@ namespace Pedantic.Chess
     {
         // values required to determine phase and for mopup eval
         private readonly Color sideToMove;
-        private readonly short[] material = new short[Constants.MAX_COLORS];
         private readonly sbyte[] kingIndex = new sbyte[Constants.MAX_COLORS];
         private readonly sbyte totalPawns;
 
@@ -458,32 +456,6 @@ namespace Pedantic.Chess
             }
 
             return (short)results;
-        }
-
-        private GamePhase GetGamePhase(short openingMaterial, short endGameMaterial, out int opWt, out int egWt)
-        {
-            GamePhase phase = GamePhase.Opening;
-            opWt = 128;
-            egWt = 0;
-            int totalMaterial = material[0] + material[1];
-
-
-            if (totalMaterial < endGameMaterial)
-            {
-                phase = totalPawns == 0 ? GamePhase.EndGameMopup : GamePhase.EndGame;
-                opWt = 0;
-                egWt = 128;
-            }
-            else if (totalMaterial < openingMaterial && totalMaterial >= endGameMaterial)
-            {
-                phase = GamePhase.MidGame;
-                int rngMaterial = openingMaterial - endGameMaterial;
-                int curMaterial = totalMaterial - endGameMaterial;
-                opWt = (curMaterial * 128) / rngMaterial;
-                egWt = 128 - opWt;
-            }
-
-            return phase;
         }
 
 #pragma warning disable CA1854

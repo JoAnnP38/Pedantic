@@ -94,5 +94,10 @@ namespace Pedantic
                 momentum = 0;
             }
         }
+
+        public void NoImprovement()
+        {
+            momentum /= 2;
+        }
     }
 }

@@ -20,20 +20,15 @@ namespace Pedantic
 {
     public readonly struct PosRecord
     {
-        public readonly string Fen;
-        public readonly byte HasCastled;
         public readonly float Result;
 
         public PosRecord(string fen, byte hasCastled, float result)
         {
-            Fen = fen;
             Result = result;
-            HasCastled = hasCastled;
             Board bd = new (fen);
-            bd.HasCastled[0] = (HasCastled & 1) != 0;
-            bd.HasCastled[1] = (HasCastled & 2) != 0;
+            bd.HasCastled[0] = (hasCastled & 1) != 0;
+            bd.HasCastled[1] = (hasCastled & 2) != 0;
             Features = new EvalFeatures(bd);
-
         }
 
         public EvalFeatures Features { get; init; }

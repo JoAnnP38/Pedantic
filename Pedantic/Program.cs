@@ -975,6 +975,10 @@ namespace Pedantic
                         else
                         {
                             weights[i] = oldValue;
+                            if (error != refError)
+                            {
+                                incMomentums[i].NoImprovement();
+                            }
                         }
                     }
                 }
