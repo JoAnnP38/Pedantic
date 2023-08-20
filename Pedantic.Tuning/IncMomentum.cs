@@ -1,18 +1,13 @@
 ﻿using Pedantic.Utilities;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace Pedantic
+namespace Pedantic.Tuning
 {
     public struct IncMomentum
     {
-        private sbyte increment;
-        private sbyte momentum;
+        private short increment;
+        private short momentum;
 
-        public IncMomentum(sbyte increment)
+        public IncMomentum(short increment)
         {
             this.increment = Math.Abs(increment);
             momentum = 0;
@@ -47,30 +42,25 @@ namespace Pedantic
                 else
                 {
                     int sign = Direction;
-                    short adjust = (short)(Math.Log(Math.Abs(momentum), 2.0) + 1);
-                    return (short)(sign * (increment * adjust));
+                    short magnitude = (short)(increment + (short)Math.Log2(Math.Abs(momentum)));
+                    return (short)(sign * magnitude);
+
                 }
             }
         }
 
         public short NegIncrement(short increment)
         {
-            if (this.increment == 0)
+            if (increment == 0)
             {
                 return 0;
             }
 
-            if (momentum == 0)
-            {
-                return (short)(-increment * 2);
-            }
-
-            int sign = Math.Sign(BestIncrement) * -1;
-            short negIncrement = (short)(Math.Abs(BestIncrement) + this.increment);
-            return (short)(negIncrement * sign);
+            int sign = Math.Sign(increment);
+            return (short)-(increment + sign);
         }
 
-        public void AddImprovingIncrement(sbyte increment)
+        public void AddImprovingIncrement(short increment)
         {
             if (this.increment == 0)
             {

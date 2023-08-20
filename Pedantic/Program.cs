@@ -13,15 +13,17 @@
 //     Console application entry point (i.e. definition of Main()).
 // </summary>
 // ***********************************************************************
-using Pedantic.Chess;
-using Pedantic.Genetics;
-using Pedantic.Utilities;
-using Pedantic.Tablebase;
 using System.CommandLine;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.CommandLine.Parsing;
+
+using Pedantic.Chess;
+using Pedantic.Genetics;
+using Pedantic.Utilities;
+using Pedantic.Tablebase;
+using Pedantic.Tuning;
 
 // ReSharper disable LocalizableElement
 
@@ -38,7 +40,7 @@ namespace Pedantic
         public const double FULL_CONVERGENCE_TOLERANCE = 0.0000001;
         public const int MAX_CONVERGENCE_FAILURE = 2;
         public const int MINI_BATCH_COUNT = 80;
-        public const int MINI_BATCH_MIN_SIZE = 25000;
+        public const int MINI_BATCH_MIN_SIZE = 10000;
         public const int MINI_BATCH_MIN_COUNT = 5;
 
         private enum PerftRunType
@@ -47,14 +49,6 @@ namespace Pedantic
             Average,
             Details,
             Divide
-        }
-
-        static Program()
-        {
-            for (int n = 0; n < ChessWeights.MAX_WEIGHTS; n++)
-            {
-                incMomentums[n] = new IncMomentum((sbyte)EvalFeatures.GetOptimizationIncrement(n));
-            }
         }
 
         private static int Main(string[] args)
@@ -102,19 +96,11 @@ namespace Pedantic
             var iterOption = new Option<int>(
                 name: "--iter",
                 description: "Specify the maximum number of iterations before a solution is declared.",
-                getDefaultValue: () => 100);
-            var preserveOption = new Option<bool>(
-                name: "--preserve",
-                description: "When present intermediary versions of the solution will be saved.",
-                getDefaultValue: () => false);
+                getDefaultValue: () => 250);
             var saveOption = new Option<bool>(
                 name: "--save",
                 description: "If specified the sample will be saved in file.",
                 getDefaultValue: () => false);
-            var fullOption = new Option<int>(
-                name: "--full",
-                description: "Specify the number of full batch optimization iterations to complete optimization.",
-                getDefaultValue: () => 0);
             var resetOption = new Option<bool>(
                 name: "--reset",
                 description: "Reset most starting weights to zero before learning begins.",
@@ -135,6 +121,10 @@ namespace Pedantic
                 name: "--force_magic",
                 description: "Force the use of magic bitboards.",
                 getDefaultValue: () => false);
+            var maxTimeOption = new Option<TimeSpan?>(
+                name: "--maxtime",
+                description: "Maximum time optimization will run.",
+                getDefaultValue: () => null);
 
             var uciCommand = new Command("uci", "Start the pedantic application in UCI mode (default).")
             {
@@ -165,10 +155,9 @@ namespace Pedantic
                 dataFileOption,
                 sampleOption,
                 iterOption,
-                preserveOption,
                 saveOption,
-                fullOption,
-                resetOption
+                resetOption,
+                maxTimeOption
             };
 
             var weightsCommand = new Command("weights", "Manipulate the weight database.")
@@ -189,7 +178,7 @@ namespace Pedantic
             uciCommand.SetHandler(RunUci, commandFileOption, errorFileOption, randomSearchOption, statsOption, magicOption);
             perftCommand.SetHandler(RunPerft, typeOption, depthOption, fenOption, magicOption);
             labelCommand.SetHandler(RunLabel, pgnFileOption, dataFileOption, maxPositionsOption);
-            learnCommand.SetHandler(RunLearn, dataFileOption, sampleOption, iterOption, preserveOption, saveOption, fullOption, resetOption);
+            learnCommand.SetHandler(RunLearn, dataFileOption, sampleOption, iterOption, saveOption, resetOption, maxTimeOption);
             weightsCommand.SetHandler(RunWeights, immortalOption, displayOption);
             rootCommand.SetHandler(async () => await RunUci(null, null, false, false, false));
 
@@ -724,6 +713,37 @@ namespace Pedantic
             }
         }
 
+        private static void RunLearn(string? dataPath, int sampleSize, int maxPass, bool save, bool reset, TimeSpan? maxTime)
+        {
+            if (dataPath == null)
+            {
+                throw new ArgumentNullException(nameof(dataPath));
+            }
+
+            using var dataFile = new TrainingDataFile(dataPath);
+
+            IList<PosRecord> positions = sampleSize <= 0 ? dataFile.LoadFile() : dataFile.LoadSample(sampleSize, save);
+
+            short[] weights = Array.Empty<short>();
+            if (!reset)
+            {
+                ChessDb rep = new();
+                ChessWeights? startingWeight = rep.Weights
+                    .Where(w => w.IsActive && w.IsImmortal)
+                    .MinBy(w => w.CreatedOn);
+
+                if (startingWeight != null)
+                {
+                    weights = startingWeight.Weights;
+                }
+            }
+
+            var tuner = weights.Length > 0 ? new HceTuner(weights, positions) : new HceTuner(positions);
+            var (Error, Accuracy, Weights) = tuner.Train(maxPass, maxTime);
+            PrintSolution(positions.Count, Error, Accuracy, Weights);
+        }
+
+#if false
         private static void RunLearn(string? dataFile, int sampleSize, int maxPass = 200, bool preserve = false, bool save = false, int full = 0, bool reset = false)
         {
             if (string.IsNullOrEmpty(dataFile))
@@ -1430,19 +1450,33 @@ namespace Pedantic
 
             return (b + a) / 2.0;
         }
+#endif
 
-        private static void PrintSolution(ChessWeights solution)
+        private static void PrintSolution(short[] weights)
         {
-            short[] wts = solution.Weights;
             indentLevel = 2;
-            WriteLine($"// Solution sample size: {solution.SampleSize}, generated on {DateTime.Now:R}");
-            WriteLine($"// Object ID: {solution.Id} - {solution.Description}");
+            WriteLine($"// Solution sample size: {weights.Length}, generated on {DateTime.Now:R}");
             WriteLine("private static readonly short[] paragonWeights =");
             WriteLine("{");
             indentLevel++;
-            PrintSolutionSection(wts, "OPENING WEIGHTS", "opening");
+            PrintSolutionSection(weights, "OPENING WEIGHTS", "opening");
             WriteLine();
-            PrintSolutionSection(wts[ChessWeights.ENDGAME_WEIGHTS..], "END GAME WEIGHTS", "end game");
+            PrintSolutionSection(weights[ChessWeights.ENDGAME_WEIGHTS..], "END GAME WEIGHTS", "end game");
+            indentLevel--;            
+            WriteLine("};");
+        }
+
+        private static void PrintSolution(int sampleSize, double error, double accuracy, short[] weights)
+        {
+            indentLevel = 2;
+            WriteLine($"// Solution sample size: {sampleSize}, generated on {DateTime.Now:R}");
+            WriteLine($"// Solution error: {error:F6}, accuracy: {accuracy:F4}");
+            WriteLine("private static readonly short[] paragonWeights =");
+            WriteLine("{");
+            indentLevel++;
+            PrintSolutionSection(weights, "OPENING WEIGHTS", "opening");
+            WriteLine();
+            PrintSolutionSection(weights[ChessWeights.ENDGAME_WEIGHTS..], "END GAME WEIGHTS", "end game");
             indentLevel--;            
             WriteLine("};");
         }
@@ -1652,21 +1686,11 @@ namespace Pedantic
                 ChessWeights? wt = rep.Weights.FirstOrDefault(w => w.Id == new Guid(printWt));
                 if (wt != null)
                 {
-                    PrintSolution(wt);
+                    PrintSolution(wt.Weights);
                 }
             }
         }
 
-        private static void ResetMomentums()
-        {
-            for (int n = 0; n < ChessWeights.MAX_WEIGHTS; n++)
-            {
-                incMomentums[n].Reset();
-            }
-        }
-
         private static int indentLevel = 0;
-        private static int miniBatchCount = MINI_BATCH_COUNT;
-        private static readonly IncMomentum[] incMomentums = new IncMomentum[ChessWeights.MAX_WEIGHTS];
     }
 }

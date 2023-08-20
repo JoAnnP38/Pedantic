@@ -23,6 +23,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Pedantic.Tablebase", "Pedantic.Tablebase\Pedantic.Tablebase.vcxproj", "{03258002-C760-48E2-9EA7-EF22F9664547}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pedantic.Tuning", "Pedantic.Tuning\Pedantic.Tuning.csproj", "{1860A587-1A19-475F-8AFD-CF96B28C34C2}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -87,6 +89,14 @@ Global
 		{03258002-C760-48E2-9EA7-EF22F9664547}.Release|Any CPU.Build.0 = Release|x64
 		{03258002-C760-48E2-9EA7-EF22F9664547}.Release|x64.ActiveCfg = Release|x64
 		{03258002-C760-48E2-9EA7-EF22F9664547}.Release|x64.Build.0 = Release|x64
+		{1860A587-1A19-475F-8AFD-CF96B28C34C2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1860A587-1A19-475F-8AFD-CF96B28C34C2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1860A587-1A19-475F-8AFD-CF96B28C34C2}.Debug|x64.ActiveCfg = Debug|x64
+		{1860A587-1A19-475F-8AFD-CF96B28C34C2}.Debug|x64.Build.0 = Debug|x64
+		{1860A587-1A19-475F-8AFD-CF96B28C34C2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1860A587-1A19-475F-8AFD-CF96B28C34C2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1860A587-1A19-475F-8AFD-CF96B28C34C2}.Release|x64.ActiveCfg = Release|x64
+		{1860A587-1A19-475F-8AFD-CF96B28C34C2}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -51,6 +51,7 @@
     <ProjectReference Include="..\Pedantic.Tablebase\Pedantic.Tablebase.vcxproj">
         <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </ProjectReference>
+    <ProjectReference Include="..\Pedantic.Tuning\Pedantic.Tuning.csproj" />
     <ProjectReference Include="..\Pedantic.Utilities\Pedantic.Utilities.csproj" />
   </ItemGroup>
 

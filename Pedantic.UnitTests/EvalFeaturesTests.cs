@@ -1,7 +1,7 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 using Pedantic.Chess;
-using Pedantic.Genetics;
+using Pedantic.Tuning;
 
 namespace Pedantic.UnitTests
 {
@@ -32,14 +32,14 @@ namespace Pedantic.UnitTests
         [DataRow("2K5/4r3/5k2/8/8/8/8/8 b - - 9 81")]
         public void ComputeTest(string fen)
         {
-            Board bd = new Board(fen);
-            EvalFeatures features = new EvalFeatures(bd);
+            Board bd = new(fen);
+            EvalFeatures features = new(bd);
 
             short[] weights = Evaluation.Weights;
 
             const int vecSize = EvalFeatures.FEATURE_SIZE;
-            ReadOnlySpan<short> opWeights = new ReadOnlySpan<short>(weights, 0, vecSize);
-            ReadOnlySpan<short> egWeights = new ReadOnlySpan<short>(weights, vecSize, vecSize);
+            ReadOnlySpan<short> opWeights = new(weights, 0, vecSize);
+            ReadOnlySpan<short> egWeights = new(weights, vecSize, vecSize);
 
             Evaluation eval = new(false);
             short expected = eval.Compute(bd);

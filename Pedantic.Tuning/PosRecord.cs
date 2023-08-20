@@ -16,10 +16,14 @@
 // ***********************************************************************
 using Pedantic.Chess;
 
-namespace Pedantic
+namespace Pedantic.Tuning
 {
     public readonly struct PosRecord
     {
+        public const float WDL_WIN = 1.0f;
+        public const float WDL_DRAW  = 0.5f;
+        public const float WDL_LOSS = 0.0f;
+
         public readonly float Result;
 
         public PosRecord(string fen, byte hasCastled, float result)

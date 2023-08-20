@@ -30,6 +30,7 @@ namespace Pedantic.Chess
         private int enPassant = Index.NONE;
         private int halfMoveClock;
         private int fullMoveCounter;
+        private static readonly Regex validFenString = new Regex(Constants.REGEX_FEN, RegexOptions.Singleline | RegexOptions.Compiled);
 
         public Fen(string fenString)
         {
@@ -273,10 +274,9 @@ namespace Pedantic.Chess
             }
         }
 
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("GeneratedRegex", "SYSLIB1045:Convert to 'GeneratedRegexAttribute'.", Justification = "<Pending>")]
         public static bool IsValidFen(string fenString)
         {
-            return Regex.IsMatch(fenString, Constants.REGEX_FEN);
+            return validFenString.IsMatch(fenString);
         }
 
         public static bool TryParse(string fenString, out Fen fen)

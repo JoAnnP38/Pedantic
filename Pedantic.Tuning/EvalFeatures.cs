@@ -16,12 +16,16 @@
 //     with different weights.
 // </summary>
 // ***********************************************************************
-using Pedantic.Collections;
-using Pedantic.Utilities;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 
-namespace Pedantic.Chess
+using Pedantic.Collections;
+using Pedantic.Chess;
+using Pedantic.Utilities;
+
+using Index = Pedantic.Chess.Index;
+
+namespace Pedantic.Tuning
 {
     public sealed class EvalFeatures
     {
@@ -105,8 +109,6 @@ namespace Pedantic.Chess
         private readonly SparseArray<short>[] sparse = { new(), new() };
 		private readonly short[][] features = { Array.Empty<short>(), Array.Empty<short>() };
 		private readonly int[][] indexMap = { Array.Empty<int>(), Array.Empty<int>() };
-        private readonly short[][] openingWts = { Array.Empty<short>(), Array.Empty<short>() };
-        private readonly short[][] endGameWts = { Array.Empty<short>(), Array.Empty<short>() };
         private readonly short phase = 0;
 
         public EvalFeatures(Board bd)
@@ -357,8 +359,6 @@ namespace Pedantic.Chess
                 int length = sparse[c].Count;
 				features[c] = new short[length];
 				indexMap[c] = new int[length];
-                openingWts[c] = new short[length];
-                endGameWts[c] = new short[length];
 
 				int i = 0;
 				foreach (var kvp in sparse[c])
@@ -375,16 +375,19 @@ namespace Pedantic.Chess
             {
                 Span<short> opScore = stackalloc short[2];
                 Span<short> egScore = stackalloc short[2];
+                Span<short> openingWts = stackalloc short[features[0].Length + features[1].Length];
+                Span<short> endGameWts = stackalloc short[features[0].Length + features[1].Length];
                 opScore.Clear();
                 egScore.Clear();
 
-                MapWeights(opWeights, egWeights);
+                MapWeights(opWeights, egWeights, openingWts, endGameWts);
 
                 for (Color color = Color.White; color <= Color.Black; color++)
                 {
                     int c = (int)color;
-                    opScore[c] = DotProduct(features[c], openingWts[c]);
-                    egScore[c] = DotProduct(features[c], endGameWts[c]);
+                    int start = color == Color.White ? 0 : indexMap[0].Length;
+                    opScore[c] = DotProduct(features[c], openingWts.Slice(start, indexMap[c].Length));
+                    egScore[c] = DotProduct(features[c], endGameWts.Slice(start, indexMap[c].Length));
                 }
 
                 short opWt = phase;
@@ -404,14 +407,16 @@ namespace Pedantic.Chess
 
         public Color SideToMove => sideToMove;
 
-		private void MapWeights(ReadOnlySpan<short> opWeights, ReadOnlySpan<short> egWeights)
+		private void MapWeights(ReadOnlySpan<short> opWeights, ReadOnlySpan<short> egWeights, Span<short> openingWts, Span<short> endGameWts)
 		{
 			for (int c = 0; c < Constants.MAX_COLORS; c++)
 			{
+                int index = c * indexMap[0].Length;
+
 				for (int n = 0; n < indexMap[c].Length; n++)
 				{
-					openingWts[c][n] = opWeights[indexMap[c][n]];
-                    endGameWts[c][n] = egWeights[indexMap[c][n]];
+					openingWts[index + n] = opWeights[indexMap[c][n]];
+                    endGameWts[index + n] = egWeights[indexMap[c][n]];
 				}
 			}
 		}
