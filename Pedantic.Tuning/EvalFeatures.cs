@@ -24,6 +24,7 @@ using Pedantic.Chess;
 using Pedantic.Utilities;
 
 using Index = Pedantic.Chess.Index;
+using Pedantic.Genetics;
 
 namespace Pedantic.Tuning
 {
@@ -77,34 +78,34 @@ namespace Pedantic.Tuning
          * [1573 - 1636]    0-1 passed pawns on square
          * [1637 - 1700]    0-1 bad bishop pawn on square
          */
-        public const int FEATURE_SIZE = 1701;
-        public const int MATERIAL = 0;
-        public const int PIECE_SQUARE_TABLES = 6;
-        public const int MOBILITY = 1542;
-        public const int KING_ATTACK = 1546;
-        public const int PAWN_SHIELD = 1549;
-        public const int ISOLATED_PAWNS = 1552;
-        public const int BACKWARD_PAWNS = 1553;
-        public const int DOUBLED_PAWNS = 1554;
-        public const int ADJACENT_PAWNS = 1555;
+        public const int FEATURE_SIZE = ChessWeights.ENDGAME_WEIGHTS;
+        public const int MATERIAL = ChessWeights.PIECE_VALUES;
+        public const int PIECE_SQUARE_TABLES = ChessWeights.PIECE_SQUARE_TABLE;
+        public const int MOBILITY = ChessWeights.PIECE_MOBILITY;
+        public const int KING_ATTACK = ChessWeights.KING_ATTACK;
+        public const int PAWN_SHIELD = ChessWeights.PAWN_SHIELD;
+        public const int ISOLATED_PAWNS = ChessWeights.ISOLATED_PAWN;
+        public const int BACKWARD_PAWNS = ChessWeights.BACKWARD_PAWN;
+        public const int DOUBLED_PAWNS = ChessWeights.DOUBLED_PAWN;
+        public const int ADJACENT_PAWNS = ChessWeights.CONNECTED_PAWN;
         //public const int KING_ADJACENT_OPEN_FILE = 1556;
-        public const int KNIGHTS_ON_OUTPOST = 1557;
-        public const int BISHOPS_ON_OUTPOST = 1558;
-        public const int BISHOP_PAIR = 1559;
-        public const int ROOK_OPEN_FILE = 1560;
-        public const int ROOK_HALF_OPEN_FILE = 1561;
-        public const int ROOK_BEHIND_PASSED_PAWN = 1562;
-        public const int DOUBLED_ROOKS_ON_FILE = 1563;
-        public const int KING_ON_OPEN_FILE = 1564;
-        public const int KING_ON_HALF_OPEN_FILE = 1565;
-        public const int CASTLING_AVAILABLE = 1566;
-        public const int CASTLING_COMPLETE = 1567;
-        public const int CENTER_CONTROL = 1568;
-        public const int QUEEN_OPEN_FILE = 1570;
-        public const int QUEEN_HALF_OPEN_FILE = 1571;
-        public const int ROOK_ON_7TH_RANK = 1572;
-        public const int PASSED_PAWNS = 1573;
-        public const int BAD_BISHOP_PAWN = 1637;
+        public const int KNIGHTS_ON_OUTPOST = ChessWeights.KNIGHT_OUTPOST;
+        public const int BISHOPS_ON_OUTPOST = ChessWeights.BISHOP_OUTPOST;
+        public const int BISHOP_PAIR = ChessWeights.BISHOP_PAIR;
+        public const int ROOK_OPEN_FILE = ChessWeights.ROOK_ON_OPEN_FILE;
+        public const int ROOK_HALF_OPEN_FILE = ChessWeights.ROOK_ON_HALF_OPEN_FILE;
+        public const int ROOK_BEHIND_PASSED_PAWN = ChessWeights.ROOK_BEHIND_PASSED_PAWN;
+        public const int DOUBLED_ROOKS_ON_FILE = ChessWeights.DOUBLED_ROOKS_ON_FILE;
+        public const int KING_ON_OPEN_FILE = ChessWeights.KING_ON_OPEN_FILE;
+        public const int KING_ON_HALF_OPEN_FILE = ChessWeights.KING_ON_HALF_OPEN_FILE;
+        public const int CASTLING_AVAILABLE = ChessWeights.CASTLING_AVAILABLE;
+        public const int CASTLING_COMPLETE = ChessWeights.CASTLING_COMPLETE;
+        public const int CENTER_CONTROL = ChessWeights.CENTER_CONTROL;
+        public const int QUEEN_OPEN_FILE = ChessWeights.QUEEN_ON_OPEN_FILE;
+        public const int QUEEN_HALF_OPEN_FILE = ChessWeights.QUEEN_ON_HALF_OPEN_FILE;
+        public const int ROOK_ON_7TH_RANK = ChessWeights.ROOK_ON_7TH_RANK;
+        public const int PASSED_PAWNS = ChessWeights.PASSED_PAWN;
+        public const int BAD_BISHOP_PAWN = ChessWeights.BAD_BISHOP_PAWN;
 
         private readonly SparseArray<short>[] sparse = { new(), new() };
 		private readonly short[][] features = { Array.Empty<short>(), Array.Empty<short>() };
@@ -393,10 +394,9 @@ namespace Pedantic.Tuning
                 short opWt = phase;
                 short egWt = (short)(Constants.MAX_PHASE - phase);
 
-                short score = (short)(((opScore[0] - opScore[1]) * opWt / Constants.MAX_PHASE) +
-                                      ((egScore[0] - egScore[1]) * egWt / Constants.MAX_PHASE));
-
-                return sideToMove == Color.White ? score : (short)-score;
+                int score = ((opScore[0] - opScore[1]) * opWt + (egScore[0] - egScore[1]) * egWt) / Constants.MAX_PHASE;
+                score = ((int)sideToMove * -2 + 1) * score;
+                return (short)score;
             }
             catch (Exception ex)
             {

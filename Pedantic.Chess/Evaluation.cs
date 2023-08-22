@@ -57,7 +57,11 @@ namespace Pedantic.Chess
             totalPawns = BitOps.PopCount(board.Pieces(Color.White, Piece.Pawn) | board.Pieces(Color.Black, Piece.Pawn));
             kingIndex[0] = BitOps.TzCount(board.Pieces(Color.White, Piece.King));
             kingIndex[1] = BitOps.TzCount(board.Pieces(Color.Black, Piece.King));
+
+            kp[0] = Index.GetKingPlacement(kingIndex[0], kingIndex[1]);
+            kp[1] = Index.GetKingPlacement(kingIndex[1], kingIndex[0]);
             currentPhase = GetGamePhase(board, out opWt, out egWt);
+
             bool isLazy = false;
             score = currentPhase == GamePhase.EndGameMopup ? ComputeMopUp(board) : ComputeNormal(board, alpha, beta, ref isLazy);
             score = board.SideToMove == Color.White ? score : (short)-score;
@@ -113,33 +117,44 @@ namespace Pedantic.Chess
 
         public short ComputeNormal(Board board, int alpha, int beta, ref bool isLazy)
         {
-            int kp = (int)Index.GetKingPlacement(kingIndex[0], kingIndex[1]);
-            opScore[0] += (short)(AdjustMaterial(board.OpeningMaterial[0], adjust[0]) + board.OpeningPieceSquare[0, kp]);
-            egScore[0] += (short)(AdjustMaterial(board.EndGameMaterial[0], adjust[0]) + board.EndGamePieceSquare[0, kp]);
+            opScore[0] = AdjustMaterial(board.OpeningMaterial[0], adjust[0]);
+            egScore[0] = AdjustMaterial(board.EndGameMaterial[0], adjust[0]);
+            opScore[1] = AdjustMaterial(board.OpeningMaterial[1], adjust[1]);
+            egScore[1] = AdjustMaterial(board.EndGameMaterial[1], adjust[1]);
 
-            kp = (int)Index.GetKingPlacement(kingIndex[1], kingIndex[0]);
-            opScore[1] += (short)(AdjustMaterial(board.OpeningMaterial[1], adjust[1]) + board.OpeningPieceSquare[1, kp]);
-            egScore[1] += (short)(AdjustMaterial(board.EndGameMaterial[1], adjust[1]) + board.EndGamePieceSquare[1, kp]);
+            for (Color color = Color.White; color <= Color.Black; color++)
+            {
+                int c = (int)color;
+                
+                for (Piece piece = Piece.Pawn; piece <= Piece.King; piece++)
+                {
+                    for (ulong bb = board.Pieces(color, piece); bb != 0; bb = BitOps.ResetLsb(bb))
+                    {
+                        int sq = BitOps.TzCount(bb);
+                        opScore[c] += wt.OpeningPieceSquareTable(piece, kp[c], Index.NormalizedIndex[c][sq]);
+                        egScore[c] += wt.EndGamePieceSquareTable(piece, kp[c], Index.NormalizedIndex[c][sq]);
+                    }
+                }
+            }
 
-            int score = (((opScore[0] - opScore[1]) * opWt) / Constants.MAX_PHASE) +
-                        (((egScore[0] - egScore[1]) * egWt) / Constants.MAX_PHASE);
+            int score = ((opScore[0] - opScore[1]) * opWt + (egScore[0] - egScore[1]) * egWt) / Constants.MAX_PHASE;
 
             isLazy = true;
-            int evalScore = board.SideToMove == Color.White ? score : -score;
+            int evalScore = ((int)board.SideToMove * -2 + 1) * score;
             if (evalScore >= alpha - Constants.LAZY_EVAL_MARGIN && evalScore <= beta + Constants.LAZY_EVAL_MARGIN)
             {
                 isLazy = false;
-                bool pawnsCalculated = TtPawnEval.TryLookup(board.PawnHash, out TtPawnEval.TtPawnItem item);
+                bool pawnsHashed = TtPawnEval.TryLookup(board.PawnHash, out TtPawnEval.TtPawnItem item);
 
                 ComputeKingAttacks(Color.White, board);
                 ComputeKingAttacks(Color.Black, board);
                 ComputeMisc(Color.White, board);
                 ComputeMisc(Color.Black, board);
-                if (pawnsCalculated)
+                if (pawnsHashed)
                 {
                     opScore[0] += item.GetOpeningScore(Color.White);
-                    opScore[1] += item.GetOpeningScore(Color.Black);
                     egScore[0] += item.GetEndGameScore(Color.White);
+                    opScore[1] += item.GetOpeningScore(Color.Black);
                     egScore[1] += item.GetEndGameScore(Color.Black);
                 }
                 else if (totalPawns > 0)
@@ -147,18 +162,17 @@ namespace Pedantic.Chess
                     ComputePawns(Color.White, board);
                     ComputePawns(Color.Black, board);
                     opScore[0] += opPawnScore[0];
-                    opScore[1] += opPawnScore[1];
                     egScore[0] += egPawnScore[0];
+                    opScore[1] += opPawnScore[1];
                     egScore[1] += egPawnScore[1];
                 }
 
-                if (!pawnsCalculated)
+                if (!pawnsHashed)
                 {
                     TtPawnEval.Add(board.PawnHash, opPawnScore, egPawnScore);
                 }
 
-                score = (short)((((opScore[0] - opScore[1]) * opWt) / Constants.MAX_PHASE) +
-                                (((egScore[0] - egScore[1]) * egWt) / Constants.MAX_PHASE));
+                score = ((opScore[0] - opScore[1]) * opWt + (egScore[0] - egScore[1]) * egWt) / Constants.MAX_PHASE;
 
                 if (random)
                 {
@@ -226,26 +240,30 @@ namespace Pedantic.Chess
             int o = (int)color.Other();
             board.GetPieceMobility(color, mobility, kingAttacks, centerControl);
             opScore[c] += (short)(mobility[(int)Piece.Knight] * wt.OpeningPieceMobility(Piece.Knight));
-            opScore[c] += (short)(mobility[(int)Piece.Bishop] * wt.OpeningPieceMobility(Piece.Bishop));
-            opScore[c] += (short)(mobility[(int)Piece.Rook] * wt.OpeningPieceMobility(Piece.Rook));
-            opScore[c] += (short)(mobility[(int)Piece.Queen] * wt.OpeningPieceMobility(Piece.Queen));
             egScore[c] += (short)(mobility[(int)Piece.Knight] * wt.EndGamePieceMobility(Piece.Knight));
+
+            opScore[c] += (short)(mobility[(int)Piece.Bishop] * wt.OpeningPieceMobility(Piece.Bishop));
             egScore[c] += (short)(mobility[(int)Piece.Bishop] * wt.EndGamePieceMobility(Piece.Bishop));
+
+            opScore[c] += (short)(mobility[(int)Piece.Rook] * wt.OpeningPieceMobility(Piece.Rook));
             egScore[c] += (short)(mobility[(int)Piece.Rook] * wt.EndGamePieceMobility(Piece.Rook));
+
+            opScore[c] += (short)(mobility[(int)Piece.Queen] * wt.OpeningPieceMobility(Piece.Queen));
             egScore[c] += (short)(mobility[(int)Piece.Queen] * wt.EndGamePieceMobility(Piece.Queen));
 
             opScore[c] += (short)(kingAttacks[0] * wt.OpeningKingAttack(0));
-            egScore[c] += (short)(kingAttacks[0] * wt.EndGameKingAttack(0));
-            opScore[c] += (short)(centerControl[0] * wt.OpeningCenterControl(0));
-            egScore[c] += (short)(centerControl[0] * wt.EndGameCenterControl(0));
-
             opScore[c] += (short)(kingAttacks[1] * wt.OpeningKingAttack(1));
-            egScore[c] += (short)(kingAttacks[1] * wt.EndGameKingAttack(1));
-            opScore[c] += (short)(centerControl[1] * wt.OpeningCenterControl(1));
-            egScore[c] += (short)(centerControl[1] * wt.EndGameCenterControl(1));
-
             opScore[c] += (short)(kingAttacks[2] * wt.OpeningKingAttack(2));
+
+            egScore[c] += (short)(kingAttacks[0] * wt.EndGameKingAttack(0));
+            egScore[c] += (short)(kingAttacks[1] * wt.EndGameKingAttack(1));
             egScore[c] += (short)(kingAttacks[2] * wt.EndGameKingAttack(2));
+
+            opScore[c] += (short)(centerControl[0] * wt.OpeningCenterControl(0));
+            opScore[c] += (short)(centerControl[1] * wt.OpeningCenterControl(1));
+
+            egScore[c] += (short)(centerControl[0] * wt.EndGameCenterControl(0));
+            egScore[c] += (short)(centerControl[1] * wt.EndGameCenterControl(1));
         }
 
         public void ComputePawns(Color color, Board board)
@@ -255,6 +273,11 @@ namespace Pedantic.Chess
             Color other = (Color)o;
 
             ulong pawns = board.Pieces(color, Piece.Pawn);
+            if (pawns == 0)
+            {
+                return;
+            }
+
             ulong otherPawns = board.Pieces(other, Piece.Pawn);
 
             for (ulong p = pawns; p != 0; p = BitOps.ResetLsb(p))
@@ -337,7 +360,7 @@ namespace Pedantic.Chess
                 }
             }
 
-            for (ulong bbBishop = board.Pieces(color, Piece.Bishop); bbBishop != 0; bbBishop = BitOps.ResetLsb(bbBishop))
+            for (ulong bbBishop = bishops; bbBishop != 0; bbBishop = BitOps.ResetLsb(bbBishop))
             { 
                 int sq = BitOps.TzCount(bbBishop);
                 ulong badPawns = pawns & DARK_SQUARES_MASK;
@@ -653,6 +676,7 @@ namespace Pedantic.Chess
         private int totalPawns;
         private readonly int[] adjust = { 32, 32 };
         private readonly int[] kingIndex = new int[2];
+        private readonly KingPlacement[] kp = new KingPlacement[2];
         private readonly short[] opScore = { 0, 0 };
         private readonly short[] egScore = { 0, 0 };
         private readonly short[] opPawnScore = { 0, 0 };

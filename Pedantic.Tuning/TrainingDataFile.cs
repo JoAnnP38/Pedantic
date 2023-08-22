@@ -106,7 +106,7 @@ namespace Pedantic.Tuning
             Queue<string> wins = new();
             Queue<string> draws = new();
             Queue<string> losses = new();
-            int[] selections = SampleSelections(sampleSize + sampleSize / 4, lineCount);
+            int[] selections = SampleSelections(sampleSize + sampleSize / 8, lineCount);
             StreamWriter? sw = save ? new StreamWriter(OutputName(), false, Encoding.UTF8) : null;
             Stopwatch clock = new();
             clock.Start();
@@ -157,6 +157,7 @@ namespace Pedantic.Tuning
                     }
 
                     // only add when you can ensure an even distribution of wins, draws and losses
+                    // try to maintain WDL ratio of 1:1:1
                     if (wins.Count > 0 && draws.Count > 0 && losses.Count > 0)
                     {
                         if (AddPosRecord(records, wins.Dequeue(), sw) >= sampleSize)

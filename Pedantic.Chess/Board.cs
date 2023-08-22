@@ -43,8 +43,6 @@ namespace Pedantic.Chess
 
         private readonly short[] opMaterial = new short[Constants.MAX_COLORS];
         private readonly short[] egMaterial = new short[Constants.MAX_COLORS];
-        private readonly Array2D<short> opPcSquare = new (Constants.MAX_COLORS, Constants.MAX_KING_PLACEMENTS, true);
-        private readonly Array2D<short> egPcSquare = new (Constants.MAX_COLORS, Constants.MAX_KING_PLACEMENTS, true);
         private ulong pawnHash;
 
         #endregion
@@ -126,8 +124,6 @@ namespace Pedantic.Chess
             gameStack = new(other.gameStack);
             Array.Copy(other.opMaterial, opMaterial, opMaterial.Length);
             Array.Copy(other.egMaterial, egMaterial, egMaterial.Length);
-            opPcSquare.Copy(other.opPcSquare);
-            egPcSquare.Copy(other.egPcSquare);
             Array.Copy(other.hasCastled, hasCastled, hasCastled.Length);
             pawnHash = other.pawnHash;
         }
@@ -202,8 +198,6 @@ namespace Pedantic.Chess
         public ulong PawnHash => pawnHash;
         public short[] OpeningMaterial => opMaterial;
         public short[] EndGameMaterial => egMaterial;
-        public Array2D<short> OpeningPieceSquare => opPcSquare;
-        public Array2D<short> EndGamePieceSquare => egPcSquare;
 
         public ulong LastMove
         {
@@ -247,8 +241,6 @@ namespace Pedantic.Chess
             gameStack.Clear();
             Array.Clear(opMaterial);
             Array.Clear(egMaterial);
-            opPcSquare.Clear();
-            egPcSquare.Clear();
             Array.Fill(hasCastled, false);
             pawnHash = 0;
             phase = 0;
@@ -1196,25 +1188,28 @@ namespace Pedantic.Chess
         public void GetPieceMobility(Color color, Span<short> mobility, Span<short> kingAttacks, Span<short> centerControl)
         {
             Color other = (Color)((int)color ^ 1);
-            ulong pawnDefended = 0ul;
+            ulong pawnDefended = 0ul, pawnCaptures = 0ul;
+            ulong friendlyPawns = Pieces(color, Piece.Pawn);
+            ulong enemyPawns = Pieces(other, Piece.Pawn);
+
             int kingIndex = BitOps.TzCount(Pieces(other, Piece.King));
             mobility.Clear();
             kingAttacks.Clear();
             centerControl.Clear();
 
-            for (ulong pawns = Pieces(other, Piece.Pawn); pawns != 0ul; pawns = BitOps.ResetLsb(pawns))
+            if (color == Color.White)
             {
-                int square = BitOps.TzCount(pawns);
-                pawnDefended |= PawnCaptures(other, square);
+                pawnDefended = ((enemyPawns & ~MaskFile(Index.H1)) >> 7) | ((enemyPawns & ~MaskFile(Index.A1)) >> 9);
+                pawnCaptures = ((friendlyPawns & ~MaskFile(Index.A1)) << 7) | ((friendlyPawns & ~MaskFile(Index.H1)) << 9);
+            }
+            else
+            {
+                pawnDefended = ((enemyPawns & ~MaskFile(Index.A1)) << 7) | ((enemyPawns & ~MaskFile(Index.H1)) << 9);
+                pawnCaptures = ((friendlyPawns & ~MaskFile(Index.H1)) >> 7) | ((friendlyPawns & ~MaskFile(Index.A1)) >> 9);
             }
 
-            for (ulong pawns = Pieces(color, Piece.Pawn); pawns != 0ul; pawns = BitOps.ResetLsb(pawns))
-            {
-                int square = BitOps.TzCount(pawns);
-                ulong captures = PawnCaptures(color, square);
-                centerControl[0] += (short)BitOps.PopCount(captures & Evaluation.D0_CENTER_CONTROL_MASK);
-                centerControl[1] += (short)BitOps.PopCount(captures & Evaluation.D1_CENTER_CONTROL_MASK);
-            }
+            centerControl[0] += (short)BitOps.PopCount(pawnCaptures & Evaluation.D0_CENTER_CONTROL_MASK);
+            centerControl[1] += (short)BitOps.PopCount(pawnCaptures & Evaluation.D1_CENTER_CONTROL_MASK);
 
             ulong excluded = pawnDefended | Units(color);
             ulong d0 = Evaluation.KingProximity[0, kingIndex];
@@ -2045,22 +2040,6 @@ namespace Pedantic.Chess
             phase += piece.PhaseValue();
             opMaterial[(int)color] += Evaluation.OpeningPieceValues(piece);
             egMaterial[(int)color] += Evaluation.EndGamePieceValues(piece);
-            opPcSquare[(int)color, 0] +=
-                Evaluation.OpeningPieceSquareTable(piece, KingPlacement.KK, Index.NormalizedIndex[(int)color][square]);
-            egPcSquare[(int)color, 0] +=
-                Evaluation.EndGamePieceSquareTable(piece, KingPlacement.KK, Index.NormalizedIndex[(int)color][square]);
-            opPcSquare[(int)color, 1] +=
-                Evaluation.OpeningPieceSquareTable(piece, KingPlacement.KQ, Index.NormalizedIndex[(int)color][square]);
-            egPcSquare[(int)color, 1] +=
-                Evaluation.EndGamePieceSquareTable(piece, KingPlacement.KQ, Index.NormalizedIndex[(int)color][square]);
-            opPcSquare[(int)color, 2] +=
-                Evaluation.OpeningPieceSquareTable(piece, KingPlacement.QK, Index.NormalizedIndex[(int)color][square]);
-            egPcSquare[(int)color, 2] +=
-                Evaluation.EndGamePieceSquareTable(piece, KingPlacement.QK, Index.NormalizedIndex[(int)color][square]);
-            opPcSquare[(int)color, 3] +=
-                Evaluation.OpeningPieceSquareTable(piece, KingPlacement.QQ, Index.NormalizedIndex[(int)color][square]);
-            egPcSquare[(int)color, 3] +=
-                Evaluation.EndGamePieceSquareTable(piece, KingPlacement.QQ, Index.NormalizedIndex[(int)color][square]);
         }
 
         public void RemovePiece(Color color, Piece piece, int square)
@@ -2083,22 +2062,6 @@ namespace Pedantic.Chess
             phase -= piece.PhaseValue();
             opMaterial[(int)color] -= Evaluation.OpeningPieceValues(piece);
             egMaterial[(int)color] -= Evaluation.EndGamePieceValues(piece);
-            opPcSquare[(int)color, 0] -=
-                Evaluation.OpeningPieceSquareTable(piece, KingPlacement.KK, Index.NormalizedIndex[(int)color][square]);
-            egPcSquare[(int)color, 0] -=
-                Evaluation.EndGamePieceSquareTable(piece, KingPlacement.KK, Index.NormalizedIndex[(int)color][square]);
-            opPcSquare[(int)color, 1] -=
-                Evaluation.OpeningPieceSquareTable(piece, KingPlacement.KQ, Index.NormalizedIndex[(int)color][square]);
-            egPcSquare[(int)color, 1] -=
-                Evaluation.EndGamePieceSquareTable(piece, KingPlacement.KQ, Index.NormalizedIndex[(int)color][square]);
-            opPcSquare[(int)color, 2] -=
-                Evaluation.OpeningPieceSquareTable(piece, KingPlacement.QK, Index.NormalizedIndex[(int)color][square]);
-            egPcSquare[(int)color, 2] -=
-                Evaluation.EndGamePieceSquareTable(piece, KingPlacement.QK, Index.NormalizedIndex[(int)color][square]);
-            opPcSquare[(int)color, 3] -=
-                Evaluation.OpeningPieceSquareTable(piece, KingPlacement.QQ, Index.NormalizedIndex[(int)color][square]);
-            egPcSquare[(int)color, 3] -=
-                Evaluation.EndGamePieceSquareTable(piece, KingPlacement.QQ, Index.NormalizedIndex[(int)color][square]);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
