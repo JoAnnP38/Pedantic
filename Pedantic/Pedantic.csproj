@@ -14,7 +14,7 @@
     <Platforms>AnyCPU;x64</Platforms>
     <StartupObject>Pedantic.Program</StartupObject>
     <Configurations>Debug;Release</Configurations>
-    <Version>0.4.1</Version>
+    <Version>0.5.0</Version>
     <TieredPGO>true</TieredPGO>
   </PropertyGroup>
 
