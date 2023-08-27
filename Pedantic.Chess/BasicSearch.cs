@@ -38,7 +38,8 @@ namespace Pedantic.Chess
         internal const int RAZOR_MAX_DEPTH = 3;
         internal const int IID_MIN_DEPTH = 5;
         internal const int LMP_MAX_HISTORY = 32;
-        internal const int PRUNING_DEPTH = 3;
+        internal const int SEE_PRUNING_DEPTH = 3;
+        internal const int LMP_PRUNING_DEPTH = 3;
 
         public BasicSearch(SearchStack searchStack, Board board, GameClock time, int maxSearchDepth, long maxNodes = long.MaxValue - 100, bool randomSearch = false) 
         {
@@ -246,6 +247,7 @@ namespace Pedantic.Chess
 
                 searchItem.Move = (uint)move;
                 searchItem.IsCheckingMove = checkingMove;
+                searchItem.IsPromotionThreat = board.IsPromotionThreat(move);
 
                 int R = 0;
                 if (!interesting && !killerMoves.Exists(0, move))
@@ -329,6 +331,8 @@ namespace Pedantic.Chess
         public int Search(int alpha, int beta, int depth, int ply, bool canNull = true, bool isPv = true)
         {
             bool inCheck = searchStack[ply - 1].IsCheckingMove;
+            bool isPromotionThreat = searchStack[ply - 1].IsPromotionThreat;
+
             ref SearchItem searchItem = ref searchStack[ply];
             int originalAlpha = alpha;
             NodesVisited++;
@@ -420,7 +424,7 @@ namespace Pedantic.Chess
                 // razoring
                 if (canNull)
                 {
-                    if (depth <= RAZOR_MAX_DEPTH && !IsPromotionThreat(board.LastMove))
+                    if (depth <= RAZOR_MAX_DEPTH && !isPromotionThreat)
                     {
                         int threshold = alpha - FutilityMargin[depth];
                         if (eval <= threshold)
@@ -432,12 +436,7 @@ namespace Pedantic.Chess
                             }
                         }
                     }
-
-                    if (depth <= PRUNING_DEPTH)
-                    {
-                        // enable LMP pruning
-                        canPrune = true;
-                    }
+                    canPrune = true;
                 }
             }
 
@@ -490,18 +489,19 @@ namespace Pedantic.Chess
 
                 searchItem.Move = (uint)move;
                 searchItem.IsCheckingMove = checkingMove;
+                searchItem.IsPromotionThreat = board.IsPromotionThreat(move);
 
-                if (canPrune && !interesting && !IsPromotionThreat(move))
+                if (canPrune && !interesting && !searchItem.IsPromotionThreat)
                 {
                     // late move pruning
-                    if (expandedNodes > LMP[depth])
+                    if (depth <= LMP_PRUNING_DEPTH && expandedNodes > LMP[depth])
                     {
                         board.UnmakeMoveNs();
                         continue;
                     }
 
                     // see-based pruning (bad captures have already been found bad by see)
-                    if (badCapture || board.PostMoveStaticExchangeEval(stm, move) < 0)
+                    if (depth <= SEE_PRUNING_DEPTH && (badCapture || board.PostMoveStaticExchangeEval(stm, move) < 0))
                     {
                         board.UnmakeMoveNs();
                         continue;
@@ -1034,18 +1034,6 @@ namespace Pedantic.Chess
             }
 
             return pv;
-        }
-
-        public bool IsPromotionThreat(ulong move)
-        {
-            if (Move.IsPawnMove(move))
-            {
-                int to = Move.GetTo(move);
-                int c = (int)board.PieceBoard[to].Color;
-                int toRank = Index.GetRank(Index.NormalizedIndex[c][to]);
-                return toRank >= Coord.RANK_6;
-            }
-            return false;
         }
 
         public int Depth { get; private set; }

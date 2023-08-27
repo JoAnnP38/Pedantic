@@ -132,7 +132,7 @@ namespace Pedantic.Chess
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsPawnMove(ulong move)
         {
-            return GetMoveType(move) == MoveType.PawnMove;
+            return GetPiece(move) == Piece.Pawn;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

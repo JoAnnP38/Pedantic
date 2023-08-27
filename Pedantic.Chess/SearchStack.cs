@@ -13,6 +13,7 @@
             searchStack[0].Move = (uint)board.PrevLastMove;
             searchStack[1].Move = (uint)board.LastMove;
             searchStack[1].IsCheckingMove = board.IsChecked();
+            searchStack[1].IsPromotionThreat = board.IsPromotionThreat(board.LastMove);
         }
 
         public SearchStack()
@@ -31,6 +32,7 @@
             searchStack[0].Move = (uint)board.PrevLastMove;
             searchStack[1].Move = (uint)board.LastMove;
             searchStack[1].IsCheckingMove = board.IsChecked();
+            searchStack[1].IsPromotionThreat = board.IsPromotionThreat(board.LastMove);
         }
 
         public void Clear()

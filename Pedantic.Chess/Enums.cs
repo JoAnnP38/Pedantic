@@ -106,6 +106,18 @@ namespace Pedantic.Chess
         QQ = FriendlyQueenSide | OpponentQueenSide
     }
 
+    public enum MoveGenPhase : byte
+    {
+        HashMove,
+        CaptureMoves,
+        PromotionMoves,
+        KillerMoves,
+        CounterMoves,
+        BadCaptureMoves,
+        QuietMoves,
+        MaxMoveGenPhases
+    }
+
     public static class ChessExtensions
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
