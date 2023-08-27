@@ -299,6 +299,27 @@ namespace Pedantic.Chess
             return legal;
         }
 
+        public bool IsPromotionThreat(ulong move)
+        {
+            if (Move.IsPawnMove(move))
+            {
+                int to = Move.GetTo(move);
+                Color color = Move.GetStm(move);
+                int c = (int)color;
+                int o = (int)color.Other();
+                Ray ray = Vectors[to];
+                ulong doubledFriends = color == Color.White ? ray.North : ray.South;
+
+                if ((pieces[o, (int)Piece.Pawn] & Evaluation.PassedPawnMasks[c, to]) == 0 &&
+                    (pieces[c, (int)Piece.Pawn] & doubledFriends) == 0)
+                {
+                    int normalRank = Index.GetRank(Index.NormalizedIndex[c][to]);
+                    return normalRank >= Coord.RANK_6;
+                }
+            }
+            return false;
+        }
+
         public override string ToString()
         {
             StringBuilder sb = new();
