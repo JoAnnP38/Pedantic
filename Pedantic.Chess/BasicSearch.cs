@@ -224,12 +224,13 @@ namespace Pedantic.Chess
             MoveList moveList = GetMoveList();
             ulong bestMove = 0ul;
             int score;
+            ulong move;
+            MoveGenPhase phase;
             IEnumerable<(ulong Move, MoveGenPhase Phase)> moves = board.Moves(0, killerMoves, history, searchStack, moveList);
 
             foreach (var mvItem in moves)
             {
-                ulong move = mvItem.Move;
-                MoveGenPhase phase = mvItem.Phase;
+                (move, phase) = mvItem;
 
                 if (!board.MakeMoveNs(move))
                 {
