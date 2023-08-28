@@ -224,10 +224,13 @@ namespace Pedantic.Chess
             MoveList moveList = GetMoveList();
             ulong bestMove = 0ul;
             int score;
-            IEnumerable<ulong> moves = board.Moves(0, killerMoves, history, searchStack, moveList);
+            IEnumerable<(ulong Move, MoveGenPhase Phase)> moves = board.Moves(0, killerMoves, history, searchStack, moveList);
 
-            foreach (ulong move in moves)
+            foreach (var mvItem in moves)
             {
+                ulong move = mvItem.Move;
+                MoveGenPhase phase = mvItem.Phase;
+
                 if (!board.MakeMoveNs(move))
                 {
                     continue;
@@ -242,15 +245,14 @@ namespace Pedantic.Chess
 
                 bool checkingMove = board.IsChecked();
                 bool isQuiet = Move.IsQuiet(move);
-                bool badCapture = Move.IsBadCapture(move);
-                bool interesting = inCheck || checkingMove || (!isQuiet && !badCapture) || !raisedAlpha;
+                bool interesting = inCheck || checkingMove || (phase < MoveGenPhase.BadCaptureMoves) || !raisedAlpha;
 
                 searchItem.Move = (uint)move;
                 searchItem.IsCheckingMove = checkingMove;
                 searchItem.IsPromotionThreat = board.IsPromotionThreat(move);
 
                 int R = 0;
-                if (!interesting && !killerMoves.Exists(0, move))
+                if (!interesting)
                 {
                     R = LMR[Math.Min(depth, LMR_DEPTH_LIMIT)][Math.Min(expandedNodes - 1, LMR_MOVE_LIMIT)];
                 }
@@ -460,7 +462,9 @@ namespace Pedantic.Chess
             StackList<uint> quiets = new(stackalloc uint[128]);
             MoveList moveList = GetMoveList();
             bestMove = 0ul;
-            IEnumerable<ulong> moves = board.Moves(ply, killerMoves, history, searchStack, moveList);
+            ulong move;
+            MoveGenPhase phase;
+            IEnumerable<(ulong Move, MoveGenPhase Phase)> moves = board.Moves(ply, killerMoves, history, searchStack, moveList);
 
 #if DEBUG
             if (ply == 0)
@@ -472,8 +476,10 @@ namespace Pedantic.Chess
             string fen = board.ToFenString();
 #endif
 
-            foreach (ulong move in moves)
+            foreach (var mvItem in moves)
             {
+                (move, phase) = mvItem;
+
                 if (!board.MakeMoveNs(move))
                 {
                     continue;
@@ -483,9 +489,7 @@ namespace Pedantic.Chess
 
                 bool checkingMove = board.IsChecked();
                 bool isQuiet = Move.IsQuiet(move);
-                bool isKiller = isQuiet && killerMoves.Exists(ply, move);
-                bool badCapture = Move.IsBadCapture(move);
-                bool interesting = inCheck || checkingMove || (!isQuiet && !badCapture) || isKiller || expandedNodes == 1;
+                bool interesting = inCheck || checkingMove || (phase < MoveGenPhase.BadCaptureMoves) || expandedNodes == 1;
 
                 searchItem.Move = (uint)move;
                 searchItem.IsCheckingMove = checkingMove;
@@ -501,7 +505,8 @@ namespace Pedantic.Chess
                     }
 
                     // see-based pruning (bad captures have already been found bad by see)
-                    if (depth <= SEE_PRUNING_DEPTH && (badCapture || board.PostMoveStaticExchangeEval(stm, move) < 0))
+                    if (depth <= SEE_PRUNING_DEPTH && 
+                        (phase == MoveGenPhase.BadCaptureMoves || board.PostMoveStaticExchangeEval(stm, move) < 0))
                     {
                         board.UnmakeMoveNs();
                         continue;
@@ -520,7 +525,7 @@ namespace Pedantic.Chess
                 {
                     R = LMR[Math.Min(depth, LMR_DEPTH_LIMIT)][Math.Min(expandedNodes - 1, LMR_MOVE_LIMIT)];
 
-                    if (X > 0 && R > 0)
+                    if ((X > 0 || isPv) && R > 0)
                     {
                         R--;
                     }

@@ -921,14 +921,14 @@ namespace Pedantic.Chess
 
         #region Move Generation
 
-        public IEnumerable<ulong> Moves(int ply, KillerMoves killerMoves, History history, SearchStack searchStack, MoveList moveList)
+        public IEnumerable<(ulong Move, MoveGenPhase Phase)> Moves(int ply, KillerMoves killerMoves, History history, SearchStack searchStack, MoveList moveList)
         {
             ulong[] bc = badCaptures[ply];
             int bcIndex = 0;
 
             if (TtTran.TryGetBestMove(hash, out ulong bestMove))
             {
-                yield return bestMove;
+                yield return (bestMove, MoveGenPhase.HashMove);
             }
 
             moveList.Clear();
@@ -946,7 +946,7 @@ namespace Pedantic.Chess
                     continue;
                 }
                 
-                yield return move;
+                yield return (move, MoveGenPhase.CaptureMoves);
             }
 
             moveList.Clear();
@@ -955,7 +955,7 @@ namespace Pedantic.Chess
 
             for (int n = 0; n < moveList.Count; n++)
             {
-                yield return moveList.Sort(n);
+                yield return (moveList.Sort(n), MoveGenPhase.PromotionMoves);
             }
 
             moveList.Clear();
@@ -966,29 +966,29 @@ namespace Pedantic.Chess
             
             if (moveList.Remove(km.Killer0))
             {
-                yield return km.Killer0;
+                yield return (km.Killer0, MoveGenPhase.KillerMoves);
             }
 
             if (moveList.Remove(km.Killer1))
             {
-                yield return km.Killer1;
+                yield return (km.Killer1, MoveGenPhase.KillerMoves);
             }
 
             ulong counter = history.CounterMove(searchStack[ply - 1].Move);
             if (moveList.Remove(counter))
             {
-                yield return counter;
+                yield return (counter, MoveGenPhase.CounterMoves);
             }
 
             // now return the bad captures deferred from earlier
             for (int n = 0; n < bcIndex; n++)
             {
-                yield return bc[n];
+                yield return (bc[n], MoveGenPhase.BadCaptureMoves);
             }
 
             for (int n = 0; n < moveList.Count; n++)
             {
-                yield return moveList.Sort(n);
+                yield return (moveList.Sort(n), MoveGenPhase.QuietMoves);
             }
         }
 
