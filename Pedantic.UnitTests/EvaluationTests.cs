@@ -96,7 +96,7 @@ namespace Pedantic.UnitTests
             SortedSet<ulong> s1 = new(list1);
             MoveList list2 = new();
             ulong[] moves = board.Moves(0, km, h, new SearchStack(board), list2)
-                .Select(m => Move.ClearScore(m))
+                .Select(m => Move.ClearScore(m.Move))
                 .ToArray();
             Assert.IsTrue(s1.SetEquals(moves));
 

@@ -227,9 +227,9 @@ namespace Pedantic.UnitTests
         public void MovesTest(string fen)
         {
             Board bd = new(fen);
-            foreach (ulong move in bd.Moves(0, new KillerMoves(), new History(), new SearchStack(bd), new MoveList()))
+            foreach (var mvItem in bd.Moves(0, new KillerMoves(), new History(), new SearchStack(bd), new MoveList()))
             {
-                Console.WriteLine(Move.ToLongString(move));
+                Console.WriteLine(Move.ToLongString(mvItem.Move));
             }
         }
 
