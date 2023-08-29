@@ -76,34 +76,40 @@ namespace Pedantic.Chess
 
         public ReadOnlySpan<ulong> ToSpan() => new(array, 0, Count);
 
-        public void UpdateScores(ulong pv, KillerMoves killerMoves, int ply)
+        public void UpdateScores(ulong pv, SearchStack searchStack, int ply, History history)
         {
             int found = 0;
-            ref KillerMoves.KillerMove km = ref killerMoves.GetKillers(ply);
+            MovePair km = searchStack[ply].KillerMoves;
+            MovePair counters = history.CounterMoves(searchStack[ply - 1].Move);
 
-            for (int n = 0; n < insertIndex && found < 3; ++n)
+            for (int n = 0; n < insertIndex && found < 5; ++n)
             {
                 ulong move = array[n];
-                bool isCapture = Move.GetCapture(move) != Piece.None;
 
                 if (Move.Compare(move, pv) == 0)
                 {
                     array[n] = Move.SetScore(move, Constants.PV_SCORE);
                     found++;
                 }
-                else if (!isCapture)
+                else if (Move.Compare(move, km.Move1) == 0)
                 {
-                    if (KillerMoves.MovesEqual(move, km.Killer0))
-                    {
-                        array[n] = Move.SetScore(move, Constants.KILLER_SCORE - 0);
-                        found++;
-                    }
-
-                    if (KillerMoves.MovesEqual(move, km.Killer1))
-                    {
-                        array[n] = Move.SetScore(move, Constants.KILLER_SCORE - 1);
-                        found++;
-                    }
+                    array[n] = Move.SetScore(move, Constants.KILLER_SCORE + 1);
+                    found++;
+                }
+                else if (Move.Compare(move, km.Move2) == 0)
+                {
+                    array[n] = Move.SetScore(move, Constants.KILLER_SCORE);
+                    found++;
+                }
+                else if (Move.Compare(move, counters.Move1) == 0)
+                {
+                    array[n] = Move.SetScore(move, Constants.COUNTER_SCORE + 1);
+                    found++;
+                }
+                else if (Move.Compare(move, counters.Move2) == 0)
+                {
+                    array[n] = Move.SetScore(move, Constants.COUNTER_SCORE);
+                    found++;
                 }
             }
         }

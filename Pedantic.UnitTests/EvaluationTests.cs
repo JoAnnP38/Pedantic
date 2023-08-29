@@ -23,7 +23,7 @@ namespace Pedantic.UnitTests
 
         [TestMethod]
         [DataRow(Constants.FEN_START_POS, 0)]
-        [DataRow("r6r/pp4kp/3B1p2/3P2p1/B1P1q1n1/2Q3P1/PP6/5RK1 w - - 0 13", -90)]
+        [DataRow("r6r/pp4kp/3B1p2/3P2p1/B1P1q1n1/2Q3P1/PP6/5RK1 w - - 0 13", -94)]
         public void ComputeTest(string fen, int expectedScore)
         {
             Board board = new(fen);
@@ -59,8 +59,8 @@ namespace Pedantic.UnitTests
         }
 
         [TestMethod]
-        [DataRow(Constants.FEN_START_POS, 4925, 4925, 4500, 4500, (short)64)]
-        [DataRow("r2n2k1/3P3p/1R4p1/2B5/4p3/2P1P2P/p4rP1/2KR4 w - - 0 40", 2075, 1955, 2055, 1920, (short)29)]
+        [DataRow(Constants.FEN_START_POS, 5434, 5434, 5915, 5915, (short)64)]
+        [DataRow("r2n2k1/3P3p/1R4p1/2B5/4p3/2P1P2P/p4rP1/2KR4 w - - 0 40", 2239, 2072, 2827, 2630, (short)29)]
         public void CorrectMaterialTest(string fen, int opWhiteMaterial, int opBlackMaterial, int egWhiteMaterial,
             int egBlackMaterial, short phase)
         {
@@ -86,7 +86,6 @@ namespace Pedantic.UnitTests
         [DataRow("5r2/8/8/8/3B3P/2PK4/1k6/7R w - - 94 142")]
         public void PassPawnEvaluationTest(string fen)
         {
-            KillerMoves km = new();
             History h = new();
             Board board = new(fen);
             Evaluation evaluation = new();
@@ -95,7 +94,7 @@ namespace Pedantic.UnitTests
             board.GenerateMoves(list1);
             SortedSet<ulong> s1 = new(list1);
             MoveList list2 = new();
-            ulong[] moves = board.Moves(0, km, h, new SearchStack(board), list2)
+            ulong[] moves = board.Moves(0, h, new SearchStack(board), list2)
                 .Select(m => Move.ClearScore(m.Move))
                 .ToArray();
             Assert.IsTrue(s1.SetEquals(moves));
@@ -129,7 +128,7 @@ namespace Pedantic.UnitTests
         }
 
         [TestMethod]
-        [DataRow("1k3r2/1p4p1/p3p1Np/3b1p2/1bq5/2P2P2/PP1Q1PBP/1K1R2R1 w - - 5 27", (short)540)]
+        [DataRow("1k3r2/1p4p1/p3p1Np/3b1p2/1bq5/2P2P2/PP1Q1PBP/1K1R2R1 w - - 5 27", (short)506)]
         public void UnbalancedPosition(string fen, short expected)
         {
             Board bd = new(fen);
