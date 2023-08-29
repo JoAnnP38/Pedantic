@@ -11,6 +11,7 @@ namespace Pedantic.Chess
         public uint Move;
         public bool IsCheckingMove;
         public bool IsPromotionThreat;
+        public MovePair KillerMoves;
 
         public SearchItem()
         {

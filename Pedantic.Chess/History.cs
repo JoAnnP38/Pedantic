@@ -26,13 +26,13 @@ namespace Pedantic.Chess
     {
         public const int HISTORY_LEN = Constants.MAX_COLORS * Constants.MAX_PIECES * Constants.MAX_SQUARES;
         private readonly short[] hhHistory = new short[HISTORY_LEN];
-        private readonly uint[] counters = new uint[HISTORY_LEN];
+        private readonly MovePair[] counters = new MovePair[HISTORY_LEN];
 
-        public ulong CounterMove(ulong lastMove)
+        public MovePair CounterMoves(ulong lastMove)
         {
             if (lastMove == 0 || lastMove == Move.NullMove)
             {
-                return 0;
+                return default;
             }
             return counters[GetIndex(Move.GetStm(lastMove), Move.GetPiece(lastMove), Move.GetTo(lastMove))];
         }
@@ -56,18 +56,18 @@ namespace Pedantic.Chess
         public void UpdateCutoff(ulong move, int ply, ref StackList<uint> quiets, SearchStack searchStack, int depth)
         {
             short bonus = (short)(((depth * depth) >> 1) + (depth << 1) - 1);
-            UpdateHistory(ref hhHistory[GetIndex(Move.GetStm(move), Move.GetPiece(move), Move.GetTo(move))], bonus);
+            UpdateHistory(ref hhHistory[GetIndex(move)], bonus);
 
             ulong lastMove = searchStack[ply - 1].Move;
             if (lastMove != Move.NullMove)
             {
-                counters[GetIndex(Move.GetStm(lastMove), Move.GetPiece(lastMove), Move.GetTo(lastMove))] = (uint)Move.ClearScore(move);
+                counters[GetIndex(lastMove)].Add((uint)move);
             }
 
             for (int n = 0; n < quiets.Count; n++)
             {
                 ulong quiet = quiets[n];
-                UpdateHistory(ref hhHistory[GetIndex(Move.GetStm(quiet), Move.GetPiece(quiet), Move.GetTo(quiet))], (short)-bonus);
+                UpdateHistory(ref hhHistory[GetIndex(quiet)], (short)-bonus);
             }
         }
 
@@ -87,6 +87,12 @@ namespace Pedantic.Chess
         public static int GetIndex(Color color, Piece piece, int to)
         {
             return ((int)color * 384) + ((int)piece * 64) + to;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int GetIndex(ulong move)
+        {
+            return ((int)Move.GetStm(move) * 384) + ((int)Move.GetPiece(move) * 64) + Move.GetTo(move);
         }
 
         private unsafe void Rescale()

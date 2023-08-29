@@ -921,7 +921,7 @@ namespace Pedantic.Chess
 
         #region Move Generation
 
-        public IEnumerable<(ulong Move, MoveGenPhase Phase)> Moves(int ply, KillerMoves killerMoves, History history, SearchStack searchStack, MoveList moveList)
+        public IEnumerable<(ulong Move, MoveGenPhase Phase)> Moves(int ply, History history, SearchStack searchStack, MoveList moveList)
         {
             ulong[] bc = badCaptures[ply];
             int bcIndex = 0;
@@ -962,22 +962,27 @@ namespace Pedantic.Chess
             GenerateQuietMoves(moveList, history);
             moveList.Remove(bestMove);
 
-            KillerMoves.KillerMove km = killerMoves.GetKillers(ply);
-            
-            if (moveList.Remove(km.Killer0))
+            ulong killerMove = searchStack[ply].KillerMoves.Move1;
+            if (moveList.Remove(killerMove))
             {
-                yield return (km.Killer0, MoveGenPhase.KillerMoves);
+                yield return (killerMove, MoveGenPhase.KillerMoves);
             }
 
-            if (moveList.Remove(km.Killer1))
+            killerMove = searchStack[ply].KillerMoves.Move2;
+            if (moveList.Remove(killerMove))
             {
-                yield return (km.Killer1, MoveGenPhase.KillerMoves);
+                yield return (killerMove, MoveGenPhase.KillerMoves);
             }
 
-            ulong counter = history.CounterMove(searchStack[ply - 1].Move);
-            if (moveList.Remove(counter))
+            MovePair counters = history.CounterMoves(searchStack[ply - 1].Move);
+            if (moveList.Remove(counters.Move1))
             {
-                yield return (counter, MoveGenPhase.CounterMoves);
+                yield return (counters.Move1, MoveGenPhase.CounterMoves);
+            }
+
+            if (moveList.Remove(counters.Move2))
+            {
+                yield return (counters.Move2, MoveGenPhase.CounterMoves);
             }
 
             // now return the bad captures deferred from earlier
@@ -1063,7 +1068,7 @@ namespace Pedantic.Chess
             }
         }
 
-        public IEnumerable<ulong> EvasionMoves2(int ply, KillerMoves killerMoves, History history, SearchStack searchStack, MoveList moveList)
+        public IEnumerable<ulong> EvasionMoves2(int ply, History history, SearchStack searchStack, MoveList moveList)
         {
             if (TtTran.TryGetBestMove(hash, out ulong bestMove))
             {
@@ -1074,22 +1079,27 @@ namespace Pedantic.Chess
             GenerateEvasions(moveList, history);
             moveList.Remove(bestMove);
 
-            KillerMoves.KillerMove km = killerMoves.GetKillers(ply);
-
-            if (moveList.Remove(km.Killer0))
+            ulong killerMove = searchStack[ply].KillerMoves.Move1;
+            if (moveList.Remove(killerMove))
             {
-                yield return km.Killer0;
+                yield return killerMove;
             }
 
-            if (moveList.Remove(km.Killer1))
+            killerMove = searchStack[ply].KillerMoves.Move2;
+            if (moveList.Remove(killerMove))
             {
-                yield return km.Killer1;
+                yield return killerMove;
             }
 
-            ulong counter = searchStack[ply - 1].Move;
-            if (moveList.Remove(counter))
+            MovePair counters = history.CounterMoves(searchStack[ply - 1].Move);
+            if (moveList.Remove(counters.Move1))
             {
-                yield return counter;
+                yield return counters.Move1;
+            }
+
+            if (moveList.Remove(counters.Move2))
+            {
+                yield return counters.Move2;
             }
 
             for (int n = 0; n < moveList.Count; n++)
@@ -1209,7 +1219,7 @@ namespace Pedantic.Chess
         public void GetPieceMobility(Color color, Span<short> mobility, Span<short> kingAttacks, Span<short> centerControl)
         {
             Color other = (Color)((int)color ^ 1);
-            ulong pawnDefended = 0ul, pawnCaptures = 0ul;
+            ulong pawnDefended, pawnCaptures;
             ulong friendlyPawns = Pieces(color, Piece.Pawn);
             ulong enemyPawns = Pieces(other, Piece.Pawn);
 

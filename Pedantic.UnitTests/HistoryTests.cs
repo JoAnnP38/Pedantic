@@ -35,9 +35,9 @@ namespace Pedantic.UnitTests
             // update Cutoff
             history.UpdateCutoff(cutoffMove, 0, ref quiets, searchStack, 2);
 
-            ulong counterMove = history.CounterMove(searchStack[-1].Move);
+            MovePair counters = history.CounterMoves(searchStack[-1].Move);
 
-            Assert.IsTrue(Move.Compare(counterMove, cutoffMove) == 0);
+            Assert.IsTrue(Move.Compare(counters.Move1, cutoffMove) == 0);
         }
 
         [TestMethod]

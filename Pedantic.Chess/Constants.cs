@@ -35,7 +35,8 @@ namespace Pedantic.Chess
         public const int PV_SCORE = int.MaxValue;
         public const int CAPTURE_SCORE = 166000;
         public const int PROMOTE_SCORE = 132500;
-        public const int KILLER_SCORE = 132000;
+        public const int KILLER_SCORE = 132250;
+        public const int COUNTER_SCORE = 132000;
         public const int BAD_CAPTURE = 66000;
         public const int HISTORY_SCORE_MIN = -16384;
         public const int HISTORY_SCORE_MAX = 16384;

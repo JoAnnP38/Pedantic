@@ -226,7 +226,7 @@ namespace Pedantic.Chess
             int score;
             ulong move;
             MoveGenPhase phase;
-            IEnumerable<(ulong Move, MoveGenPhase Phase)> moves = board.Moves(0, killerMoves, history, searchStack, moveList);
+            IEnumerable<(ulong Move, MoveGenPhase Phase)> moves = board.Moves(0, history, searchStack, moveList);
 
             foreach (var mvItem in moves)
             {
@@ -299,7 +299,7 @@ namespace Pedantic.Chess
                     {
                         if (isQuiet)
                         {
-                            killerMoves.Add(move, 0);
+                            searchItem.KillerMoves.Add(move);
                             history.UpdateCutoff(move, 0, ref quiets, searchStack, depth);
                         }
 
@@ -465,14 +465,13 @@ namespace Pedantic.Chess
             bestMove = 0ul;
             ulong move;
             MoveGenPhase phase;
-            IEnumerable<(ulong Move, MoveGenPhase Phase)> moves = board.Moves(ply, killerMoves, history, searchStack, moveList);
+            var moves = board.Moves(ply, history, searchStack, moveList);
 
 #if DEBUG
             if (ply == 0)
             {
-                KillerMoves.KillerMove km = killerMoves.GetKillers(ply);
-                Util.TraceInfo($"KILLERS: Depth {depth}, Ply {ply}, Move {Move.ToLongString(km.Killer0)}");
-                Util.TraceInfo($"KILLERS: Depth {depth}, Ply {ply}, Move {Move.ToLongString(km.Killer1)}");
+                Util.TraceInfo($"KILLERS: Depth {depth}, Ply {ply}, Move {Move.ToLongString(searchItem.KillerMoves.Move1)}");
+                Util.TraceInfo($"KILLERS: Depth {depth}, Ply {ply}, Move {Move.ToLongString(searchItem.KillerMoves.Move2)}");
             }
             string fen = board.ToFenString();
 #endif
@@ -567,7 +566,7 @@ namespace Pedantic.Chess
                     {
                         if (isQuiet)
                         {
-                            killerMoves.Add(move, ply);
+                            searchItem.KillerMoves.Add(move);
                             history.UpdateCutoff(move, 0, ref quiets, searchStack, depth);
                         }
 
@@ -1069,7 +1068,6 @@ namespace Pedantic.Chess
         private readonly int maxSearchDepth;
         private readonly long maxNodes;
         private readonly History history = new();
-        private readonly KillerMoves killerMoves = new();
         private readonly SearchStack searchStack;
         private bool wasAborted = false;
         private bool oneLegalMove = false;
