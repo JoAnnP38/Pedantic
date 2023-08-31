@@ -26,15 +26,15 @@ namespace Pedantic.Chess
     {
         public const int HISTORY_LEN = Constants.MAX_COLORS * Constants.MAX_PIECES * Constants.MAX_SQUARES;
         private readonly short[] hhHistory = new short[HISTORY_LEN];
-        private readonly MovePair[] counters = new MovePair[HISTORY_LEN];
+        private readonly uint[] counters = new uint[HISTORY_LEN];
 
-        public MovePair CounterMoves(ulong lastMove)
+        public ulong CounterMove(ulong lastMove)
         {
             if (lastMove == 0 || lastMove == Move.NullMove)
             {
                 return default;
             }
-            return counters[GetIndex(Move.GetStm(lastMove), Move.GetPiece(lastMove), Move.GetTo(lastMove))];
+            return counters[GetIndex(lastMove)];
         }
 
         public short this[Color stm, Piece piece, int to]
@@ -49,7 +49,7 @@ namespace Pedantic.Chess
         {
             get
             {
-                return hhHistory[GetIndex(Move.GetStm(move), Move.GetPiece(move), Move.GetTo(move))];
+                return hhHistory[GetIndex(move)];
             }
         }
 
@@ -61,7 +61,7 @@ namespace Pedantic.Chess
             ulong lastMove = searchStack[ply - 1].Move;
             if (lastMove != Move.NullMove)
             {
-                counters[GetIndex(lastMove)].Add((uint)move);
+                counters[GetIndex(lastMove)] = (uint)move;
             }
 
             for (int n = 0; n < quiets.Count; n++)

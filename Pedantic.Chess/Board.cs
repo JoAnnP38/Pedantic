@@ -974,15 +974,10 @@ namespace Pedantic.Chess
                 yield return (killerMove, MoveGenPhase.KillerMoves);
             }
 
-            MovePair counters = history.CounterMoves(searchStack[ply - 1].Move);
-            if (moveList.Remove(counters.Move1))
+            ulong counter = history.CounterMove(searchStack[ply - 1].Move);
+            if (moveList.Remove(counter))
             {
-                yield return (counters.Move1, MoveGenPhase.CounterMoves);
-            }
-
-            if (moveList.Remove(counters.Move2))
-            {
-                yield return (counters.Move2, MoveGenPhase.CounterMoves);
+                yield return (counter, MoveGenPhase.CounterMoves);
             }
 
             // now return the bad captures deferred from earlier
@@ -1091,15 +1086,10 @@ namespace Pedantic.Chess
                 yield return killerMove;
             }
 
-            MovePair counters = history.CounterMoves(searchStack[ply - 1].Move);
-            if (moveList.Remove(counters.Move1))
+            ulong counter = history.CounterMove(searchStack[ply - 1].Move);
+            if (moveList.Remove(counter))
             {
-                yield return counters.Move1;
-            }
-
-            if (moveList.Remove(counters.Move2))
-            {
-                yield return counters.Move2;
+                yield return counter;
             }
 
             for (int n = 0; n < moveList.Count; n++)

@@ -35,9 +35,9 @@ namespace Pedantic.UnitTests
             // update Cutoff
             history.UpdateCutoff(cutoffMove, 0, ref quiets, searchStack, 2);
 
-            MovePair counters = history.CounterMoves(searchStack[-1].Move);
+            ulong counter = history.CounterMove(searchStack[-1].Move);
 
-            Assert.IsTrue(Move.Compare(counters.Move1, cutoffMove) == 0);
+            Assert.IsTrue(Move.Compare(counter, cutoffMove) == 0);
         }
 
         [TestMethod]
@@ -139,7 +139,7 @@ namespace Pedantic.UnitTests
             Assert.AreEqual(0, index);
         }
 
-        private short CalcBonus(int depth)
+        private static short CalcBonus(int depth)
         {
             // copied from History.cs
             return (short)(((depth * depth) >> 1) + (depth << 1) - 1);

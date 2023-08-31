@@ -80,9 +80,9 @@ namespace Pedantic.Chess
         {
             int found = 0;
             MovePair km = searchStack[ply].KillerMoves;
-            MovePair counters = history.CounterMoves(searchStack[ply - 1].Move);
+            ulong counter = history.CounterMove(searchStack[ply - 1].Move);
 
-            for (int n = 0; n < insertIndex && found < 5; ++n)
+            for (int n = 0; n < insertIndex && found < 4; ++n)
             {
                 ulong move = array[n];
 
@@ -101,14 +101,9 @@ namespace Pedantic.Chess
                     array[n] = Move.SetScore(move, Constants.KILLER_SCORE);
                     found++;
                 }
-                else if (Move.Compare(move, counters.Move1) == 0)
+                else if (Move.Compare(move, counter) == 0)
                 {
                     array[n] = Move.SetScore(move, Constants.COUNTER_SCORE + 1);
-                    found++;
-                }
-                else if (Move.Compare(move, counters.Move2) == 0)
-                {
-                    array[n] = Move.SetScore(move, Constants.COUNTER_SCORE);
                     found++;
                 }
             }
