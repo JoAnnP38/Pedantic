@@ -13,7 +13,7 @@ namespace Pedantic.Tuning
         internal const int MAX_FAILURE = 2;
         internal const double COMPARISON_EPSILON = 5.0e-13;
 
-        public HceTuner(short[] weights, IList<PosRecord> positions)
+        public HceTuner(short[] weights, IList<PosRecord> positions, int? seed = null)
         { 
             this.weights = weights;
             this.positions = positions;
@@ -29,12 +29,14 @@ namespace Pedantic.Tuning
 
 #if DEBUG
             rand = new Random(1);
+            IncMomentum.SetRandomSeed(1);
 #else
-            rand = new Random();
+            rand = seed.HasValue ? new Random(seed.Value) : new Random();
+            IncMomentum.SetRandomSeed(seed);
 #endif
         }
 
-        public HceTuner(IList<PosRecord> positions)
+        public HceTuner(IList<PosRecord> positions, int? seed = null)
         { 
             weights = ZeroWeights();
             this.positions = positions;
@@ -50,7 +52,7 @@ namespace Pedantic.Tuning
 #if DEBUG
             rand = new Random(1);
 #else
-            rand = new Random();
+            rand = seed.HasValue ? new Random(seed.Value) : new Random();
 #endif
         }
 

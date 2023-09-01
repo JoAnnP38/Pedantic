@@ -6,6 +6,7 @@ namespace Pedantic.Tuning
     {
         private short increment;
         private short momentum;
+        private static Random rand = Random.Shared;
 
         public IncMomentum(short increment)
         {
@@ -30,7 +31,7 @@ namespace Pedantic.Tuning
 
                 if (momentum == 0)
                 {
-                    if (Random.Shared.NextBoolean())
+                    if (rand.NextBoolean())
                     {
                         return (short)-increment;
                     }
@@ -88,6 +89,11 @@ namespace Pedantic.Tuning
         public void NoImprovement()
         {
             momentum /= 2;
+        }
+
+        public static void SetRandomSeed(int? seed)
+        {
+            rand = seed.HasValue ? new Random(seed.Value) : Random.Shared;
         }
     }
 }

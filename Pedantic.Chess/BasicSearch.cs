@@ -181,11 +181,11 @@ namespace Pedantic.Chess
                 }
 
                 location = "12";
-                Uci.BestMove(bestMove, CanPonder ? ponderMove : null);
-                location = "13";
                 Uci.Debug("Incrementing hash table version.");
                 TtTran.IncrementVersion();
                 searchStack.Clear();
+                location = "13";
+                Uci.BestMove(bestMove, CanPonder ? ponderMove : null);
             }
             catch (Exception ex)
             {

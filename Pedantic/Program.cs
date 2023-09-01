@@ -15,13 +15,11 @@
 // ***********************************************************************
 using System.CommandLine;
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
 using System.Text;
 using System.CommandLine.Parsing;
 
 using Pedantic.Chess;
 using Pedantic.Genetics;
-using Pedantic.Utilities;
 using Pedantic.Tablebase;
 using Pedantic.Tuning;
 
@@ -125,6 +123,10 @@ namespace Pedantic
                 name: "--maxtime",
                 description: "Maximum time optimization will run.",
                 getDefaultValue: () => null);
+            var seedOption = new Option<int?>(
+                name: "--seed",
+                description: "Specify seed for random number generator.",
+                getDefaultValue: () => null);
 
             var uciCommand = new Command("uci", "Start the pedantic application in UCI mode (default).")
             {
@@ -157,7 +159,8 @@ namespace Pedantic
                 iterOption,
                 saveOption,
                 resetOption,
-                maxTimeOption
+                maxTimeOption,
+                seedOption
             };
 
             var weightsCommand = new Command("weights", "Manipulate the weight database.")
@@ -178,7 +181,7 @@ namespace Pedantic
             uciCommand.SetHandler(RunUci, commandFileOption, errorFileOption, randomSearchOption, statsOption, magicOption);
             perftCommand.SetHandler(RunPerft, typeOption, depthOption, fenOption, magicOption);
             labelCommand.SetHandler(RunLabel, pgnFileOption, dataFileOption, maxPositionsOption);
-            learnCommand.SetHandler(RunLearn, dataFileOption, sampleOption, iterOption, saveOption, resetOption, maxTimeOption);
+            learnCommand.SetHandler(RunLearn, dataFileOption, sampleOption, iterOption, saveOption, resetOption, maxTimeOption, seedOption);
             weightsCommand.SetHandler(RunWeights, immortalOption, displayOption);
             rootCommand.SetHandler(async () => await RunUci(null, null, false, false, false));
 
@@ -713,14 +716,14 @@ namespace Pedantic
             }
         }
 
-        private static void RunLearn(string? dataPath, int sampleSize, int maxPass, bool save, bool reset, TimeSpan? maxTime)
+        private static void RunLearn(string? dataPath, int sampleSize, int maxPass, bool save, bool reset, TimeSpan? maxTime, int? seed)
         {
             if (dataPath == null)
             {
                 throw new ArgumentNullException(nameof(dataPath));
             }
 
-            using var dataFile = new TrainingDataFile(dataPath);
+            using var dataFile = new TrainingDataFile(dataPath, seed);
 
             IList<PosRecord> positions = sampleSize <= 0 ? dataFile.LoadFile() : dataFile.LoadSample(sampleSize, save);
 
@@ -738,7 +741,7 @@ namespace Pedantic
                 }
             }
 
-            var tuner = weights.Length > 0 ? new HceTuner(weights, positions) : new HceTuner(positions);
+            var tuner = weights.Length > 0 ? new HceTuner(weights, positions, seed) : new HceTuner(positions, seed);
             var (Error, Accuracy, Weights) = tuner.Train(maxPass, maxTime);
             PrintSolution(positions.Count, Error, Accuracy, Weights);
         }
