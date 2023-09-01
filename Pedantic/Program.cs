@@ -32,7 +32,7 @@ namespace Pedantic
         public const string APP_NAME = Constants.APP_NAME;
         public const string APP_VERSION = Constants.APP_VERSION;
         public const string APP_NAME_VER = APP_NAME + " " + APP_VERSION;
-        public const string AUTHOR = "JoAnn D. Peeler";
+        public const string AUTHOR = Constants.APP_AUTHOR;
         public const string PROGRAM_URL = "https://github.com/JoAnnP38/Pedantic";
         public const double MINI_CONVERGENCE_TOLERANCE = 0.00000005;
         public const double FULL_CONVERGENCE_TOLERANCE = 0.0000001;

@@ -53,5 +53,6 @@ namespace Pedantic.Chess
         public const string FEN_START_POS = @"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
         public const string APP_NAME = "Pedantic";
         public const string APP_VERSION = "0.5.0";
+        public const string APP_AUTHOR = "JoAnn D. Peeler";
     }
 }
