@@ -853,10 +853,19 @@ namespace Pedantic
             WriteLine($"{wts[ChessWeights.DOUBLED_PAWN]},");
             WriteLine();
             WriteLine($"/* {section} adjacent/connected pawns */");
-            WriteLine($"{wts[ChessWeights.CONNECTED_PAWN]},");
-            WriteLine();
-            WriteLine($"/* UNUSED (was {section} king adjacent open file) */");
-            WriteLine($"{wts[ChessWeights.UNUSED]},");
+            for (int n = 0; n < Constants.MAX_SQUARES; n++)
+            {
+                if (n % 8 == 0)
+                {
+                    if (n != 0)
+                    {
+                        Console.WriteLine();
+                    }
+                    WriteIndent();
+                }
+                Console.Write($"{wts[ChessWeights.CONNECTED_PAWN + n],4}, ");
+            }
+            Console.WriteLine();
             WriteLine();
             WriteLine($"/* {section} knight on outpost */");
             WriteLine($"{wts[ChessWeights.KNIGHT_OUTPOST]},");

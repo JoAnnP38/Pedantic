@@ -285,10 +285,10 @@ namespace Pedantic.Chess
                 int sq = BitOps.TzCount(p);
                 Ray ray = Board.Vectors[sq];
                 ulong doubledFriends = color == Color.White ? ray.North : ray.South;
+                int normalSq = Index.NormalizedIndex[c][sq];
 
                 if ((otherPawns & PassedPawnMasks[c, sq]) == 0 && (pawns & doubledFriends) == 0)
                 {
-                    int normalSq = Index.NormalizedIndex[c][sq];
                     opPawnScore[c] += wt.OpeningPassedPawn(normalSq);
                     egPawnScore[c] += wt.EndGamePassedPawn(normalSq);
                 }
@@ -307,8 +307,8 @@ namespace Pedantic.Chess
 
                 if ((pawns & AdjacentPawnMasks[sq]) != 0)
                 {
-                    opPawnScore[c] += wt.OpeningConnectedPawn;
-                    egPawnScore[c] += wt.EndGameConnectedPawn;
+                    opPawnScore[c] += wt.OpeningConnectedPawn(normalSq);
+                    egPawnScore[c] += wt.EndGameConnectedPawn(normalSq);
                 }
             }
 

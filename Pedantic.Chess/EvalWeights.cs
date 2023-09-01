@@ -105,10 +105,19 @@ namespace Pedantic.Chess
         public short EndGameBackwardPawn => wt[ChessWeights.BACKWARD_PAWN + ChessWeights.ENDGAME_WEIGHTS];
         public short OpeningDoubledPawn => wt[ChessWeights.DOUBLED_PAWN];
         public short EndGameDoubledPawn => wt[ChessWeights.DOUBLED_PAWN + ChessWeights.ENDGAME_WEIGHTS];
-        public short OpeningConnectedPawn => wt[ChessWeights.CONNECTED_PAWN];
-        public short EndGameConnectedPawn => wt[ChessWeights.CONNECTED_PAWN + ChessWeights.ENDGAME_WEIGHTS];
-        //public short OpeningKingAdjacentOpenFile => wt[ChessWeights.KING_ADJACENT_OPEN_FILE];
-        //public short EndGameKingAdjacentOpenFile => wt[ChessWeights.KING_ADJACENT_OPEN_FILE + ChessWeights.ENDGAME_WEIGHTS];
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public short OpeningConnectedPawn(int sq)
+        {
+            return wt[ChessWeights.CONNECTED_PAWN + sq];
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public short EndGameConnectedPawn(int sq)
+        {
+            return wt[ChessWeights.CONNECTED_PAWN + ChessWeights.ENDGAME_WEIGHTS + sq];
+        }
+
         public short OpeningKnightOutpost => wt[ChessWeights.KNIGHT_OUTPOST];
         public short EndGameKnightOutpost => wt[ChessWeights.KNIGHT_OUTPOST + ChessWeights.ENDGAME_WEIGHTS];
         public short OpeningBishopOutpost => wt[ChessWeights.BISHOP_OUTPOST];

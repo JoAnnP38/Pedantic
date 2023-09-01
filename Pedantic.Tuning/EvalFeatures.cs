@@ -58,25 +58,24 @@ namespace Pedantic.Tuning
          * [1552]           # isolated pawns
          * [1553]           # backward pawns
          * [1554]           # doubled pawns
-         * [1555]           # connected/adjacent pawns
-         * [1556]           # UNUSED (was king adjacent open file)
-         * [1557]           # knights on outpost
-         * [1558]           # bishops on outpost
-         * [1559]           0-1 bishop pair
-         * [1560]           # rooks on open file
-         * [1561]           # rooks on half-open file
-         * [1562]           # rooks behind passed pawn
-         * [1563]           # doubled rooks on file
-         * [1564]           0-1 king on open file
-         * [1565]           0-1 king on half-open file
-         * [1566]           # of potential castle moves available
-         * [1567]           0-1 side has already castled
-         * [1568 - 1569]    # center control (d0 - d1)
-         * [1570]           # queens on open file
-         * [1571]           # queens on half-open file
-         * [1572]           # rooks on seventh rank
-         * [1573 - 1636]    0-1 passed pawns on square
-         * [1637 - 1700]    0-1 bad bishop pawn on square
+         * [1555 - 1618]    0-1 connected/adjacent pawns on square
+         * [1619]           # knights on outpost
+         * [1620]           # bishops on outpost
+         * [1621]           0-1 bishop pair
+         * [1622]           # rooks on open file
+         * [1623]           # rooks on half-open file
+         * [1624]           # rooks behind passed pawn
+         * [1625]           # doubled rooks on file
+         * [1626]           0-1 king on open file
+         * [1627]           0-1 king on half-open file
+         * [1628]           # of potential castle moves available
+         * [1629]           0-1 side has already castled
+         * [1630 - 1631]    # center control (d0 - d1)
+         * [1632]           # queens on open file
+         * [1633]           # queens on half-open file
+         * [1634]           # rooks on seventh rank
+         * [1635 - 1698]    0-1 passed pawns on square
+         * [1699 - 1762]    0-1 bad bishop pawn on square
          */
         public const int FEATURE_SIZE = ChessWeights.ENDGAME_WEIGHTS;
         public const int MATERIAL = ChessWeights.PIECE_VALUES;
@@ -88,7 +87,6 @@ namespace Pedantic.Tuning
         public const int BACKWARD_PAWNS = ChessWeights.BACKWARD_PAWN;
         public const int DOUBLED_PAWNS = ChessWeights.DOUBLED_PAWN;
         public const int ADJACENT_PAWNS = ChessWeights.CONNECTED_PAWN;
-        //public const int KING_ADJACENT_OPEN_FILE = 1556;
         public const int KNIGHTS_ON_OUTPOST = ChessWeights.KNIGHT_OUTPOST;
         public const int BISHOPS_ON_OUTPOST = ChessWeights.BISHOP_OUTPOST;
         public const int BISHOP_PAIR = ChessWeights.BISHOP_PAIR;
@@ -181,9 +179,11 @@ namespace Pedantic.Tuning
                     int sq = BitOps.TzCount(p);
                     Ray ray = Board.Vectors[sq];
                     ulong doubledFriends = color == Color.White ? ray.North : ray.South;
+                    int normalSq = Index.NormalizedIndex[c][sq];
+
                     if ((otherPawns & Evaluation.PassedPawnMasks[c, sq]) == 0 && (pawns & doubledFriends) == 0)
                     {
-                        SetPassedPawns(v, Index.NormalizedIndex[c][sq]);
+                        SetPassedPawns(v, normalSq);
 
                         ulong bb;
                         if (color == Color.White)
@@ -212,7 +212,7 @@ namespace Pedantic.Tuning
 
                     if ((pawns & Evaluation.AdjacentPawnMasks[sq]) != 0)
                     {
-                        IncrementAdjacentPawns(v);
+                        SetAdjacentPawns(v, normalSq);
                     }
                 }
 
@@ -561,16 +561,9 @@ namespace Pedantic.Tuning
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static void IncrementAdjacentPawns(IDictionary<int, short> v)
+        private static void SetAdjacentPawns(IDictionary<int, short> v, int square)
         {
-            if (v.ContainsKey(ADJACENT_PAWNS))
-            {
-                v[ADJACENT_PAWNS]++;
-            }
-            else
-            {
-                v.Add(ADJACENT_PAWNS, 1);
-            }
+            v[ADJACENT_PAWNS + square] = 1;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
