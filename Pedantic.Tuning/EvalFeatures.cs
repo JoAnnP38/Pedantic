@@ -205,14 +205,14 @@ namespace Pedantic.Tuning
                         IncrementIsolatedPawns(v);
                     }
 
-                    if ((pawns & Evaluation.BackwardPawnMasks[c, sq]) == 0)
-                    {
-                        IncrementBackwardPawns(v);
-                    }
-
                     if ((pawns & Evaluation.AdjacentPawnMasks[sq]) != 0)
                     {
                         SetAdjacentPawns(v, normalSq);
+                    }
+
+                    if ((pawns & Evaluation.BackwardPawnMasks[c, sq]) == 0)
+                    {
+                        IncrementBackwardPawns(v);
                     }
                 }
 

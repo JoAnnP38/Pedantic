@@ -723,6 +723,11 @@ namespace Pedantic
                 throw new ArgumentNullException(nameof(dataPath));
             }
 
+            if (!seed.HasValue)
+            {
+                seed = (int)DateTime.Now.Ticks;
+            }
+
             using var dataFile = new TrainingDataFile(dataPath, seed);
 
             IList<PosRecord> positions = sampleSize <= 0 ? dataFile.LoadFile() : dataFile.LoadSample(sampleSize, save);
@@ -743,7 +748,7 @@ namespace Pedantic
 
             var tuner = weights.Length > 0 ? new HceTuner(weights, positions, seed) : new HceTuner(positions, seed);
             var (Error, Accuracy, Weights) = tuner.Train(maxPass, maxTime);
-            PrintSolution(positions.Count, Error, Accuracy, Weights);
+            PrintSolution(positions.Count, Error, Accuracy, Weights, seed.Value);
         }
 
         private static void PrintSolution(short[] weights)
@@ -760,11 +765,11 @@ namespace Pedantic
             WriteLine("};");
         }
 
-        private static void PrintSolution(int sampleSize, double error, double accuracy, short[] weights)
+        private static void PrintSolution(int sampleSize, double error, double accuracy, short[] weights, int seed)
         {
             indentLevel = 2;
             WriteLine($"// Solution sample size: {sampleSize}, generated on {DateTime.Now:R}");
-            WriteLine($"// Solution error: {error:F6}, accuracy: {accuracy:F4}");
+            WriteLine($"// Solution error: {error:F6}, accuracy: {accuracy:F4}, seed: {seed}");
             WriteLine("private static readonly short[] paragonWeights =");
             WriteLine("{");
             indentLevel++;

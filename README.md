@@ -176,3 +176,6 @@ Levy, David and Monty NewBorn. _How Computers Play Chess_. New York and Tokyo: I
 
 Slate, David and Larry Atkin. "Chess 4.5: The Northwestern University Chess Program." _Computer Chess Compendium_. London: B. T. Batsford, 1988.
     
+[![MIT License](https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/MIT_logo.svg/100px-MIT_logo.svg.png)](https://en.wikipedia.org/wiki/MIT_License)
+
+[![Open Source Initiative](https://149753425.v2.pressablecdn.com/wp-content/uploads/2009/06/OSI_Standard_Logo_100X130.png)](https://opensource.org/license/mit-0/)

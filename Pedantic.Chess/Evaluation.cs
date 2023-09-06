@@ -286,36 +286,47 @@ namespace Pedantic.Chess
                 Ray ray = Board.Vectors[sq];
                 ulong doubledFriends = color == Color.White ? ray.North : ray.South;
                 int normalSq = Index.NormalizedIndex[c][sq];
+                //bool doubled = false, passed = false, isolated = false, adjacent = false;
+
+                //if ((pawns & doubledFriends) != 0)
+                //{
+                //    doubled = true;
+                //    opPawnScore[c] += wt.OpeningDoubledPawn;
+                //    opPawnScore[c] += wt.EndGameDoubledPawn;
+                //}
 
                 if ((otherPawns & PassedPawnMasks[c, sq]) == 0 && (pawns & doubledFriends) == 0)
                 {
+                    //passed = true;
                     opPawnScore[c] += wt.OpeningPassedPawn(normalSq);
                     egPawnScore[c] += wt.EndGamePassedPawn(normalSq);
                 }
 
                 if ((pawns & IsolatedPawnMasks[sq]) == 0)
                 {
+                    //isolated = true;
                     opPawnScore[c] += wt.OpeningIsolatedPawn;
                     egPawnScore[c] += wt.EndGameIsolatedPawn;
                 }
 
-                if ((pawns & BackwardPawnMasks[c, sq]) == 0)
+                if ((pawns & AdjacentPawnMasks[sq]) != 0)
+                {
+                    //adjacent = true;
+                    opPawnScore[c] += wt.OpeningConnectedPawn(normalSq);
+                    egPawnScore[c] += wt.EndGameConnectedPawn(normalSq);
+                }
+
+                if ((pawns & BackwardPawnMasks[c, sq]) == 0 /*&& !(passed || isolated || adjacent)*/)
                 {
                     opPawnScore[c] += wt.OpeningBackwardPawn;
                     egPawnScore[c] += wt.EndGameBackwardPawn;
-                }
-
-                if ((pawns & AdjacentPawnMasks[sq]) != 0)
-                {
-                    opPawnScore[c] += wt.OpeningConnectedPawn(normalSq);
-                    egPawnScore[c] += wt.EndGameConnectedPawn(normalSq);
                 }
             }
 
             for (int file = 0; file < Constants.MAX_COORDS; file++)
             {
                 short count = (short)BitOps.PopCount(pawns & Board.MaskFile(file));
-                if (count >= 2)
+                if (count > 1)
                 {
                     opPawnScore[c] += (short)((count - 1) * wt.OpeningDoubledPawn);
                     egPawnScore[c] += (short)((count - 1) * wt.EndGameDoubledPawn);
