@@ -836,19 +836,19 @@ namespace Pedantic
             WriteLine();
             for (int n = 0; n < 4; n++)
             {
-                WriteLine($"{wts[ChessWeights.PIECE_MOBILITY + n]}, // {pieceNames[n + 1]}");
+                WriteLine($"{wts[ChessWeights.PIECE_MOBILITY + n],4}, // {pieceNames[n + 1]}");
             }
             WriteLine();
             WriteLine($"/* {section} squares attacked near enemy king */");
             for (int n = 0; n < 3; n++)
             {
-                WriteLine($"{wts[ChessWeights.KING_ATTACK + n]}, // attacks to squares {n + 1} from king");
+                WriteLine($"{wts[ChessWeights.KING_ATTACK + n],4}, // attacks to squares {n + 1} from king");
             }
             WriteLine();
             WriteLine($"/* {section} pawn shield/king safety */");
             for (int n = 0; n < 3; n++)
             {
-                WriteLine($"{wts[ChessWeights.PAWN_SHIELD + n]}, // # friendly pawns {n + 1} from king");
+                WriteLine($"{wts[ChessWeights.PAWN_SHIELD + n],4}, // # friendly pawns {n + 1} from king");
             }
             WriteLine();
             WriteLine($"/* {section} isolated pawns */");
@@ -909,8 +909,8 @@ namespace Pedantic
             WriteLine($"{wts[ChessWeights.CASTLING_COMPLETE]},");
             WriteLine();
             WriteLine($"/* {section} center control */");
-            WriteLine($"{wts[ChessWeights.CENTER_CONTROL]}, // D0");
-            WriteLine($"{wts[ChessWeights.CENTER_CONTROL + 1]}, // D1");
+            WriteLine($"{wts[ChessWeights.CENTER_CONTROL],4}, // D0");
+            WriteLine($"{wts[ChessWeights.CENTER_CONTROL + 1],4}, // D1");
             WriteLine();
             WriteLine($"/* {section} queen on open file */");
             WriteLine($"{wts[ChessWeights.QUEEN_ON_OPEN_FILE]},");
@@ -950,6 +950,21 @@ namespace Pedantic
                 Console.Write($"{wts[ChessWeights.BAD_BISHOP_PAWN + n],4}, ");
             }
             Console.WriteLine();
+            WriteLine();
+            WriteLine($"/* {section} block passed pawn */");
+            for (int n = 0; n < Constants.MAX_COORDS * Constants.MAX_PIECES; n++)
+            {
+                if (n % 8 == 0)
+                {
+                    if (n != 0)
+                    {
+                        Console.WriteLine($" // blocked by {pieceNames[(n / 8) - 1]}");
+                    }
+                    WriteIndent();
+                }
+                Console.Write($"{wts[ChessWeights.BLOCK_PASSED_PAWN + n],4}, ");
+            }
+            Console.WriteLine(" // blocked by kings");
             WriteLine();
         }
 

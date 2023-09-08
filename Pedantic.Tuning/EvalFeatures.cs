@@ -104,6 +104,7 @@ namespace Pedantic.Tuning
         public const int ROOK_ON_7TH_RANK = ChessWeights.ROOK_ON_7TH_RANK;
         public const int PASSED_PAWNS = ChessWeights.PASSED_PAWN;
         public const int BAD_BISHOP_PAWN = ChessWeights.BAD_BISHOP_PAWN;
+        public const int BLOCK_PASSED_PAWN = ChessWeights.BLOCK_PASSED_PAWN;
 
         private readonly SparseArray<short>[] sparse = { new(), new() };
 		private readonly short[][] features = { Array.Empty<short>(), Array.Empty<short>() };
@@ -213,6 +214,24 @@ namespace Pedantic.Tuning
                     if ((pawns & Evaluation.BackwardPawnMasks[c, sq]) == 0)
                     {
                         IncrementBackwardPawns(v);
+                    }
+                }
+
+                for (ulong p = otherPawns; p != 0; p = BitOps.ResetLsb(p))
+                {
+                    int sq = BitOps.TzCount(p);
+                    Ray ray = Board.Vectors[sq];
+                    ulong doubledFriends = other == Color.White ? ray.North : ray.South;
+
+                    if ((pawns & Evaluation.PassedPawnMasks[o, sq]) == 0 && (otherPawns & doubledFriends) == 0)
+                    {
+                        int blockerSq = Board.PawnPlus[o, sq];
+                        int normalRank = Index.GetRank(Index.NormalizedIndex[o][sq]);
+                        Square blocker = bd.PieceBoard[blockerSq];
+                        if (blocker.Color == color && blocker.Piece != Piece.None)
+                        {
+                            IncrementBlockPassedPawn(v, normalRank, blocker.Piece);
+                        }
                     }
                 }
 
@@ -717,6 +736,20 @@ namespace Pedantic.Tuning
         public static void SetBadBishopPawn(IDictionary<int, short> v, int square) 
         {
             v[BAD_BISHOP_PAWN + square] = 1;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void IncrementBlockPassedPawn(IDictionary<int, short> v, int rank, Piece piece)
+        {
+            int index = BLOCK_PASSED_PAWN + (int)piece * Constants.MAX_COORDS + rank;
+            if (v.ContainsKey(index))
+            {
+                v[index]++;
+            }
+            else
+            {
+                v.Add(index, 1);
+            }
         }
 
 #pragma warning restore CA1854

@@ -286,37 +286,26 @@ namespace Pedantic.Chess
                 Ray ray = Board.Vectors[sq];
                 ulong doubledFriends = color == Color.White ? ray.North : ray.South;
                 int normalSq = Index.NormalizedIndex[c][sq];
-                //bool doubled = false, passed = false, isolated = false, adjacent = false;
-
-                //if ((pawns & doubledFriends) != 0)
-                //{
-                //    doubled = true;
-                //    opPawnScore[c] += wt.OpeningDoubledPawn;
-                //    opPawnScore[c] += wt.EndGameDoubledPawn;
-                //}
 
                 if ((otherPawns & PassedPawnMasks[c, sq]) == 0 && (pawns & doubledFriends) == 0)
                 {
-                    //passed = true;
                     opPawnScore[c] += wt.OpeningPassedPawn(normalSq);
                     egPawnScore[c] += wt.EndGamePassedPawn(normalSq);
                 }
 
                 if ((pawns & IsolatedPawnMasks[sq]) == 0)
                 {
-                    //isolated = true;
                     opPawnScore[c] += wt.OpeningIsolatedPawn;
                     egPawnScore[c] += wt.EndGameIsolatedPawn;
                 }
 
                 if ((pawns & AdjacentPawnMasks[sq]) != 0)
                 {
-                    //adjacent = true;
                     opPawnScore[c] += wt.OpeningConnectedPawn(normalSq);
                     egPawnScore[c] += wt.EndGameConnectedPawn(normalSq);
                 }
 
-                if ((pawns & BackwardPawnMasks[c, sq]) == 0 /*&& !(passed || isolated || adjacent)*/)
+                if ((pawns & BackwardPawnMasks[c, sq]) == 0)
                 {
                     opPawnScore[c] += wt.OpeningBackwardPawn;
                     egPawnScore[c] += wt.EndGameBackwardPawn;
@@ -417,6 +406,24 @@ namespace Pedantic.Chess
                 }
             }
 
+            for (ulong p = otherPawns; p != 0; p = BitOps.ResetLsb(p))
+            {
+                int sq = BitOps.TzCount(p);
+                Ray ray = Board.Vectors[sq];
+                ulong doubledFriends = other == Color.White ? ray.North : ray.South;
+
+                if ((pawns & PassedPawnMasks[o, sq]) == 0 && (otherPawns & doubledFriends) == 0)
+                {
+                    int blockerSq = Board.PawnPlus[o, sq];
+                    int normalRank = Index.GetRank(Index.NormalizedIndex[o][sq]);
+                    Square blocker = board.PieceBoard[blockerSq];
+                    if (blocker.Color == color && blocker.Piece != Piece.None)
+                    {
+                        opScore[c] += wt.OpeningBlockPassedPawn(normalRank, blocker.Piece);
+                        egScore[c] += wt.EndGameBlockPassedPawn(normalRank, blocker.Piece);
+                    }
+                }
+            }
 
             ulong allPawns = pawns | otherPawns;
             ulong rooks = board.Pieces(color, Piece.Rook);

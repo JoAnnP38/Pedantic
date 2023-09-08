@@ -1000,13 +1000,17 @@ namespace Pedantic.Chess
         {
             get
             {
-                int contempt = board.GamePhase < GamePhase.EndGame ? -50 : 0;
-                if (board.SideToMove == Engine.Color)
+                if (!UciOptions.AnalyseMode)
                 {
-                    return contempt;
-                }
+                    int contempt = board.GamePhase < GamePhase.EndGame ? -50 : 0;
+                    if (board.SideToMove == Engine.Color)
+                    {
+                        return contempt;
+                    }
 
-                return -contempt;
+                    return -contempt;
+                }
+                return 0;
             }
         }
 

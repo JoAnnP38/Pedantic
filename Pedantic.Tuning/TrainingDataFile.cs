@@ -106,7 +106,7 @@ namespace Pedantic.Tuning
             Queue<string> wins = new();
             Queue<string> draws = new();
             Queue<string> losses = new();
-            int[] selections = SampleSelections(sampleSize + sampleSize / 8, lineCount);
+            int[] selections = SampleSelections(sampleSize + sampleSize / 7, lineCount);
             StreamWriter? sw = save ? new StreamWriter(OutputName(), false, Encoding.UTF8) : null;
             Stopwatch clock = new();
             clock.Start();
