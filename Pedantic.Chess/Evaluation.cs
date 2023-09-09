@@ -321,6 +321,26 @@ namespace Pedantic.Chess
                     egPawnScore[c] += (short)((count - 1) * wt.EndGameDoubledPawn);
                 }
             }
+
+            ulong pawnAttacks;
+            if (color == Color.White)
+            {
+                pawnAttacks = ((pawns & ~Board.MaskFile(Index.A1)) << 7) |
+                              ((pawns & ~Board.MaskFile(Index.H1)) << 9);
+            }
+            else
+            {
+                pawnAttacks = ((pawns & ~Board.MaskFile(Index.H1)) >> 7) |
+                              ((pawns & ~Board.MaskFile(Index.A1)) >> 9);
+            }
+
+            for (ulong p = pawns & pawnAttacks; p != 0; p = BitOps.ResetLsb(p))
+            {
+                int sq = BitOps.TzCount(p);
+                int normalSq = Index.NormalizedIndex[c][sq];
+                opPawnScore[c] += wt.OpeningSupportedPawn(normalSq);
+                egPawnScore[c] += wt.EndGameSupportedPawn(normalSq);
+            }
         }
 
         public void ComputeMisc(Color color, Board board)

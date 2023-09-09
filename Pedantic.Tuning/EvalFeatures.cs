@@ -105,6 +105,7 @@ namespace Pedantic.Tuning
         public const int PASSED_PAWNS = ChessWeights.PASSED_PAWN;
         public const int BAD_BISHOP_PAWN = ChessWeights.BAD_BISHOP_PAWN;
         public const int BLOCK_PASSED_PAWN = ChessWeights.BLOCK_PASSED_PAWN;
+        public const int SUPPORTED_PAWN = ChessWeights.SUPPORTED_PAWN;
 
         private readonly SparseArray<short>[] sparse = { new(), new() };
 		private readonly short[][] features = { Array.Empty<short>(), Array.Empty<short>() };
@@ -242,6 +243,24 @@ namespace Pedantic.Tuning
                     {
                         IncrementDoubledPawns(v, --count);
                     }
+                }
+
+                ulong pawnAttacks;
+                if (color == Color.White)
+                {
+                    pawnAttacks = ((pawns & ~Board.MaskFile(Index.A1)) << 7) |
+                                  ((pawns & ~Board.MaskFile(Index.H1)) << 9);
+                }
+                else
+                {
+                    pawnAttacks = ((pawns & ~Board.MaskFile(Index.H1)) >> 7) |
+                                  ((pawns & ~Board.MaskFile(Index.A1)) >> 9);
+                }
+
+                for (ulong p = pawns & pawnAttacks; p != 0; p = BitOps.ResetLsb(p))
+                {
+                    int normalSq = Index.NormalizedIndex[c][BitOps.TzCount(p)];
+                    SetSupportedPawn(v, normalSq);
                 }
 
                 ulong bishops = bd.Pieces(color, Piece.Bishop);
@@ -750,6 +769,12 @@ namespace Pedantic.Tuning
             {
                 v.Add(index, 1);
             }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void SetSupportedPawn(IDictionary<int, short> v, int square)
+        {
+            v[SUPPORTED_PAWN + square] = 1;
         }
 
 #pragma warning restore CA1854
