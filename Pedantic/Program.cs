@@ -981,6 +981,15 @@ namespace Pedantic
             }
             Console.WriteLine();
             WriteLine();
+            WriteLine($"/* {section} king outside passed pawn square */");
+            WriteLine($"{wts[ChessWeights.KING_OUTSIDE_PP_SQUARE]},");
+            WriteLine();
+            WriteLine($"/* {section} passed pawn/friendly king distance penalty */");
+            WriteLine($"{wts[ChessWeights.PP_FRIENDLY_KING_DISTANCE]},");
+            WriteLine();
+            WriteLine($"/* {section} passed pawn/enemy king distance bonus */");
+            WriteLine($"{wts[ChessWeights.PP_ENEMY_KING_DISTANCE]},");
+            WriteLine();
         }
 
         private static void WriteIndent()

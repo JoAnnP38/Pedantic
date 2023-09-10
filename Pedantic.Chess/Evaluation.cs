@@ -18,6 +18,7 @@ using Pedantic.Utilities;
 using System.Runtime.CompilerServices;
 using Pedantic.Collections;
 using System.Numerics;
+using System.Drawing;
 
 namespace Pedantic.Chess
 {
@@ -55,6 +56,7 @@ namespace Pedantic.Chess
 
             ClearScores();
             totalPawns = BitOps.PopCount(board.Pieces(Color.White, Piece.Pawn) | board.Pieces(Color.Black, Piece.Pawn));
+            passedPawns = 0;
             kingIndex[0] = BitOps.TzCount(board.Pieces(Color.White, Piece.King));
             kingIndex[1] = BitOps.TzCount(board.Pieces(Color.Black, Piece.King));
 
@@ -148,14 +150,14 @@ namespace Pedantic.Chess
 
                 ComputeKingAttacks(Color.White, board);
                 ComputeKingAttacks(Color.Black, board);
-                ComputeMisc(Color.White, board);
-                ComputeMisc(Color.Black, board);
+
                 if (pawnsHashed)
                 {
                     opScore[0] += item.GetOpeningScore(Color.White);
                     egScore[0] += item.GetEndGameScore(Color.White);
                     opScore[1] += item.GetOpeningScore(Color.Black);
                     egScore[1] += item.GetEndGameScore(Color.Black);
+                    passedPawns = PassedPawnBitboard(board);
                 }
                 else if (totalPawns > 0)
                 {
@@ -171,6 +173,9 @@ namespace Pedantic.Chess
                 {
                     TtPawnEval.Add(board.PawnHash, opPawnScore, egPawnScore);
                 }
+
+                ComputeMisc(Color.White, board);
+                ComputeMisc(Color.Black, board);
 
                 score = ((opScore[0] - opScore[1]) * opWt + (egScore[0] - egScore[1]) * egWt) / Constants.MAX_PHASE;
 
@@ -291,6 +296,7 @@ namespace Pedantic.Chess
                 {
                     opPawnScore[c] += wt.OpeningPassedPawn(normalSq);
                     egPawnScore[c] += wt.EndGamePassedPawn(normalSq);
+                    passedPawns |= BitOps.GetMask(sq);
                 }
 
                 if ((pawns & IsolatedPawnMasks[sq]) == 0)
@@ -406,42 +412,55 @@ namespace Pedantic.Chess
             egScore[c] += (short)(BitOps.PopCount(pawns & KingProximity[1, ki]) * wt.EndGamePawnShield(1));
             egScore[c] += (short)(BitOps.PopCount(pawns & KingProximity[2, ki]) * wt.EndGamePawnShield(2));
 
-            for (ulong p = pawns; p != 0; p = BitOps.ResetLsb(p))
+            // NOTE: passedPawns was initialized during ComputePawns()
+            for (ulong p = passedPawns & board.Units(color); p != 0; p = BitOps.ResetLsb(p))
             {
                 int sq = BitOps.TzCount(p);
                 Ray ray = Board.Vectors[sq];
-                ulong doubledFriends = color == Color.White ? ray.North : ray.South;
+                ulong bb = color == Color.White ?
+                    BitOps.AndNot(ray.South, Board.RevVectors[BitOps.LzCount(ray.South & board.All)].South) :
+                    BitOps.AndNot(ray.North, Board.Vectors[BitOps.TzCount(ray.North & board.All)].North);
 
-                if ((otherPawns & PassedPawnMasks[c, sq]) == 0 && (pawns & doubledFriends) == 0)
+                if ((bb & board.Pieces(color, Piece.Rook)) != 0)
                 {
-                    ulong bb = color == Color.White
-                        ? BitOps.AndNot(ray.South, Board.RevVectors[BitOps.LzCount(ray.South & board.All)].South)
-                        : BitOps.AndNot(ray.North, Board.Vectors[BitOps.TzCount(ray.North & board.All)].North);
-
-                    if ((bb & board.Pieces(color, Piece.Rook)) != 0)
-                    {
-                        opScore[c] += wt.OpeningRookBehindPassedPawn;
-                        egScore[c] += wt.EndGameRookBehindPassedPawn;
-                    }
+                    opScore[c] += wt.OpeningRookBehindPassedPawn;
+                    egScore[c] += wt.EndGameRookBehindPassedPawn;
                 }
+
+                int normalRank = Index.GetRank(Index.NormalizedIndex[c][sq]);
+                if (normalRank < Coord.RANK_4)
+                {
+                    continue;
+                }
+
+                int promoteSq = Index.NormalizedIndex[c][Index.ToIndex(Index.GetFile(sq), Coord.RANK_8)];
+                if (board.PieceCount(other) == 1 && 
+                    Index.Distance(sq, promoteSq) < Index.Distance(kingIndex[o], promoteSq) - (other == board.SideToMove ? 1 : 0))
+                {
+                    opScore[c] += wt.OpeningKingOutsideSquare;
+                    egScore[c] += wt.EndGameKingOutsideSquare;
+                }
+
+                int blockSq = Board.PawnPlus[c, sq];
+                int dist = Index.Distance(blockSq, kingIndex[c]);
+                opScore[c] += (short)(dist * wt.OpeningPpFriendlyKingDistance);
+                egScore[c] += (short)(dist * wt.EndGamePpFriendlyKingDistance);
+
+                dist = Index.Distance(blockSq, kingIndex[o]);
+                opScore[c] += (short)(dist * wt.OpeningPpEnemyKingDistance);
+                egScore[c] += (short)(dist * wt.EndGamePpEnemyKingDistance);
             }
 
-            for (ulong p = otherPawns; p != 0; p = BitOps.ResetLsb(p))
+            for (ulong p = passedPawns & board.Units(other); p != 0; p = BitOps.ResetLsb(p))
             {
                 int sq = BitOps.TzCount(p);
-                Ray ray = Board.Vectors[sq];
-                ulong doubledFriends = other == Color.White ? ray.North : ray.South;
-
-                if ((pawns & PassedPawnMasks[o, sq]) == 0 && (otherPawns & doubledFriends) == 0)
+                int blockerSq = Board.PawnPlus[o, sq];
+                int normalRank = Index.GetRank(Index.NormalizedIndex[o][sq]);
+                Square blocker = board.PieceBoard[blockerSq];
+                if (blocker.Color == color && blocker.Piece != Piece.None)
                 {
-                    int blockerSq = Board.PawnPlus[o, sq];
-                    int normalRank = Index.GetRank(Index.NormalizedIndex[o][sq]);
-                    Square blocker = board.PieceBoard[blockerSq];
-                    if (blocker.Color == color && blocker.Piece != Piece.None)
-                    {
-                        opScore[c] += wt.OpeningBlockPassedPawn(normalRank, blocker.Piece);
-                        egScore[c] += wt.EndGameBlockPassedPawn(normalRank, blocker.Piece);
-                    }
+                    opScore[c] += wt.OpeningBlockPassedPawn(normalRank, blocker.Piece);
+                    egScore[c] += wt.EndGameBlockPassedPawn(normalRank, blocker.Piece);
                 }
             }
 
@@ -603,6 +622,30 @@ namespace Pedantic.Chess
             Array.Clear(egPawnScore);
         }
 
+        public ulong PassedPawnBitboard(Board board)
+        {
+            ulong passers = 0;
+            for (Color color = Color.White; color <= Color.Black; color++)
+            {
+                int c = (int)color;
+                ulong pawns = board.Pieces(color, Piece.Pawn);
+                ulong otherPawns = board.Pieces(color.Other(), Piece.Pawn);
+
+                for (ulong p = pawns; p != 0; p = BitOps.ResetLsb(p))
+                {
+                    int sq = BitOps.TzCount(p);
+                    Ray ray = Board.Vectors[sq];
+                    ulong doubledFriends = color == Color.White ? ray.North : ray.South;
+
+                    if ((otherPawns & PassedPawnMasks[c, sq]) == 0 && (pawns & doubledFriends) == 0)
+                    {
+                        passers |= BitOps.GetMask(sq);
+                    }
+                }
+            }
+            return passers;
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsCheckmate(int score)
         {
@@ -712,6 +755,7 @@ namespace Pedantic.Chess
         private readonly bool adjustMaterial;
         private readonly bool random;
         private int totalPawns;
+        private ulong passedPawns;
         private readonly int[] adjust = { 32, 32 };
         private readonly int[] kingIndex = new int[2];
         private readonly KingPlacement[] kp = new KingPlacement[2];
