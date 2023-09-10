@@ -299,6 +299,27 @@ namespace Pedantic.Chess
             return legal;
         }
 
+        // Probably not 100% exact, but given rarity of a bad move stored in TT this should be sufficient
+        public bool IsPseudoLegal(ulong move)
+        {
+            Move.Unpack(move, out Color stm, out Piece piece, out int from, out int to, out MoveType type, out Piece capture, out Piece promote, out int _);
+            if (sideToMove == stm)
+            {
+                if (type == MoveType.EnPassant)
+                {
+                    return board[from].Piece == Piece.Pawn && enPassant == to && board[to].IsEmpty && board[to + EpOffset(stm)].Piece == Piece.Pawn;
+                }
+                else if (type == MoveType.Castle)
+                {
+                    CastlingRookMove rookMove = LookupRookMove(to);
+                    return board[from].Piece == Piece.King && board[rookMove.RookFrom].Piece == Piece.Rook &&
+                           (all & rookMove.ClearMask) == 0 && (castling & rookMove.CastlingMask) == rookMove.CastlingMask;
+                }
+                return board[from].Piece == piece && board[to].Piece == capture;
+            }
+            return false;
+        }
+
         public bool IsPromotionThreat(ulong move)
         {
             if (Move.IsPawnMove(move))
@@ -926,7 +947,7 @@ namespace Pedantic.Chess
             ulong[] bc = badCaptures[ply];
             int bcIndex = 0;
 
-            if (TtTran.TryGetBestMove(hash, out ulong bestMove))
+            if (TtTran.TryGetBestMove(hash, out ulong bestMove) && IsPseudoLegal(bestMove))
             {
                 yield return (bestMove, MoveGenPhase.HashMove);
             }
