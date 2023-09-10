@@ -38,7 +38,7 @@ namespace Pedantic.Chess
         internal const int RAZOR_MAX_DEPTH = 3;
         internal const int IID_MIN_DEPTH = 5;
         internal const int LMP_MAX_HISTORY = 32;
-        internal const int SEE_PRUNING_DEPTH = 3;
+        internal const int SEE_PRUNING_DEPTH = 7;
         internal const int LMP_PRUNING_DEPTH = 3;
 
         public BasicSearch(SearchStack searchStack, Board board, GameClock time, int maxSearchDepth, long maxNodes = long.MaxValue - 100, bool randomSearch = false) 
@@ -505,11 +505,19 @@ namespace Pedantic.Chess
                     }
 
                     // see-based pruning (bad captures have already been found bad by see)
-                    if (depth <= SEE_PRUNING_DEPTH && 
-                        (phase == MoveGenPhase.BadCaptureMoves || board.PostMoveStaticExchangeEval(stm, move) < 0))
+                    if (depth <= SEE_PRUNING_DEPTH)
                     {
-                        board.UnmakeMoveNs();
-                        continue;
+                        int captureValue = Move.GetCapture(move).Value();
+                        if (phase == MoveGenPhase.BadCaptureMoves && (depth <= 1 || board.PostMoveStaticExchangeEval(stm, move) - captureValue > (depth - 1) * 90))
+                        {
+                            board.UnmakeMoveNs();
+                            continue;
+                        }
+                        else if (phase == MoveGenPhase.QuietMoves && board.PostMoveStaticExchangeEval(stm, move) > depth * 50)
+                        {
+                            board.UnmakeMoveNs();
+                            continue;
+                        }
                     }
                 }
 

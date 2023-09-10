@@ -1,10 +1,14 @@
 {
   "profiles": {
-    "Pedantic": {
+    "Pedantic_Learn": {
       "commandName": "Project",
       "commandLineArgs": "learn --data \"e:/pgn files/training/master_training_data_ver5.0b.csv\" --sample 2000000 --iter 80 --reset",
       "workingDirectory": "e:\\repos\\Pedantic\\Pedantic\\bin\\Release\\net7.0\\publish",
       "nativeDebugging": false
+    },
+    "Pedantic_Search": {
+      "commandName": "Project",
+      "commandLineArgs": "uci --input e:/repos/Pedantic/uci_test.txt"
     }
   }
 }

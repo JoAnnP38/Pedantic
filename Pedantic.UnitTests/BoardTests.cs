@@ -277,8 +277,8 @@ namespace Pedantic.UnitTests
         public void SEE0Test(string fen, bool safe)
         {
             Board bd = new(fen);
-            ulong move = Move.Pack(bd.SideToMove, Piece.Rook, Index.G6, Index.G1);
-            int seeEval = bd.PostMoveStaticExchangeEval(bd.SideToMove.Other(), move);
+            ulong move = Move.Pack(Color.Black, Piece.Rook, Index.G6, Index.G1);
+            int seeEval = bd.PostMoveStaticExchangeEval(Color.Black, move);
             if (safe)
             {
                 Assert.IsTrue(seeEval <= 0);

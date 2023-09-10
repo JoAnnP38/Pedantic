@@ -302,7 +302,7 @@ namespace Pedantic.Chess
         // Probably not 100% exact, but given rarity of a bad move stored in TT this should be sufficient
         public bool IsPseudoLegal(ulong move)
         {
-            Move.Unpack(move, out Color stm, out Piece piece, out int from, out int to, out MoveType type, out Piece capture, out Piece promote, out int _);
+            Move.Unpack(move, out Color stm, out Piece piece, out int from, out int to, out MoveType type, out Piece capture, out Piece _, out int _);
             if (sideToMove == stm)
             {
                 if (type == MoveType.EnPassant)
@@ -749,6 +749,8 @@ namespace Pedantic.Chess
         }
 
         // SEE where move has already been made on the board
+        // stm - color of the side making the move
+        // move - the last move
         public int PostMoveStaticExchangeEval(Color stm, ulong move)
         {
             Span<int> captures = stackalloc int[32];
