@@ -210,6 +210,13 @@ namespace Pedantic.Chess
             return wt[ChessWeights.SUPPORTED_PAWN + ChessWeights.ENDGAME_WEIGHTS + square];
         }
 
+        public short OpeningKingOutsideSquare => wt[ChessWeights.KING_OUTSIDE_PP_SQUARE];
+        public short EndGameKingOutsideSquare => wt[ChessWeights.KING_OUTSIDE_PP_SQUARE + ChessWeights.ENDGAME_WEIGHTS];
+        public short OpeningPpFriendlyKingDistance => wt[ChessWeights.PP_FRIENDLY_KING_DISTANCE];
+        public short EndGamePpFriendlyKingDistance => wt[ChessWeights.PP_FRIENDLY_KING_DISTANCE + ChessWeights.ENDGAME_WEIGHTS];
+        public short OpeningPpEnemyKingDistance => wt[ChessWeights.PP_ENEMY_KING_DISTANCE];
+        public short EndGamePpEnemyKingDistance => wt[ChessWeights.PP_ENEMY_KING_DISTANCE + ChessWeights.ENDGAME_WEIGHTS];
+
         private readonly short[] wt;
     }
 }

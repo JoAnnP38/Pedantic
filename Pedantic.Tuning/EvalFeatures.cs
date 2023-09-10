@@ -106,6 +106,9 @@ namespace Pedantic.Tuning
         public const int BAD_BISHOP_PAWN = ChessWeights.BAD_BISHOP_PAWN;
         public const int BLOCK_PASSED_PAWN = ChessWeights.BLOCK_PASSED_PAWN;
         public const int SUPPORTED_PAWN = ChessWeights.SUPPORTED_PAWN;
+        public const int KING_OUTSIDE_SQUARE = ChessWeights.KING_OUTSIDE_PP_SQUARE;
+        public const int PP_FRIENDLY_KING_DIST = ChessWeights.PP_FRIENDLY_KING_DISTANCE;
+        public const int PP_ENEMY_KING_DIST = ChessWeights.PP_ENEMY_KING_DISTANCE;
 
         private readonly SparseArray<short>[] sparse = { new(), new() };
 		private readonly short[][] features = { Array.Empty<short>(), Array.Empty<short>() };
@@ -199,6 +202,23 @@ namespace Pedantic.Tuning
                         if ((bb & bd.Pieces(color, Piece.Rook)) != 0)
                         {
                             IncrementRookBehindPassedPawn(v);
+                        }
+
+                        if (Index.GetRank(normalSq) >= Coord.RANK_4)
+                        {
+                            int promoteSq = Index.NormalizedIndex[c][Index.ToIndex(Index.GetFile(sq), Coord.RANK_8)];
+                            if (bd.PieceCount(other) == 1 &&
+                                Index.Distance(sq, promoteSq) < Index.Distance(kingIndex[o], promoteSq) - (other == bd.SideToMove ? 1 : 0))
+                            {
+                                IncrementKingOutsideSquare(v);
+                            }
+
+                            int blockSq = Board.PawnPlus[c, sq];
+                            int dist = Index.Distance(blockSq, kingIndex[c]);
+                            IncrementPPFriendlyKingDistance(v, dist);
+
+                            dist = Index.Distance(blockSq, kingIndex[o]);
+                            IncrementPPEnemyKingDistance(v, dist);
                         }
                     }
 
@@ -775,6 +795,45 @@ namespace Pedantic.Tuning
         public static void SetSupportedPawn(IDictionary<int, short> v, int square)
         {
             v[SUPPORTED_PAWN + square] = 1;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void IncrementKingOutsideSquare(IDictionary<int, short> v)
+        {
+            if (v.ContainsKey(KING_OUTSIDE_SQUARE))
+            {
+                v[KING_OUTSIDE_SQUARE]++;
+            }
+            else
+            {
+                v.Add(KING_OUTSIDE_SQUARE, 1);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void IncrementPPFriendlyKingDistance(IDictionary<int, short> v, int dist)
+        {
+            if (v.ContainsKey(PP_FRIENDLY_KING_DIST))
+            {
+                v[PP_FRIENDLY_KING_DIST] += (short)dist;
+            }
+            else
+            {
+                v.Add(PP_FRIENDLY_KING_DIST, (short)dist);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void IncrementPPEnemyKingDistance(IDictionary<int, short> v, int dist)
+        {
+            if (v.ContainsKey(PP_ENEMY_KING_DIST))
+            {
+                v[PP_ENEMY_KING_DIST] += (short)dist;
+            }
+            else
+            {
+                v.Add(PP_ENEMY_KING_DIST, (short)dist);
+            }
         }
 
 #pragma warning restore CA1854
