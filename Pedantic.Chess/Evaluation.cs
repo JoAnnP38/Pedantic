@@ -347,6 +347,14 @@ namespace Pedantic.Chess
                 opPawnScore[c] += wt.OpeningSupportedPawn(normalSq);
                 egPawnScore[c] += wt.EndGameSupportedPawn(normalSq);
             }
+
+            ulong pawnRams = pawns & (color == Color.White ? otherPawns >> 8 : otherPawns << 8);
+            for (ulong p = pawnRams; p != 0; p = BitOps.ResetLsb(p))
+            {
+                int normalSq = Index.NormalizedIndex[c][BitOps.TzCount(p)];
+                opPawnScore[c] += wt.OpeningPawnRam(normalSq);
+                egPawnScore[c] += wt.EndGamePawnRam(normalSq);
+            }
         }
 
         public void ComputeMisc(Color color, Board board)

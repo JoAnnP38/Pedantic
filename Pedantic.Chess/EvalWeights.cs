@@ -217,6 +217,18 @@ namespace Pedantic.Chess
         public short OpeningPpEnemyKingDistance => wt[ChessWeights.PP_ENEMY_KING_DISTANCE];
         public short EndGamePpEnemyKingDistance => wt[ChessWeights.PP_ENEMY_KING_DISTANCE + ChessWeights.ENDGAME_WEIGHTS];
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public short OpeningPawnRam(int square)
+        {
+            return wt[ChessWeights.PAWN_RAM + square];
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public short EndGamePawnRam(int square)
+        {
+            return wt[ChessWeights.PAWN_RAM + ChessWeights.ENDGAME_WEIGHTS + square];
+        }
+
         private readonly short[] wt;
     }
 }

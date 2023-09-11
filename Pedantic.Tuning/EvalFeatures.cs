@@ -109,6 +109,7 @@ namespace Pedantic.Tuning
         public const int KING_OUTSIDE_SQUARE = ChessWeights.KING_OUTSIDE_PP_SQUARE;
         public const int PP_FRIENDLY_KING_DIST = ChessWeights.PP_FRIENDLY_KING_DISTANCE;
         public const int PP_ENEMY_KING_DIST = ChessWeights.PP_ENEMY_KING_DISTANCE;
+        public const int PAWN_RAM = ChessWeights.PAWN_RAM;
 
         private readonly SparseArray<short>[] sparse = { new(), new() };
 		private readonly short[][] features = { Array.Empty<short>(), Array.Empty<short>() };
@@ -281,6 +282,13 @@ namespace Pedantic.Tuning
                 {
                     int normalSq = Index.NormalizedIndex[c][BitOps.TzCount(p)];
                     SetSupportedPawn(v, normalSq);
+                }
+
+                ulong pawnRams = pawns & (color == Color.White ? otherPawns >> 8 : otherPawns << 8);
+                for (ulong p = pawnRams; p != 0; p = BitOps.ResetLsb(p))
+                {
+                    int normalSq = Index.NormalizedIndex[c][BitOps.TzCount(p)];
+                    SetPawnRam(v, normalSq);
                 }
 
                 ulong bishops = bd.Pieces(color, Piece.Bishop);
@@ -834,6 +842,12 @@ namespace Pedantic.Tuning
             {
                 v.Add(PP_ENEMY_KING_DIST, (short)dist);
             }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void SetPawnRam(IDictionary<int, short> v, int square)
+        {
+            v[PAWN_RAM + square] = 1;
         }
 
 #pragma warning restore CA1854

@@ -51,6 +51,9 @@ namespace Pedantic
 
         private static int Main(string[] args)
         {
+            Console.WriteLine($"{APP_NAME_VER} by {AUTHOR}");
+            string moveGenType = Board.IsPextSupported ? "PEXT" : "MAGIC";
+            Console.WriteLine($"Using {moveGenType}");
             var typeOption = new Option<PerftRunType>(
                 name: "--type",
                 description: "Specifies the perft variant to execute.",
@@ -211,7 +214,6 @@ namespace Pedantic
 
             try
             {
-                Console.WriteLine(APP_NAME_VER);
                 UciOptions.RandomSearch = random;
                 UciOptions.CollectStatistics = stats;
                 Engine.Start();
@@ -989,6 +991,21 @@ namespace Pedantic
             WriteLine();
             WriteLine($"/* {section} passed pawn/enemy king distance bonus */");
             WriteLine($"{wts[ChessWeights.PP_ENEMY_KING_DISTANCE]},");
+            WriteLine();
+            WriteLine($"/* {section} pawn rams */");
+            for (int n = 0; n < Constants.MAX_SQUARES; n++)
+            {
+                if (n % 8 == 0)
+                {
+                    if (n != 0)
+                    {
+                        Console.WriteLine();
+                    }
+                    WriteIndent();
+                }
+                Console.Write($"{wts[ChessWeights.PAWN_RAM + n],4}, ");
+            }
+            Console.WriteLine();
             WriteLine();
         }
 
