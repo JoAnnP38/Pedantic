@@ -52,7 +52,7 @@ namespace Pedantic.UnitTests
             }
 
             increment = mom.BestIncrement;
-            increment = mom.NegIncrement(increment);
+            increment = IncMomentum.NegIncrement(increment);
             mom.AddImprovingIncrement(increment);
 
             Assert.AreEqual(1, Math.Abs(mom.BestIncrement));
@@ -65,11 +65,11 @@ namespace Pedantic.UnitTests
 
             short increment = 4;
 
-            Assert.AreEqual(-5, mom.NegIncrement(increment));
+            Assert.AreEqual(-5, IncMomentum.NegIncrement(increment));
 
             increment = -4;
 
-            Assert.AreEqual(5, mom.NegIncrement(increment));
+            Assert.AreEqual(5, IncMomentum.NegIncrement(increment));
         }
     }
 }

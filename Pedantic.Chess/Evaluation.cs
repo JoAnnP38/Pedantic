@@ -630,7 +630,7 @@ namespace Pedantic.Chess
             Array.Clear(egPawnScore);
         }
 
-        public ulong PassedPawnBitboard(Board board)
+        public static ulong PassedPawnBitboard(Board board)
         {
             ulong passers = 0;
             for (Color color = Color.White; color <= Color.Black; color++)

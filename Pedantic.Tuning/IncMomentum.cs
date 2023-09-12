@@ -4,7 +4,7 @@ namespace Pedantic.Tuning
 {
     public struct IncMomentum
     {
-        private short increment;
+        private readonly short increment;
         private short momentum;
         private static Random rand = Random.Shared;
 
@@ -19,8 +19,8 @@ namespace Pedantic.Tuning
             momentum = 0;
         }
 
-        public int Direction => Math.Sign(momentum);
-        public short BestIncrement
+        public readonly int Direction => Math.Sign(momentum);
+        public readonly short BestIncrement
         {
             get
             {
@@ -50,7 +50,7 @@ namespace Pedantic.Tuning
             }
         }
 
-        public short NegIncrement(short increment)
+        public static short NegIncrement(short increment)
         {
             if (increment == 0)
             {

@@ -110,7 +110,7 @@ namespace Pedantic.Tuning
 
                         if (!goodIncrement)
                         {
-                            increment = momentums[wt].NegIncrement(increment);
+                            increment = IncMomentum.NegIncrement(increment);
                             weights[wt] += increment;
                             error = MeanSquaredError(k, mb);
                             optAttempts++;
