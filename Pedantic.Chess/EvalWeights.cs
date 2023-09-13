@@ -229,6 +229,32 @@ namespace Pedantic.Chess
             return wt[ChessWeights.PAWN_RAM + ChessWeights.ENDGAME_WEIGHTS + square];
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public short OpeningPieceThreat(Piece attacker, Piece defender)
+        {
+            int index = (int)attacker * Constants.MAX_PIECES + (int)defender;
+            return wt[ChessWeights.PIECE_THREAT + index];
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public short EndGamePieceThreat(Piece attacker, Piece defender)
+        {
+            int index = (int)attacker * Constants.MAX_PIECES + (int)defender;
+            return wt[ChessWeights.PIECE_THREAT + ChessWeights.ENDGAME_WEIGHTS + index];
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public short OpeningPawnPushThreat(Piece defender)
+        {
+            return wt[ChessWeights.PAWN_PUSH_THREAT + (int)defender];
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public short EndGamePawnPushThreat(Piece defender)
+        {
+            return wt[ChessWeights.PAWN_PUSH_THREAT + ChessWeights.ENDGAME_WEIGHTS + (int)defender];
+        }
+
         private readonly short[] wt;
     }
 }

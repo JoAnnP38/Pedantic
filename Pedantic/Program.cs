@@ -784,7 +784,9 @@ namespace Pedantic
 
         private static void PrintSolutionSection(short[] wts, string sectionTitle, string section)
         {
+            const int threatTableLen = Constants.MAX_PIECES * Constants.MAX_PIECES;
             string[] pieceNames = { "pawns", "knights", "bishops", "rooks", "queens", "kings" };
+            string[] upperNames = { "Pawn", "Knight", "Bishop", "Rook", "Queen", "King" };
             string[] kpNames = { "KK", "KQ", "QK", "QQ" };
             int centerLength = (60 - sectionTitle.Length) / 2;
             string line = new('-', centerLength - 3);
@@ -1006,6 +1008,30 @@ namespace Pedantic
                 Console.Write($"{wts[ChessWeights.PAWN_RAM + n],4}, ");
             }
             Console.WriteLine();
+            WriteLine();
+            WriteLine($"/* {section} piece threats */");
+            WriteLine("/* P     N     B     R     Q     K */");
+            for (int n = 0; n < threatTableLen; n++)
+            {
+                if (n % Constants.MAX_PIECES == 0)
+                {
+                    if (n != 0)
+                    {
+                        Console.WriteLine($" // {upperNames[n / Constants.MAX_PIECES - 1]} threats");
+                    }
+                    WriteIndent();
+                }
+                Console.Write($"{wts[ChessWeights.PIECE_THREAT + n],4}, ");
+            }
+            Console.WriteLine(" // King threats");
+            WriteLine();
+            WriteLine($"/* {section} pawn push threats */");
+            WriteIndent();
+            for (int n = 0; n < Constants.MAX_PIECES; n++)
+            {
+                Console.Write($"{wts[ChessWeights.PAWN_PUSH_THREAT + n],4}, ");
+            }
+            Console.WriteLine(" // Pawn push threats");
             WriteLine();
         }
 

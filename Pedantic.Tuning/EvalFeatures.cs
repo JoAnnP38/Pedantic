@@ -110,11 +110,16 @@ namespace Pedantic.Tuning
         public const int PP_FRIENDLY_KING_DIST = ChessWeights.PP_FRIENDLY_KING_DISTANCE;
         public const int PP_ENEMY_KING_DIST = ChessWeights.PP_ENEMY_KING_DISTANCE;
         public const int PAWN_RAM = ChessWeights.PAWN_RAM;
+        public const int PIECE_THREAT = ChessWeights.PIECE_THREAT;
+        public const int PAWN_PUSH_THREAT = ChessWeights.PAWN_PUSH_THREAT;
 
         private readonly SparseArray<short>[] sparse = { new(), new() };
 		private readonly short[][] features = { Array.Empty<short>(), Array.Empty<short>() };
 		private readonly int[][] indexMap = { Array.Empty<int>(), Array.Empty<int>() };
         private readonly short phase = 0;
+
+        private readonly static ulong maskFileA = Board.MaskFile(Index.A1);
+        private readonly static ulong maskFileH = Board.MaskFile(Index.H1);
 
         public EvalFeatures(Board bd)
         {
@@ -267,15 +272,33 @@ namespace Pedantic.Tuning
                 }
 
                 ulong pawnAttacks;
+                ulong pushAttacks;
+                ulong defended;
+                ulong targets = bd.Units(other) ^ (otherPawns | bd.Pieces(other, Piece.King));
+
                 if (color == Color.White)
                 {
-                    pawnAttacks = ((pawns & ~Board.MaskFile(Index.A1)) << 7) |
-                                  ((pawns & ~Board.MaskFile(Index.H1)) << 9);
+                    pawnAttacks = ((pawns & ~maskFileA) << 7) |
+                                  ((pawns & ~maskFileH) << 9);
+
+                    ulong pawnPushes = (pawns << 8) & ~bd.All;
+                    pushAttacks = ((pawnPushes & ~maskFileA) << 7) |
+                                  ((pawnPushes & ~maskFileH) << 9);
+
+                    defended = ((otherPawns & ~maskFileH) >> 7) |
+                               ((otherPawns & ~maskFileA) >> 9);
                 }
                 else
                 {
-                    pawnAttacks = ((pawns & ~Board.MaskFile(Index.H1)) >> 7) |
-                                  ((pawns & ~Board.MaskFile(Index.A1)) >> 9);
+                    pawnAttacks = ((pawns & ~maskFileH) >> 7) |
+                                  ((pawns & ~maskFileA) >> 9);
+
+                    ulong pawnPushes = (pawns >> 8) & ~bd.All;
+                    pushAttacks = ((pawnPushes & ~maskFileH) >> 7) |
+                                  ((pawnPushes & ~maskFileA) >> 9);
+
+                    defended = ((otherPawns & ~maskFileA) << 7) |
+                               ((otherPawns & ~maskFileH) << 9);
                 }
 
                 for (ulong p = pawns & pawnAttacks; p != 0; p = BitOps.ResetLsb(p))
@@ -289,6 +312,37 @@ namespace Pedantic.Tuning
                 {
                     int normalSq = Index.NormalizedIndex[c][BitOps.TzCount(p)];
                     SetPawnRam(v, normalSq);
+                }
+
+                for (ulong bb = pawnAttacks & targets; bb != 0; bb = BitOps.ResetLsb(bb))
+                {
+                    int sq = BitOps.TzCount(bb);
+                    Piece defender = bd.PieceBoard[sq].Piece;
+                    SetPieceThreat(v, Piece.Pawn, defender);
+                }
+
+                for (ulong bb = pushAttacks & targets; bb != 0; bb = BitOps.ResetLsb(bb))
+                {
+                    int sq = BitOps.TzCount(bb);
+                    Piece defender = bd.PieceBoard[sq].Piece;
+                    SetPawnPushThreat(v, defender);
+                }
+
+                targets &= ~defended;
+
+                for (Piece attacker = Piece.Knight; attacker <= Piece.Queen; attacker++)
+                {
+                    for (ulong bb = bd.Pieces(color, attacker); bb != 0; bb = BitOps.ResetLsb(bb))
+                    {
+                        int from = BitOps.TzCount(bb);
+                        ulong bb2 = bd.GetPieceMoves(attacker, from);
+                        for (ulong attacks = bb2 & targets; attacks != 0; attacks = BitOps.ResetLsb(attacks))
+                        {
+                            int to = BitOps.TzCount(attacks);
+                            Piece defender = bd.PieceBoard[to].Piece;
+                            SetPieceThreat(v, attacker, defender);
+                        }
+                    }
                 }
 
                 ulong bishops = bd.Pieces(color, Piece.Bishop);
@@ -848,6 +902,16 @@ namespace Pedantic.Tuning
         public static void SetPawnRam(IDictionary<int, short> v, int square)
         {
             v[PAWN_RAM + square] = 1;
+        }
+
+        public static void SetPieceThreat(IDictionary<int, short> v, Piece attacker, Piece defender)
+        {
+            v[PIECE_THREAT + (int)attacker * Constants.MAX_PIECES + (int)defender] = 1;
+        }
+
+        public static void SetPawnPushThreat(IDictionary<int, short> v, Piece defender)
+        {
+            v[PAWN_PUSH_THREAT + (int)defender] = 1;
         }
 
 #pragma warning restore CA1854

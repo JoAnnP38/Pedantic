@@ -176,6 +176,8 @@ namespace Pedantic.Chess
 
                 ComputeMisc(Color.White, board);
                 ComputeMisc(Color.Black, board);
+                ComputeThreats(Color.White, board);
+                ComputeThreats(Color.Black, board);
 
                 score = ((opScore[0] - opScore[1]) * opWt + (egScore[0] - egScore[1]) * egWt) / Constants.MAX_PHASE;
 
@@ -562,6 +564,86 @@ namespace Pedantic.Chess
             }
         }
 
+        public void ComputeThreats(Color color, Board board)
+        {
+            int c = (int)color;
+            Color other = color.Other();
+            ulong pawns = board.Pieces(color, Piece.Pawn);
+            ulong otherPawns = board.Pieces(other, Piece.Pawn);
+
+            ulong targets = board.Units(other) ^ (otherPawns | board.Pieces(other, Piece.King));
+            if (targets == 0)
+            {
+                return;
+            }
+
+            ulong pawnAttacks;
+            ulong pushAttacks;
+            ulong defended;
+            if (color == Color.White)
+            {
+                pawnAttacks = ((pawns & ~maskFileA) << 7) |
+                              ((pawns & ~maskFileH) << 9);
+
+                ulong pawnPushes = (pawns << 8) & ~board.All;
+                pushAttacks = ((pawnPushes & ~maskFileA) << 7) |
+                              ((pawnPushes & ~maskFileH) << 9);
+
+                defended = ((otherPawns & ~maskFileH) >> 7) |
+                           ((otherPawns & ~maskFileA) >> 9);
+            }
+            else
+            {
+                pawnAttacks = ((pawns & ~maskFileH) >> 7) |
+                              ((pawns & ~maskFileA) >> 9);
+
+                ulong pawnPushes = (pawns >> 8) & ~board.All;
+                pushAttacks = ((pawnPushes & ~maskFileH) >> 7) |
+                              ((pawnPushes & ~maskFileA) >> 9);
+
+                defended = ((otherPawns & ~maskFileA) << 7) |
+                           ((otherPawns & ~maskFileH) << 9);
+            }
+
+            for (ulong bb = pawnAttacks & targets; bb != 0; bb = BitOps.ResetLsb(bb))
+            {
+                int sq = BitOps.TzCount(bb);
+                Piece defender = board.PieceBoard[sq].Piece;
+                opScore[c] += wt.OpeningPieceThreat(Piece.Pawn, defender);
+                egScore[c] += wt.EndGamePieceThreat(Piece.Pawn, defender);
+            }
+
+            for (ulong bb = pushAttacks & targets; bb != 0; bb = BitOps.ResetLsb(bb))
+            {
+                int sq = BitOps.TzCount(bb);
+                Piece defender = board.PieceBoard[sq].Piece;
+                opScore[c] += wt.OpeningPawnPushThreat(defender);
+                egScore[c] += wt.EndGamePawnPushThreat(defender);
+            }
+
+            targets &= ~defended;
+            if (targets == 0)
+            {
+                return;
+            }
+            
+            for (Piece attacker = Piece.Knight; attacker <= Piece.Queen; attacker++)
+            {
+                for (ulong bb = board.Pieces(color, attacker); bb != 0; bb = BitOps.ResetLsb(bb))
+                {
+                    int from = BitOps.TzCount(bb);
+                    ulong bb2 = board.GetPieceMoves(attacker, from);
+                    for (ulong attacks = bb2 & targets; attacks != 0; attacks = BitOps.ResetLsb(attacks))
+                    {
+                        int to = BitOps.TzCount(attacks);
+                        Piece defender = board.PieceBoard[to].Piece;
+                        opScore[c] += wt.OpeningPieceThreat(attacker, defender);
+                        egScore[c] += wt.EndGamePieceThreat(attacker, defender);
+                    }
+                }
+            }
+        }
+
         public void CalcMaterialAdjustment(Board board)
         {
             int materialWhite = board.EndGameMaterial[(int)Color.White];
@@ -772,6 +854,8 @@ namespace Pedantic.Chess
         private readonly short[] opPawnScore = { 0, 0 };
         private readonly short[] egPawnScore = { 0, 0 };
 
+        private static readonly ulong maskFileA = Board.MaskFile(Index.A1);
+        private static readonly ulong maskFileH = Board.MaskFile(Index.H1);
         private static EvalWeights wt;
         private static readonly UnsafeArray<short> canonicalPieceValues = new (7) 
             { 0, 100, 300, 300, 500, 900, 9900 };

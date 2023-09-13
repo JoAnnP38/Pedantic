@@ -11,7 +11,7 @@ namespace Pedantic.Tuning
         internal const double DEFAULT_K = 0.00385;
         internal const double TOLERENCE = 1.0e-7;
         internal const int MAX_FAILURE = 2;
-        internal const double COMPARISON_EPSILON = 5.0e-15;
+        internal const double COMPARISON_EPSILON = 5.0e-13;
 
         public HceTuner(short[] weights, IList<PosRecord> positions, int? seed = null)
         { 
