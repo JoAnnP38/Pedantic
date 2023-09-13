@@ -8,7 +8,8 @@ namespace Pedantic.Tuning
 {
     public class MiniBatch
     {
-        internal const int SMALLEST_BATCH_COUNT = 5;
+        internal const int SMALLEST_BATCH_COUNT = 2;
+        internal const int STARTING_BATCH_COUNT = 5;
         internal const int SMALLEST_BATCH_SIZE = 2500;
 
         private int currentBatchCount;
@@ -18,7 +19,7 @@ namespace Pedantic.Tuning
 
         public MiniBatch(int totalData)
         {
-            currentBatchCount = SMALLEST_BATCH_COUNT;
+            currentBatchCount = STARTING_BATCH_COUNT;
             if (totalData / currentBatchCount > SMALLEST_BATCH_SIZE)
             {
                 while (totalData / (currentBatchCount * 2) > SMALLEST_BATCH_SIZE)
