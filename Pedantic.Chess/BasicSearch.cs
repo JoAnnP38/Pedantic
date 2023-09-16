@@ -445,19 +445,9 @@ namespace Pedantic.Chess
                 }
             }
 
-            // Internal Iterative Deepening (IID)
-            // This will make sure there is a bestMove in the transposition table
-            // if we find ourselves here and there is none. Should improve worst
-            // case scenario of search blowing up.
-            if (canNull && isPv && depth >= IID_MIN_DEPTH && bestMove == 0)
+            if (depth >= IID_MIN_DEPTH && bestMove == 0)
             {
-                Search(alpha, beta, depth - 2, ply, inCheck);
-                if (wasAborted)
-                {
-                    return 0;
-                }
-
-                InitPv(ply);
+                depth--;
             }
 
             int expandedNodes = 0;
