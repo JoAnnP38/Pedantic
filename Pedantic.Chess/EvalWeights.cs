@@ -255,6 +255,9 @@ namespace Pedantic.Chess
             return wt[ChessWeights.PAWN_PUSH_THREAT + ChessWeights.ENDGAME_WEIGHTS + (int)defender];
         }
 
+        public short OpeningKingOnOpenDiagonal => wt[ChessWeights.KING_ON_OPEN_DIAGONAL];
+        public short EndGameKingOnOpenDiagonal => wt[ChessWeights.KING_ON_OPEN_DIAGONAL + ChessWeights.ENDGAME_WEIGHTS];
+
         private readonly short[] wt;
     }
 }

@@ -94,17 +94,13 @@ namespace Pedantic.Chess
 
         public static void IncrementVersion() 
         { 
-            // this will allow the generation to advance for 512 moves before 
-            // it will stop
-            if (generation + 4 < 0x0800)
-            {
-                generation += 4;
-            }
+            generation++;
         }
 
         public static void Add(ulong hash, int depth, int ply, int alpha, int beta, int score, ulong move)
         {
-            int index = GetStoreIndex(hash);
+            int index = GetStoreIndex(hash, depth);
+
             ref TtTranItem item = ref table[index];
             ulong bestMove = move;
 
@@ -118,12 +114,15 @@ namespace Pedantic.Chess
                 ++used;
             }
 
-            if (Evaluation.IsCheckmate(score))
+            if (score >= Constants.TABLEBASE_WIN)
             {
-                score += Math.Sign(score) * ply;
+                score += ply;
+            }
+            else if (score <= Constants.TABLEBASE_LOSS)
+            {
+                score -= ply;
             }
 
-            sbyte itemDepth = (sbyte)depth;
             TtFlag flag = TtFlag.Exact;
 
             if (score <= alpha)
@@ -135,6 +134,7 @@ namespace Pedantic.Chess
                 flag = TtFlag.LowerBound;
             }
 
+            sbyte itemDepth = (sbyte)depth;
             TtTranItem.SetValue(ref item, hash, (short)score, itemDepth, flag, bestMove);
         }
 
@@ -219,9 +219,13 @@ namespace Pedantic.Chess
 
                 score = item.Score;
 
-                if (Evaluation.IsCheckmate(score))
+                if (score >= Constants.TABLEBASE_WIN)
                 {
-                    score -= Math.Sign(score) * ply;
+                    score -= ply;
+                }
+                else if (score <= Constants.TABLEBASE_LOSS)
+                {
+                    score += ply;
                 }
 
                 if (item.Flag == TtFlag.Exact)
@@ -242,23 +246,43 @@ namespace Pedantic.Chess
             return false;
         }
 
-        private static int GetStoreIndex(ulong hash)
+        private static int GetStoreIndex(ulong hash, int depth)
         {
-            int index = (int)(hash & mask);
-            ref TtTranItem item0 = ref table[index];
-            ref TtTranItem item1 = ref table[index ^ 1];
+            int index0 = (int)(hash & mask);
+            int index1 = index0 ^ 1;
+            ref TtTranItem item0 = ref table[index0];
+            ref TtTranItem item1 = ref table[index1];
 
             if (item0.IsValid(hash))
             {
-                return index;
+                return index0;
             }
 
             if (item1.IsValid(hash))
             {
-                return index ^ 1;
+                return index1;
             }
 
-            return (item0.Age + item0.Depth) > (item1.Age + item1.Depth) ? index ^ 1 : index;
+            if (item0.Age <= item1.Age && item0.Age < generation)
+            {
+                return index0;
+            }
+            else if (item1.Age <= item0.Age && item1.Age < generation)
+            {
+                return index1;
+            }
+
+            if (item0.Depth <= item1.Depth && item0.Depth < depth)
+            {
+                return index0;
+            }
+
+            if (item1.Depth <= item0.Depth && item1.Depth < depth)
+            {
+                return index1;
+            }
+
+            return index0;
         }
 
         private static bool GetLoadIndex(ulong hash, out int index)

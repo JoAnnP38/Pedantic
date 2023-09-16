@@ -537,17 +537,31 @@ namespace Pedantic.Chess
                 }
             }
 
-            int kingFile = Index.GetFile(ki);
-            if ((Board.MaskFile(kingFile) & allPawns) == 0)
+            ulong kingFileMask = Board.MaskFile(ki);
+            if ((kingFileMask & allPawns) == 0)
             {
                 opScore[c] += wt.OpeningKingOnOpenFile;
                 egScore[c] += wt.EndGameKingOnOpenFile;
             }
 
-            if ((Board.MaskFile(kingFile) & pawns) == 0 && (Board.MaskFile(kingFile) & otherPawns) != 0)
+            if ((kingFileMask & pawns) == 0 && (kingFileMask & otherPawns) != 0)
             {
                 opScore[c] += wt.OpeningKingOnHalfOpenFile;
                 egScore[c] += wt.EndGameKingOnHalfOpenFile;
+            }
+
+            ulong kingDiagonalMask = Board.MaskDiagonal(ki);
+            if (BitOps.PopCount(kingDiagonalMask) > 3 && (kingDiagonalMask & allPawns) == 0)
+            {
+                opScore[c] += wt.OpeningKingOnOpenDiagonal;
+                egScore[c] += wt.EndGameKingOnOpenDiagonal;
+            }
+
+            kingDiagonalMask = Board.MaskAntiDiagonal(ki);
+            if (BitOps.PopCount(kingDiagonalMask) > 3 && (kingDiagonalMask & allPawns) == 0)
+            {
+                opScore[c] += wt.OpeningKingOnOpenDiagonal;
+                egScore[c] += wt.EndGameKingOnOpenDiagonal;
             }
 
             if (board.HasCastled[(int)color])
@@ -929,7 +943,7 @@ namespace Pedantic.Chess
 
         public static readonly UnsafeArray2D<ulong> KingProximity = new (3, Constants.MAX_SQUARES)
         {
-            #region kingProximity data
+            #region KingProximity data
 
             // masks for D0
             0x0000000000000302ul, 0x0000000000000705ul, 0x0000000000000E0Aul, 0x0000000000001C14ul,
@@ -985,7 +999,7 @@ namespace Pedantic.Chess
             0x0808080F00000000ul, 0x1010101F00000000ul, 0x2020203F00000000ul, 0x4141417F00000000ul,
             0x828282FE00000000ul, 0x040404FC00000000ul, 0x080808F800000000ul, 0x101010F000000000ul
 
-            #endregion kingProximity data
+            #endregion KingProximity data
         };
 
         public static readonly UnsafeArray2D<ulong> BackwardPawnMasks = new (Constants.MAX_COLORS, Constants.MAX_SQUARES)

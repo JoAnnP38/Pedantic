@@ -1033,6 +1033,9 @@ namespace Pedantic
             }
             Console.WriteLine(" // Pawn push threats");
             WriteLine();
+            WriteLine($"/* {section} king on open diagonal */");
+            WriteLine($"{wts[ChessWeights.KING_ON_OPEN_DIAGONAL]},");
+            WriteLine();
         }
 
         private static void WriteIndent()

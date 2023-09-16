@@ -82,7 +82,7 @@ namespace Pedantic.Chess
                 Eval.CalcMaterialAdjustment(board);
                 Score = Quiesce(-Constants.INFINITE_WINDOW, Constants.INFINITE_WINDOW, 0, searchStack[-1].IsCheckingMove);
                 location = "1";
-                while (++Depth <= maxSearchDepth && time.CanSearchDeeper())
+                while (++Depth < maxSearchDepth && time.CanSearchDeeper())
                 {
                     time.StartInterval();
                     UpdateTtWithPv(PV, Depth);

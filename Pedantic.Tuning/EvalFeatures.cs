@@ -112,6 +112,7 @@ namespace Pedantic.Tuning
         public const int PAWN_RAM = ChessWeights.PAWN_RAM;
         public const int PIECE_THREAT = ChessWeights.PIECE_THREAT;
         public const int PAWN_PUSH_THREAT = ChessWeights.PAWN_PUSH_THREAT;
+        public const int KING_ON_OPEN_DIAGONAL = ChessWeights.KING_ON_OPEN_DIAGONAL;
 
         private readonly SparseArray<short>[] sparse = { new(), new() };
 		private readonly short[][] features = { Array.Empty<short>(), Array.Empty<short>() };
@@ -318,14 +319,14 @@ namespace Pedantic.Tuning
                 {
                     int sq = BitOps.TzCount(bb);
                     Piece defender = bd.PieceBoard[sq].Piece;
-                    SetPieceThreat(v, Piece.Pawn, defender);
+                    IncrementPieceThreat(v, Piece.Pawn, defender);
                 }
 
                 for (ulong bb = pushAttacks & targets; bb != 0; bb = BitOps.ResetLsb(bb))
                 {
                     int sq = BitOps.TzCount(bb);
                     Piece defender = bd.PieceBoard[sq].Piece;
-                    SetPawnPushThreat(v, defender);
+                    IncrementPawnPushThreat(v, defender);
                 }
 
                 targets &= ~defended;
@@ -340,7 +341,7 @@ namespace Pedantic.Tuning
                         {
                             int to = BitOps.TzCount(attacks);
                             Piece defender = bd.PieceBoard[to].Piece;
-                            SetPieceThreat(v, attacker, defender);
+                            IncrementPieceThreat(v, attacker, defender);
                         }
                     }
                 }
@@ -464,6 +465,18 @@ namespace Pedantic.Tuning
                 if ((kingFileMask & pawns) == 0 && (kingFileMask & otherPawns) != 0)
                 {
                     SetKingOnHalfOpenFile(v);
+                }
+
+                ulong kingDiagonalMask = Board.MaskDiagonal(ki);
+                if (BitOps.PopCount(kingDiagonalMask) > 3 && (kingDiagonalMask & allPawns) == 0)
+                {
+                    IncrementKingOnOpenDiagonal(v);
+                }
+
+                kingDiagonalMask = Board.MaskAntiDiagonal(ki);
+                if (BitOps.PopCount(kingDiagonalMask) > 3 && (kingDiagonalMask & allPawns) == 0)
+                {
+                    IncrementKingOnOpenDiagonal(v);
                 }
 
                 if (bd.HasCastled[c])
@@ -904,14 +917,42 @@ namespace Pedantic.Tuning
             v[PAWN_RAM + square] = 1;
         }
 
-        public static void SetPieceThreat(IDictionary<int, short> v, Piece attacker, Piece defender)
+        public static void IncrementPieceThreat(IDictionary<int, short> v, Piece attacker, Piece defender, short count = 1)
         {
-            v[PIECE_THREAT + (int)attacker * Constants.MAX_PIECES + (int)defender] = 1;
+            int index = PIECE_THREAT + (int)attacker * Constants.MAX_PIECES + (int)defender;
+            if (v.ContainsKey(index))
+            {
+                v[index] += count;
+            }
+            else
+            {
+                v[index] = 1;
+            }
         }
 
-        public static void SetPawnPushThreat(IDictionary<int, short> v, Piece defender)
+        public static void IncrementPawnPushThreat(IDictionary<int, short> v, Piece defender)
         {
-            v[PAWN_PUSH_THREAT + (int)defender] = 1;
+            int index = PAWN_PUSH_THREAT + (int)defender;
+            if (v.ContainsKey(index))
+            {
+                v[index]++;
+            }
+            else
+            {
+                v[index] = 1;
+            }
+        }
+
+        public static void IncrementKingOnOpenDiagonal(IDictionary<int, short> v)
+        {
+            if (v.ContainsKey(KING_ON_OPEN_DIAGONAL))
+            {
+                v[KING_ON_OPEN_DIAGONAL]++;
+            }
+            else
+            {
+                v[KING_ON_OPEN_DIAGONAL] = 1;
+            }
         }
 
 #pragma warning restore CA1854

@@ -2170,7 +2170,7 @@ namespace Pedantic.Chess
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong MaskFile(int sq)
         {
-            Util.Assert(Chess.Index.IsValid(sq));
+            Util.Assert(Index.IsValid(sq));
             return 0x0101010101010101ul << Index.GetFile(sq);
         }
 
@@ -2179,6 +2179,20 @@ namespace Pedantic.Chess
         {
             Util.Assert(Index.IsValid(sq));
             return 0x00000000000000fful << (Index.GetRank(sq) << 3);
+        }
+
+        public static ulong MaskDiagonal(int sq)
+        {
+            Util.Assert(Index.IsValid(sq));
+            Ray ray = Vectors[sq];
+            return ray.NorthEast | ray.SouthWest | (1ul << sq);
+        }
+
+        public static ulong MaskAntiDiagonal(int sq)
+        {
+            Util.Assert(Index.IsValid(sq));
+            Ray ray = Vectors[sq];
+            return ray.NorthWest | ray.SouthEast | (1ul << sq);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
