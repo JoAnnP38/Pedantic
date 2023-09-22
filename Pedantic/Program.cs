@@ -97,7 +97,7 @@ namespace Pedantic
             var iterOption = new Option<int>(
                 name: "--iter",
                 description: "Specify the maximum number of iterations before a solution is declared.",
-                getDefaultValue: () => 250);
+                getDefaultValue: () => 500);
             var saveOption = new Option<bool>(
                 name: "--save",
                 description: "If specified the sample will be saved in file.",
@@ -130,6 +130,10 @@ namespace Pedantic
                 name: "--seed",
                 description: "Specify seed for random number generator.",
                 getDefaultValue: () => null);
+            var errorOption = new Option<double>(
+                name: "--error",
+                description: "Error threshold for terminating optimization loop.",
+                getDefaultValue: () => 0.0);
 
             var uciCommand = new Command("uci", "Start the pedantic application in UCI mode (default).")
             {
@@ -163,6 +167,7 @@ namespace Pedantic
                 saveOption,
                 resetOption,
                 maxTimeOption,
+                errorOption,
                 seedOption
             };
 
@@ -184,7 +189,7 @@ namespace Pedantic
             uciCommand.SetHandler(RunUci, commandFileOption, errorFileOption, randomSearchOption, statsOption, magicOption);
             perftCommand.SetHandler(RunPerft, typeOption, depthOption, fenOption, magicOption);
             labelCommand.SetHandler(RunLabel, pgnFileOption, dataFileOption, maxPositionsOption);
-            learnCommand.SetHandler(RunLearn, dataFileOption, sampleOption, iterOption, saveOption, resetOption, maxTimeOption, seedOption);
+            learnCommand.SetHandler(RunLearn, dataFileOption, sampleOption, iterOption, saveOption, resetOption, maxTimeOption, errorOption, seedOption);
             weightsCommand.SetHandler(RunWeights, immortalOption, displayOption);
             rootCommand.SetHandler(async () => await RunUci(null, null, false, false, false));
 
@@ -718,7 +723,7 @@ namespace Pedantic
             }
         }
 
-        private static void RunLearn(string? dataPath, int sampleSize, int maxPass, bool save, bool reset, TimeSpan? maxTime, int? seed)
+        private static void RunLearn(string? dataPath, int sampleSize, int maxPass, bool save, bool reset, TimeSpan? maxTime, double minError, int? seed)
         {
             if (dataPath == null)
             {
@@ -744,12 +749,13 @@ namespace Pedantic
 
                 if (startingWeight != null)
                 {
+
                     weights = startingWeight.Weights;
                 }
             }
 
-            var tuner = weights.Length > 0 ? new HceTuner(weights, positions, seed) : new HceTuner(positions, seed);
-            var (Error, Accuracy, Weights) = tuner.Train(maxPass, maxTime);
+            var tuner = weights.Length > 0 ? new GdTuner(weights, positions, seed) : new GdTuner(positions, seed);
+            var (Error, Accuracy, Weights) = tuner.Train(maxPass, maxTime, minError);
             PrintSolution(positions.Count, Error, Accuracy, Weights, seed.Value);
         }
 
@@ -985,7 +991,7 @@ namespace Pedantic
             }
             Console.WriteLine();
             WriteLine();
-            WriteLine($"/* {section} king outside passed pawn square */");
+            WriteLine($"/* {section} enemy king outside passed pawn square */");
             WriteLine($"{wts[ChessWeights.KING_OUTSIDE_PP_SQUARE]},");
             WriteLine();
             WriteLine($"/* {section} passed pawn/friendly king distance penalty */");

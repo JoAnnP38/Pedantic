@@ -118,6 +118,7 @@ namespace Pedantic.Tuning
 		private readonly short[][] features = { Array.Empty<short>(), Array.Empty<short>() };
 		private readonly int[][] indexMap = { Array.Empty<int>(), Array.Empty<int>() };
         private readonly short phase = 0;
+        private readonly Dictionary<int, short> coefficients;
 
         private readonly static ulong maskFileA = Board.MaskFile(Index.A1);
         private readonly static ulong maskFileH = Board.MaskFile(Index.H1);
@@ -500,8 +501,24 @@ namespace Pedantic.Tuning
 					features[c][i] = kvp.Value;
 					indexMap[c][i++] = kvp.Key;
 				}
+
+                coefficients = new(sparse[0]);
+                foreach (var kvp in sparse[1])
+                {
+                    if (coefficients.ContainsKey(kvp.Key))
+                    {
+                        coefficients[kvp.Key] -= kvp.Value;
+                    }
+                    else
+                    {
+                        coefficients.Add(kvp.Key, (short)-kvp.Value);
+                    }
+                }
             }
         }
+
+        public IDictionary<int, short> Coefficients => coefficients;
+        public short Phase => phase;
 
         public short Compute(ReadOnlySpan<short> opWeights, ReadOnlySpan<short> egWeights)
         {

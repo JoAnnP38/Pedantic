@@ -254,6 +254,11 @@ namespace Pedantic.Tuning
             return $"Pedantic_Sample_{Constants.APP_VERSION}_{DateTime.Now:yyyyMMdd_HHmmss}.csv";
         }
 
+        public static void PrintStatistics(IEnumerable<PosRecord> positions)
+        {
+
+        }
+
         protected virtual void Dispose(bool disposing)
         {
             if (!disposedValue)

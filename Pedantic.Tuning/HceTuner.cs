@@ -1,24 +1,20 @@
-﻿using Pedantic.Chess;
-using Pedantic.Utilities;
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
+
+using Pedantic.Chess;
+using Pedantic.Utilities;
 
 namespace Pedantic.Tuning
 {
-    public class HceTuner
+    public class HceTuner : Tuner
     {
-        internal const double GOLDEN_RATIO = 1.618033988749894;
-        internal const double DEFAULT_K = 0.00385;
-        internal const double TOLERENCE = 1.0e-7;
         internal const int MAX_FAILURE = 2;
         internal const double COMPARISON_EPSILON = 5.0e-13;
 
         public HceTuner(short[] weights, IList<PosRecord> positions, int? seed = null)
+            : base(positions, seed)
         { 
             this.weights = weights;
-            this.positions = positions;
-            k = SolveK();
-            k = k == 0.0 || k == 1.0 ? DEFAULT_K : k;
             mb = new(positions.Count);
             momentums = new IncMomentum[weights.Length];
 
@@ -28,20 +24,20 @@ namespace Pedantic.Tuning
             }
 
 #if DEBUG
-            rand = new Random(1);
             IncMomentum.SetRandomSeed(1);
 #else
-            rand = seed.HasValue ? new Random(seed.Value) : new Random();
             IncMomentum.SetRandomSeed(seed);
 #endif
+            k = SolveK();
+            k = (k == 0.0 || k == 1.0) ? DEFAULT_K : k;
         }
 
         public HceTuner(IList<PosRecord> positions, int? seed = null)
+            : base(positions, seed)
         { 
             weights = ZeroWeights();
-            this.positions = positions;
-            k = DEFAULT_K;
             mb = new(positions.Count);
+            
             momentums = new IncMomentum[weights.Length];
 
             for (int n = 0; n < weights.Length; n++)
@@ -50,13 +46,16 @@ namespace Pedantic.Tuning
             }
 
 #if DEBUG
-            rand = new Random(1);
+            IncMomentum.SetRandomSeed(1);
 #else
-            rand = seed.HasValue ? new Random(seed.Value) : new Random();
+            IncMomentum.SetRandomSeed(seed);
 #endif
+            k = SolveK();
+            k = (k == 0.0 || k == 1.0) ? DEFAULT_K : k;
         }
 
-        public (double Error, double Accuracy, short[] Weights) Train(int maxEpoch, TimeSpan? maxTime, double precision = TOLERENCE)
+        public override (double Error, double Accuracy, short[] Weights) Train(int maxEpoch, TimeSpan? maxTime, 
+            double minError, double precision = TOLERENCE)
         {
             DateTime start = DateTime.Now;
             Console.WriteLine($"Data size: {positions.Count}, K: {k:F6}, Start time: {start:h\\:mm\\:ss}");
@@ -77,6 +76,11 @@ namespace Pedantic.Tuning
                 {
                     bestError = currError;
                     Array.Copy(weights, bestWeights, bestWeights.Length);
+
+                    if (bestError <= minError)
+                    {
+                        break;
+                    }
                 }
                 else
                 {
@@ -180,21 +184,6 @@ namespace Pedantic.Tuning
             return (bestError, accuracy, bestWeights);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static double Sigmoid(double k, double eval)
-        {
-            return 1.0 / (1.0 + Math.Exp(-k * eval));
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private short ComputeEval(PosRecord rec)
-        {
-            ReadOnlySpan<short> opWeights = new(weights, 0, EvalFeatures.FEATURE_SIZE);
-            ReadOnlySpan<short> egWeights = new(weights, EvalFeatures.FEATURE_SIZE, EvalFeatures.FEATURE_SIZE);
-            short result = rec.Features.Compute(opWeights, egWeights);
-            return rec.Features.SideToMove == Color.White ? result : (short)-result;
-        }
-
         private double MeanSquaredError(double k)
         {
             ConcurrentBag<double> subtotals = new();
@@ -227,6 +216,15 @@ namespace Pedantic.Tuning
 
             int count = End - Start;
             return subtotals.Sum() / count;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private short ComputeEval(PosRecord rec)
+        {
+            ReadOnlySpan<short> opWeights = new(weights, 0, EvalFeatures.FEATURE_SIZE);
+            ReadOnlySpan<short> egWeights = new(weights, EvalFeatures.FEATURE_SIZE, EvalFeatures.FEATURE_SIZE);
+            short result = rec.Features.Compute(opWeights, egWeights);
+            return rec.Features.SideToMove == Color.White ? result : (short)-result;
         }
 
         private double Accuracy()
@@ -264,7 +262,7 @@ namespace Pedantic.Tuning
             return (double)total.correct / (total.correct + total.wrong);
         }
 
-        private double SolveK(double a = 0.0, double b = 1.0)
+        public override double SolveK(double a = 0.0, double b = 1.0)
         {
             double k1 = b - (b - a) / GOLDEN_RATIO;
             double k2 = a + (b - a) / GOLDEN_RATIO;
@@ -310,11 +308,8 @@ namespace Pedantic.Tuning
             return wts;
         }
 
-        private readonly double k;
         private readonly short[] weights;
-        private readonly IList<PosRecord> positions;
         private readonly MiniBatch mb;
         private readonly IncMomentum[] momentums;
-        private readonly Random rand;
     }
 }
