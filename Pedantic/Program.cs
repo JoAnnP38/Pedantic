@@ -52,8 +52,15 @@ namespace Pedantic
         private static int Main(string[] args)
         {
             Console.WriteLine($"{APP_NAME_VER} by {AUTHOR}");
-            string moveGenType = Board.IsPextSupported ? "PEXT" : "MAGIC";
-            Console.WriteLine($"Using {moveGenType}");
+            Console.Write("Fast PEXT available: ");
+            if (Board.IsPextSupported)
+            {
+                Console.WriteLine("Yes");
+            }
+            else
+            {
+                Console.WriteLine("No");
+            }
             var typeOption = new Option<PerftRunType>(
                 name: "--type",
                 description: "Specifies the perft variant to execute.",
