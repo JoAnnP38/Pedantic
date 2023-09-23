@@ -76,6 +76,7 @@ namespace Pedantic.Tuning
 
                 clock.Stop();
                 Console.WriteLine($"Loading {records.Count} of {records.Count} (100%)...");
+                PrintStatistics(records);
                 sr.BaseStream.Seek(0, SeekOrigin.Begin);
                 return records;
             }
@@ -206,6 +207,7 @@ namespace Pedantic.Tuning
 
                 clock.Stop();
                 Console.WriteLine($"Loading {records.Count} of {records.Count} (100%)...");
+                PrintStatistics(records);
                 sr.BaseStream.Seek(0, SeekOrigin.Begin);
                 return records;
             }
@@ -256,7 +258,32 @@ namespace Pedantic.Tuning
 
         public static void PrintStatistics(IEnumerable<PosRecord> positions)
         {
+            int totalWins = 0, totalDraws = 0, totalLosses = 0, totalPositions = 0;
+            foreach (var pos in positions)
+            {
+                totalPositions++;
+                switch (pos.Result)
+                {
+                    case PosRecord.WDL_WIN:
+                        totalWins++;
+                        break;
 
+                    case PosRecord.WDL_DRAW:
+                        totalDraws++;
+                        break;
+
+                    case PosRecord.WDL_LOSS:
+                        totalLosses++;
+                        break;
+                }
+            }
+
+            double minWDL = Math.Min(totalWins, Math.Min(totalDraws, totalLosses));
+            double fpWins = totalWins / minWDL;
+            double fpDraws = totalDraws / minWDL;
+            double fpLosses = totalLosses / minWDL;
+
+            Console.WriteLine($"\nWDL Ratio: {totalWins:#,#} : {totalDraws:#,#} : {totalLosses:#,#} ({fpWins:F3} : {fpDraws:F3} : {fpLosses:F3})\n");
         }
 
         protected virtual void Dispose(bool disposing)
@@ -268,18 +295,9 @@ namespace Pedantic.Tuning
                     sr.Dispose();
                 }
 
-                // TODO: free unmanaged resources (unmanaged objects) and override finalizer
-                // TODO: set large fields to null
                 disposedValue = true;
             }
         }
-
-        // // TODO: override finalizer only if 'Dispose(bool disposing)' has code to free unmanaged resources
-        // ~TrainingDataFile()
-        // {
-        //     // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
-        //     Dispose(disposing: false);
-        // }
 
         public void Dispose()
         {
