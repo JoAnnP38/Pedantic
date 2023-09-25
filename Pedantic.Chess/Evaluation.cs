@@ -59,6 +59,13 @@ namespace Pedantic.Chess
             passedPawns = 0;
             kingIndex[0] = BitOps.TzCount(board.Pieces(Color.White, Piece.King));
             kingIndex[1] = BitOps.TzCount(board.Pieces(Color.Black, Piece.King));
+            ulong pawns = board.Pieces(Color.White, Piece.Pawn);
+            pawnAttacks[0] = ((pawns & ~Board.MaskFile(Index.A1)) << 7) |
+                             ((pawns & ~Board.MaskFile(Index.H1)) << 9);
+
+            pawns = board.Pieces(Color.Black, Piece.Pawn);
+            pawnAttacks[1] = ((pawns & ~Board.MaskFile(Index.H1)) >> 7) |
+                             ((pawns & ~Board.MaskFile(Index.A1)) >> 9);
 
             kp[0] = Index.GetKingPlacement(kingIndex[0], kingIndex[1]);
             kp[1] = Index.GetKingPlacement(kingIndex[1], kingIndex[0]);
@@ -312,12 +319,6 @@ namespace Pedantic.Chess
                     opPawnScore[c] += wt.OpeningConnectedPawn(normalSq);
                     egPawnScore[c] += wt.EndGameConnectedPawn(normalSq);
                 }
-
-                if ((pawns & BackwardPawnMasks[c, sq]) == 0)
-                {
-                    opPawnScore[c] += wt.OpeningBackwardPawn;
-                    egPawnScore[c] += wt.EndGameBackwardPawn;
-                }
             }
 
             for (int file = 0; file < Constants.MAX_COORDS; file++)
@@ -330,19 +331,7 @@ namespace Pedantic.Chess
                 }
             }
 
-            ulong pawnAttacks;
-            if (color == Color.White)
-            {
-                pawnAttacks = ((pawns & ~Board.MaskFile(Index.A1)) << 7) |
-                              ((pawns & ~Board.MaskFile(Index.H1)) << 9);
-            }
-            else
-            {
-                pawnAttacks = ((pawns & ~Board.MaskFile(Index.H1)) >> 7) |
-                              ((pawns & ~Board.MaskFile(Index.A1)) >> 9);
-            }
-
-            for (ulong p = pawns & pawnAttacks; p != 0; p = BitOps.ResetLsb(p))
+            for (ulong p = pawns & pawnAttacks[c]; p != 0; p = BitOps.ResetLsb(p))
             {
                 int sq = BitOps.TzCount(p);
                 int normalSq = Index.NormalizedIndex[c][sq];
@@ -591,14 +580,10 @@ namespace Pedantic.Chess
                 return;
             }
 
-            ulong pawnAttacks;
             ulong pushAttacks;
             ulong defended;
             if (color == Color.White)
             {
-                pawnAttacks = ((pawns & ~maskFileA) << 7) |
-                              ((pawns & ~maskFileH) << 9);
-
                 ulong pawnPushes = (pawns << 8) & ~board.All;
                 pushAttacks = ((pawnPushes & ~maskFileA) << 7) |
                               ((pawnPushes & ~maskFileH) << 9);
@@ -608,9 +593,6 @@ namespace Pedantic.Chess
             }
             else
             {
-                pawnAttacks = ((pawns & ~maskFileH) >> 7) |
-                              ((pawns & ~maskFileA) >> 9);
-
                 ulong pawnPushes = (pawns >> 8) & ~board.All;
                 pushAttacks = ((pawnPushes & ~maskFileH) >> 7) |
                               ((pawnPushes & ~maskFileA) >> 9);
@@ -619,7 +601,7 @@ namespace Pedantic.Chess
                            ((otherPawns & ~maskFileH) << 9);
             }
 
-            for (ulong bb = pawnAttacks & targets; bb != 0; bb = BitOps.ResetLsb(bb))
+            for (ulong bb = pawnAttacks[c] & targets; bb != 0; bb = BitOps.ResetLsb(bb))
             {
                 int sq = BitOps.TzCount(bb);
                 Piece defender = board.PieceBoard[sq].Piece;
@@ -867,6 +849,7 @@ namespace Pedantic.Chess
         private readonly short[] egScore = { 0, 0 };
         private readonly short[] opPawnScore = { 0, 0 };
         private readonly short[] egPawnScore = { 0, 0 };
+        private readonly ulong[] pawnAttacks = { 0ul, 0ul };
 
         private static readonly ulong maskFileA = Board.MaskFile(Index.A1);
         private static readonly ulong maskFileH = Board.MaskFile(Index.H1);

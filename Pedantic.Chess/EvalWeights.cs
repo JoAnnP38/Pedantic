@@ -101,8 +101,6 @@ namespace Pedantic.Chess
 
         public short OpeningIsolatedPawn => wt[ChessWeights.ISOLATED_PAWN];
         public short EndGameIsolatedPawn => wt[ChessWeights.ISOLATED_PAWN + ChessWeights.ENDGAME_WEIGHTS];
-        public short OpeningBackwardPawn => wt[ChessWeights.BACKWARD_PAWN];
-        public short EndGameBackwardPawn => wt[ChessWeights.BACKWARD_PAWN + ChessWeights.ENDGAME_WEIGHTS];
         public short OpeningDoubledPawn => wt[ChessWeights.DOUBLED_PAWN];
         public short EndGameDoubledPawn => wt[ChessWeights.DOUBLED_PAWN + ChessWeights.ENDGAME_WEIGHTS];
 

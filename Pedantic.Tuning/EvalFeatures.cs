@@ -84,7 +84,7 @@ namespace Pedantic.Tuning
         public const int KING_ATTACK = ChessWeights.KING_ATTACK;
         public const int PAWN_SHIELD = ChessWeights.PAWN_SHIELD;
         public const int ISOLATED_PAWNS = ChessWeights.ISOLATED_PAWN;
-        public const int BACKWARD_PAWNS = ChessWeights.BACKWARD_PAWN;
+        public const int UNUSED_0 = ChessWeights.UNUSED_0;
         public const int DOUBLED_PAWNS = ChessWeights.DOUBLED_PAWN;
         public const int ADJACENT_PAWNS = ChessWeights.CONNECTED_PAWN;
         public const int KNIGHTS_ON_OUTPOST = ChessWeights.KNIGHT_OUTPOST;
@@ -128,12 +128,20 @@ namespace Pedantic.Tuning
             Span<short> mobility = stackalloc short[Constants.MAX_PIECES];
             Span<short> kingAttacks = stackalloc short[3];
             Span<short> centerControl = stackalloc short[3];
+            Span<ulong> pawnAttacks = stackalloc ulong[Constants.MAX_COLORS];
 
             totalPawns = (sbyte)BitOps.PopCount(bd.Pieces(Color.White, Piece.Pawn) | bd.Pieces(Color.Black, Piece.Pawn));
             sideToMove = bd.SideToMove;
             kingIndex[0] = (sbyte)BitOps.TzCount(bd.Pieces(Color.White, Piece.King));
             kingIndex[1] = (sbyte)BitOps.TzCount(bd.Pieces(Color.Black, Piece.King));
             phase = bd.Phase;
+            ulong pawns = bd.Pieces(Color.White, Piece.Pawn);
+            pawnAttacks[0] = ((pawns & ~Board.MaskFile(Index.A1)) << 7) |
+                             ((pawns & ~Board.MaskFile(Index.H1)) << 9);
+
+            pawns = bd.Pieces(Color.Black, Piece.Pawn);
+            pawnAttacks[1] = ((pawns & ~Board.MaskFile(Index.H1)) >> 7) |
+                             ((pawns & ~Board.MaskFile(Index.A1)) >> 9);
 
 
             for (Color color = Color.White; color <= Color.Black; color++)
@@ -183,7 +191,7 @@ namespace Pedantic.Tuning
 
                 int ki = kingIndex[c];
                 Color other = (Color)(c ^ 1);
-                ulong pawns = bd.Pieces(color, Piece.Pawn);
+                pawns = bd.Pieces(color, Piece.Pawn);
                 ulong otherPawns = bd.Pieces(other, Piece.Pawn);
                 bd.Pieces(color, Piece.King);
 
@@ -193,6 +201,7 @@ namespace Pedantic.Tuning
                     Ray ray = Board.Vectors[sq];
                     ulong doubledFriends = color == Color.White ? ray.North : ray.South;
                     int normalSq = Index.NormalizedIndex[c][sq];
+                    bool potentialBackward = true;
 
                     if ((otherPawns & Evaluation.PassedPawnMasks[c, sq]) == 0 && (pawns & doubledFriends) == 0)
                     {
@@ -233,16 +242,13 @@ namespace Pedantic.Tuning
                     if ((pawns & Evaluation.IsolatedPawnMasks[sq]) == 0)
                     {
                         IncrementIsolatedPawns(v);
+                        potentialBackward = false;
                     }
 
                     if ((pawns & Evaluation.AdjacentPawnMasks[sq]) != 0)
                     {
                         SetAdjacentPawns(v, normalSq);
-                    }
-
-                    if ((pawns & Evaluation.BackwardPawnMasks[c, sq]) == 0)
-                    {
-                        IncrementBackwardPawns(v);
+                        potentialBackward = false;
                     }
                 }
 
@@ -273,16 +279,12 @@ namespace Pedantic.Tuning
                     }
                 }
 
-                ulong pawnAttacks;
                 ulong pushAttacks;
                 ulong defended;
                 ulong targets = bd.Units(other) ^ (otherPawns | bd.Pieces(other, Piece.King));
 
                 if (color == Color.White)
                 {
-                    pawnAttacks = ((pawns & ~maskFileA) << 7) |
-                                  ((pawns & ~maskFileH) << 9);
-
                     ulong pawnPushes = (pawns << 8) & ~bd.All;
                     pushAttacks = ((pawnPushes & ~maskFileA) << 7) |
                                   ((pawnPushes & ~maskFileH) << 9);
@@ -292,9 +294,6 @@ namespace Pedantic.Tuning
                 }
                 else
                 {
-                    pawnAttacks = ((pawns & ~maskFileH) >> 7) |
-                                  ((pawns & ~maskFileA) >> 9);
-
                     ulong pawnPushes = (pawns >> 8) & ~bd.All;
                     pushAttacks = ((pawnPushes & ~maskFileH) >> 7) |
                                   ((pawnPushes & ~maskFileA) >> 9);
@@ -303,7 +302,7 @@ namespace Pedantic.Tuning
                                ((otherPawns & ~maskFileH) << 9);
                 }
 
-                for (ulong p = pawns & pawnAttacks; p != 0; p = BitOps.ResetLsb(p))
+                for (ulong p = pawns & pawnAttacks[c]; p != 0; p = BitOps.ResetLsb(p))
                 {
                     int normalSq = Index.NormalizedIndex[c][BitOps.TzCount(p)];
                     SetSupportedPawn(v, normalSq);
@@ -316,7 +315,7 @@ namespace Pedantic.Tuning
                     SetPawnRam(v, normalSq);
                 }
 
-                for (ulong bb = pawnAttacks & targets; bb != 0; bb = BitOps.ResetLsb(bb))
+                for (ulong bb = pawnAttacks[c] & targets; bb != 0; bb = BitOps.ResetLsb(bb))
                 {
                     int sq = BitOps.TzCount(bb);
                     Piece defender = bd.PieceBoard[sq].Piece;
@@ -676,19 +675,6 @@ namespace Pedantic.Tuning
             else
             {
                 v.Add(ISOLATED_PAWNS, 1);
-            }
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static void IncrementBackwardPawns(IDictionary<int, short> v)
-        {
-            if (v.ContainsKey(BACKWARD_PAWNS))
-            {
-                v[BACKWARD_PAWNS]++;
-            }
-            else
-            {
-                v.Add(BACKWARD_PAWNS, 1);
             }
         }
 

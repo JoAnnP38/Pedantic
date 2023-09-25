@@ -238,6 +238,6 @@ namespace Pedantic.Tuning
 
         private readonly float[] weights;
         private readonly float[] gradient;
-        private double lRate = 1.0;
+        private readonly double lRate = 1.0;
     }
 }

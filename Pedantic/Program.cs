@@ -184,13 +184,19 @@ namespace Pedantic
                 displayOption
             };
 
+            var convertCommand = new Command("convert", "Convert weights format.")
+            {
+                IsHidden = true
+            };
+
             var rootCommand = new RootCommand("The pedantic chess engine.")
             {
                 uciCommand,
                 perftCommand,
                 labelCommand,
                 learnCommand,
-                weightsCommand
+                weightsCommand,
+                convertCommand
             };
 
             uciCommand.SetHandler(RunUci, commandFileOption, errorFileOption, randomSearchOption, statsOption, magicOption);
@@ -198,8 +204,8 @@ namespace Pedantic
             labelCommand.SetHandler(RunLabel, pgnFileOption, dataFileOption, maxPositionsOption);
             learnCommand.SetHandler(RunLearn, dataFileOption, sampleOption, iterOption, saveOption, resetOption, maxTimeOption, errorOption, seedOption);
             weightsCommand.SetHandler(RunWeights, immortalOption, displayOption);
+            convertCommand.SetHandler(RunConversion);
             rootCommand.SetHandler(async () => await RunUci(null, null, false, false, false));
-
             return rootCommand.InvokeAsync(args).Result;
         }
 
@@ -686,7 +692,7 @@ namespace Pedantic
 
             try
             {
-                long total = 0;
+                long total = 0, wins = 0, draws = 0, losses = 0;
                 PgnPositionReader posReader = new();
 
                 long count = 0;
@@ -696,6 +702,23 @@ namespace Pedantic
                 {
                     if (!hashes.Contains(p.Hash))
                     {
+                        if (p.Result == PosRecord.WDL_WIN)
+                        {
+                            wins++;
+                        }
+                        else if (p.Result == PosRecord.WDL_LOSS)
+                        {
+                            losses++;
+                        }
+                        else if (draws + 1 <= Math.Max(wins, losses) || Random.Shared.NextDouble() > 0.5)
+                        {
+                            draws++;
+                        }
+                        else
+                        {
+                            // skip - don't let draw percentage greatly exceed 33.3%
+                            continue;
+                        }
                         Console.Error.Write($"{++count}\r");
                         hashes.Add(p.Hash);
                         Console.WriteLine($@"{p.Hash:X16},{p.Ply},{p.GamePly},{p.Fen},{p.HasCastled},{p.Result:F1}");
@@ -764,6 +787,286 @@ namespace Pedantic
             var tuner = weights.Length > 0 ? new GdTuner(weights, positions, seed) : new GdTuner(positions, seed);
             var (Error, Accuracy, Weights) = tuner.Train(maxPass, maxTime, minError);
             PrintSolution(positions.Count, Error, Accuracy, Weights, seed.Value);
+        }
+
+        private static void ConvertWeightsToScores(short[] wts)
+        {
+            void WriteWt(short[] wts, int index)
+            {
+                string score = $"S({wts[index],3}, {wts[index + ChessWeights.ENDGAME_WEIGHTS],3}), ";
+                Console.Write($"{score,-15}");
+            }
+
+            void WriteWtLine(short[] wts, int index)
+            {
+                string score = $"S({wts[index],3}, {wts[index + ChessWeights.ENDGAME_WEIGHTS],3}), ";
+                WriteLine($"{score,-15}");
+            }
+
+            const int threatTableLen = Constants.MAX_PIECES * Constants.MAX_PIECES;
+            string[] pieceNames = { "pawns", "knights", "bishops", "rooks", "queens", "kings" };
+            string[] upperNames = { "Pawn", "Knight", "Bishop", "Rook", "Queen", "King" };
+            string[] kpNames = { "KK", "KQ", "QK", "QQ" };
+            indentLevel = 2;
+            int mgIndex, egIndex;
+
+            WriteLine($"// Solution sample size: {wts.Length}, generated on {DateTime.Now:R}");
+            WriteLine("private static readonly Score[] defaultWeights =");
+            WriteLine("{");
+            indentLevel++;
+
+            WriteLine("/* piece values */");
+            WriteIndent();
+            for (int n = 0; n < Constants.MAX_PIECES; n++)
+            {
+                mgIndex = ChessWeights.PIECE_VALUES + n;
+                WriteWt(wts, mgIndex);
+            }
+            WriteLine();
+            WriteLine();
+            WriteLine("/* piece square values */");
+            WriteLine("# region piece square values");
+            WriteLine();
+            int table = 0;
+            int kp = 0;
+            for (int n = 0; n < ChessWeights.PIECE_SQUARE_LENGTH; n++)
+            {
+                if (n % 8 == 0)
+                {
+                    if (n != 0)
+                    {
+                        WriteLine();
+                    }
+                    if (n % 64 == 0)
+                    {
+                        if (n % 256 == 0) // 4 * 64 for each piece
+                        {
+                            table++;
+                            kp = 0;
+                        }
+                        if (n != 0)
+                        {
+                            WriteLine();
+                        }
+                        WriteLine($"/* {pieceNames[table - 1]}: {kpNames[kp++]} */");
+                    }
+                    WriteIndent();
+                }
+                mgIndex = ChessWeights.PIECE_SQUARE_TABLE + n;
+                WriteWt(wts, mgIndex);
+            }
+            WriteLine();
+            WriteLine();
+            WriteLine("#endregion");
+            WriteLine();
+            WriteLine("/* mobility weights */");
+            for (int n = 0; n < 4; n++)
+            {
+                mgIndex = ChessWeights.PIECE_MOBILITY + n;
+                egIndex = mgIndex + ChessWeights.ENDGAME_WEIGHTS;
+                WriteLine($"S({wts[mgIndex],3}, {wts[egIndex],3}), // {pieceNames[n + 1]}");
+            }
+            WriteLine();
+            WriteLine("/* squares attacked near enemy king */");
+            for (int n = 0; n < 3; n++)
+            {
+                mgIndex = ChessWeights.KING_ATTACK + n;
+                egIndex = mgIndex + ChessWeights.ENDGAME_WEIGHTS;
+                WriteLine($"S({wts[mgIndex],3}, {wts[egIndex],3}), // attacks to squares {n + 1} from king");
+            }
+            WriteLine();
+            WriteLine("/* pawn shield/king safety */");
+            for (int n = 0; n < 3; n++)
+            {
+                mgIndex = ChessWeights.PAWN_SHIELD + n;
+                egIndex = mgIndex + ChessWeights.ENDGAME_WEIGHTS;
+                WriteLine($"S({wts[mgIndex],3}, {wts[egIndex],3}), // friendly pawns {n + 1} from king");
+            }
+            WriteLine();
+            WriteLine("/* isolated pawns */");
+            WriteWtLine(wts, ChessWeights.ISOLATED_PAWN);
+            WriteLine();
+            WriteLine("/* unused */");
+            WriteWtLine(wts, ChessWeights.UNUSED_0);
+            WriteLine();
+            WriteLine("/* doubled pawns */");
+            WriteWtLine(wts, ChessWeights.DOUBLED_PAWN);
+            WriteLine();
+            WriteLine("/* adjacent/phalanx pawns */");
+            for (int n = 0; n < Constants.MAX_SQUARES; n++)
+            {
+                if (n % 8 == 0)
+                {
+                    if (n != 0)
+                    {
+                        Console.WriteLine();
+                    }
+                    WriteIndent();
+                }
+                WriteWt(wts, ChessWeights.CONNECTED_PAWN + n);
+            }
+            Console.WriteLine();
+            WriteLine();
+            WriteLine("/* knight on outpost */");
+            WriteWtLine(wts, ChessWeights.KNIGHT_OUTPOST);
+            WriteLine();
+            WriteLine("/* bishop on outpost */");
+            WriteWtLine(wts, ChessWeights.BISHOP_OUTPOST);
+            WriteLine();
+            WriteLine("/* bishop pair */");
+            WriteWtLine(wts, ChessWeights.BISHOP_PAIR);
+            WriteLine();
+            WriteLine("/* rook on open file */");
+            WriteWtLine(wts, ChessWeights.ROOK_ON_OPEN_FILE);
+            WriteLine();
+            WriteLine("/* rook on half-open file */");
+            WriteWtLine(wts, ChessWeights.ROOK_ON_HALF_OPEN_FILE);
+            WriteLine();
+            WriteLine("/* rook behind passed pawn */");
+            WriteWtLine(wts, ChessWeights.ROOK_BEHIND_PASSED_PAWN);
+            WriteLine();
+            WriteLine("/* doubled rooks on file */");
+            WriteWtLine(wts, ChessWeights.DOUBLED_ROOKS_ON_FILE);
+            WriteLine();
+            WriteLine("/* king on open file */");
+            WriteWtLine(wts, ChessWeights.KING_ON_OPEN_FILE);
+            WriteLine();
+            WriteLine("/* king on half-open file */");
+            WriteWtLine(wts, ChessWeights.KING_ON_HALF_OPEN_FILE);
+            WriteLine();
+            WriteLine("/* castling rights available */");
+            WriteWtLine(wts, ChessWeights.CASTLING_AVAILABLE);
+            WriteLine();
+            WriteLine("/* castling complete */");
+            WriteWtLine(wts, ChessWeights.CASTLING_COMPLETE);
+            WriteLine();
+            WriteLine("/* center control */");
+            mgIndex = ChessWeights.CENTER_CONTROL;
+            egIndex = mgIndex + ChessWeights.ENDGAME_WEIGHTS;
+            WriteLine($"S({wts[mgIndex],3}, {wts[egIndex],3}), // D0");
+            WriteLine($"S({wts[mgIndex + 1],3}, {wts[egIndex + 1],3}), // D1");
+            WriteLine();
+            WriteLine("/* queen on open file */");
+            WriteWtLine(wts, ChessWeights.QUEEN_ON_OPEN_FILE);
+            WriteLine();
+            WriteLine("/* queen on half-open file */");
+            WriteWtLine(wts, ChessWeights.QUEEN_ON_HALF_OPEN_FILE);
+            WriteLine();
+            WriteLine("/* rook on seventh rank */");
+            WriteWtLine(wts, ChessWeights.ROOK_ON_7TH_RANK);
+            WriteLine();
+            WriteLine("/* passed pawn */");
+            for (int n = 0; n < Constants.MAX_SQUARES; n++)
+            {
+                if (n % 8 == 0)
+                {
+                    if (n != 0)
+                    {
+                        Console.WriteLine();
+                    }
+                    WriteIndent();
+                }
+                WriteWt(wts, ChessWeights.PASSED_PAWN + n);
+            }
+            Console.WriteLine();
+            WriteLine();
+            WriteLine("/* bad bishop pawns */");
+            for (int n = 0; n < Constants.MAX_SQUARES; n++)
+            {
+                if (n % 8 == 0)
+                {
+                    if (n != 0)
+                    {
+                        Console.WriteLine();
+                    }
+                    WriteIndent();
+                }
+                WriteWt(wts, ChessWeights.BAD_BISHOP_PAWN + n);
+            }
+            Console.WriteLine();
+            WriteLine();
+            WriteLine("/* blocked passed pawn */");
+            for (int n = 0; n < Constants.MAX_COORDS * Constants.MAX_PIECES; n++)
+            {
+                if (n % 8 == 0)
+                {
+                    if (n != 0)
+                    {
+                        Console.WriteLine($" // blocked by {pieceNames[(n / 8) - 1]}");
+                    }
+                    WriteIndent();
+                }
+                WriteWt(wts, ChessWeights.BLOCK_PASSED_PAWN + n);
+            }
+            Console.WriteLine(" // blocked by kings");
+            WriteLine();
+            WriteLine("/* supported pawn chain */");
+            for (int n = 0; n < Constants.MAX_SQUARES; n++)
+            {
+                if (n % 8 == 0)
+                {
+                    if (n != 0)
+                    {
+                        Console.WriteLine();
+                    }
+                    WriteIndent();
+                }
+                WriteWt(wts, ChessWeights.SUPPORTED_PAWN + n);
+            }
+            Console.WriteLine();
+            WriteLine();
+            WriteLine("/* enemy king outside passed pawn square */");
+            WriteWtLine(wts, ChessWeights.KING_OUTSIDE_PP_SQUARE);
+            WriteLine();
+            WriteLine("/* passed pawn/friendly king distance penalty */");
+            WriteWtLine(wts, ChessWeights.PP_FRIENDLY_KING_DISTANCE);
+            WriteLine();
+            WriteLine("/* passed pawn/enemy king distance bonus */");
+            WriteWtLine(wts, ChessWeights.PP_ENEMY_KING_DISTANCE);
+            WriteLine();
+            WriteLine("/* pawn ram bonuses/penalties */");
+            for (int n = 0; n < Constants.MAX_SQUARES; n++)
+            {
+                if (n % 8 == 0)
+                {
+                    if (n != 0)
+                    {
+                        Console.WriteLine();
+                    }
+                    WriteIndent();
+                }
+                WriteWt(wts, ChessWeights.PAWN_RAM + n);
+            }
+            Console.WriteLine();
+            WriteLine();
+            WriteLine("/* piece threats */");
+            WriteLine("/*  Pawn          Knight         Bishop          Rook          Queen           King */");
+            for (int n = 0; n < threatTableLen; n++)
+            {
+                if (n % Constants.MAX_PIECES == 0)
+                {
+                    if (n != 0)
+                    {
+                        Console.WriteLine($" // {upperNames[n / Constants.MAX_PIECES - 1]} threats");
+                    }
+                    WriteIndent();
+                }
+                WriteWt(wts, ChessWeights.PIECE_THREAT + n);
+            }
+            Console.WriteLine(" // King threats");
+            WriteLine();
+            WriteLine("/* pawn push threats */");
+            WriteIndent();
+            for (int n = 0; n < Constants.MAX_PIECES; n++)
+            {
+                WriteWt(wts, ChessWeights.PAWN_PUSH_THREAT + n);
+            }
+            Console.WriteLine(" // Pawn push threats");
+            WriteLine();
+            WriteLine("/* king on open diagonal */");
+            WriteWtLine(wts, ChessWeights.KING_ON_OPEN_DIAGONAL);
+            indentLevel--;            
+            WriteLine("};");
         }
 
         private static void PrintSolution(short[] weights)
@@ -871,8 +1174,8 @@ namespace Pedantic
             WriteLine($"/* {section} isolated pawns */");
             WriteLine($"{wts[ChessWeights.ISOLATED_PAWN]},");
             WriteLine();
-            WriteLine($"/* {section} backward pawns */");
-            WriteLine($"{wts[ChessWeights.BACKWARD_PAWN]},");
+            WriteLine($"/* {section} unused */");
+            WriteLine($"{wts[ChessWeights.UNUSED_0]},");
             WriteLine();
             WriteLine($"/* {section} doubled pawns */");
             WriteLine($"{wts[ChessWeights.DOUBLED_PAWN]},");
@@ -1095,6 +1398,12 @@ namespace Pedantic
                     PrintSolution(wt.Weights);
                 }
             }
+        }
+
+        private static void RunConversion()
+        {
+            ChessWeights paragon = ChessWeights.CreateParagon();
+            ConvertWeightsToScores(paragon.Weights);
         }
 
         private static int indentLevel = 0;
