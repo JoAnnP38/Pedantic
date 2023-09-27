@@ -255,6 +255,18 @@ namespace Pedantic.Chess
 
         public short OpeningKingOnOpenDiagonal => wt[ChessWeights.KING_ON_OPEN_DIAGONAL];
         public short EndGameKingOnOpenDiagonal => wt[ChessWeights.KING_ON_OPEN_DIAGONAL + ChessWeights.ENDGAME_WEIGHTS];
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public short OpeningPassedPawnCanAdvance(int rank)
+        {
+            return wt[ChessWeights.PP_CAN_ADVANCE + rank];
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public short EndGamePassedPawnCanAdvance(int rank)
+        {
+            return wt[ChessWeights.PP_CAN_ADVANCE + ChessWeights.ENDGAME_WEIGHTS + rank];
+        }
 
         private readonly short[] wt;
     }

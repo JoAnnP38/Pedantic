@@ -355,6 +355,7 @@ namespace Pedantic.Chess
             int o = (int)other;
             ulong pawns = board.Pieces(color, Piece.Pawn);
             ulong otherPawns = board.Pieces(other, Piece.Pawn);
+            ulong allPawns = pawns | otherPawns;
 
             if (BitOps.PopCount(board.Pieces(color, Piece.Bishop)) >= 2)
             {
@@ -369,7 +370,7 @@ namespace Pedantic.Chess
             {
                 int sq = BitOps.TzCount(bb);
                 int normalRank = Index.GetRank(Index.NormalizedIndex[c][sq]);
-                if (normalRank > 3 && (Board.PawnDefends(color, sq) & pawns) != 0)
+                if (normalRank > Coord.RANK_4 && (Board.PawnDefends(color, sq) & pawns) != 0)
                 {
                     Piece pc = board.PieceBoard[sq].Piece;
                     if (pc == Piece.Knight)
@@ -448,6 +449,14 @@ namespace Pedantic.Chess
                 dist = Index.Distance(blockSq, kingIndex[o]);
                 opScore[c] += (short)(dist * wt.OpeningPpEnemyKingDistance);
                 egScore[c] += (short)(dist * wt.EndGamePpEnemyKingDistance);
+
+                int rank = normalRank - Coord.RANK_4;
+                ulong advanceMask = BitOps.GetMask(Board.PawnPlus[c, sq]);
+                if ((advanceMask & board.All & pawnAttacks[o] & board.GetPieceMoves(Piece.King, kingIndex[o])) == 0)
+                {
+                    opScore[c] += wt.OpeningPassedPawnCanAdvance(rank);
+                    egScore[c] += wt.EndGamePassedPawnCanAdvance(rank);
+                }
             }
 
             for (ulong p = passedPawns & board.Units(other); p != 0; p = BitOps.ResetLsb(p))
@@ -463,7 +472,6 @@ namespace Pedantic.Chess
                 }
             }
 
-            ulong allPawns = pawns | otherPawns;
             ulong rooks = board.Pieces(color, Piece.Rook);
 
             for (ulong bb = rooks; bb != 0; bb = BitOps.ResetLsb(bb))
@@ -539,14 +547,14 @@ namespace Pedantic.Chess
                 egScore[c] += wt.EndGameKingOnHalfOpenFile;
             }
 
-            ulong kingDiagonalMask = Board.MaskDiagonal(ki);
+            ulong kingDiagonalMask = Diagonals[ki];
             if (BitOps.PopCount(kingDiagonalMask) > 3 && (kingDiagonalMask & allPawns) == 0)
             {
                 opScore[c] += wt.OpeningKingOnOpenDiagonal;
                 egScore[c] += wt.EndGameKingOnOpenDiagonal;
             }
 
-            kingDiagonalMask = Board.MaskAntiDiagonal(ki);
+            kingDiagonalMask = Antidiagonals[ki];
             if (BitOps.PopCount(kingDiagonalMask) > 3 && (kingDiagonalMask & allPawns) == 0)
             {
                 opScore[c] += wt.OpeningKingOnOpenDiagonal;
@@ -708,6 +716,35 @@ namespace Pedantic.Chess
             Array.Clear(egPawnScore);
         }
 
+        public void InitEvalInfo(Board bd)
+        {
+            Array.Clear(evalInfos);
+            for (Color color = Color.White; color <= Color.Black; color++)
+            {
+                Color other = color.Other();
+                int c = (int)color;
+                int o = (int)other;
+
+                ref EvalInfo ei = ref evalInfos[c];
+                ei.Pawns = bd.Pieces(color, Piece.Pawn);
+                ei.EnemyPawns = bd.Pieces(other, Piece.Pawn);
+                ei.AllPawns = ei.Pawns | ei.EnemyPawns;
+                ei.KP = Index.GetKingPlacement(kingIndex[c], kingIndex[o]);
+                ei.KingAttacks = bd.GetPieceMoves(Piece.King, kingIndex[c]);
+
+                if (color == Color.White)
+                {
+                    ei.PawnAttacks = ((ei.Pawns & ~Board.MaskFile(Index.A1)) << 7) |
+                                     ((ei.Pawns & ~Board.MaskFile(Index.H1)) << 9);
+                }
+                else
+                {
+
+                }
+
+            }
+        }
+
         public static ulong PassedPawnBitboard(Board board)
         {
             ulong passers = 0;
@@ -850,6 +887,7 @@ namespace Pedantic.Chess
         private readonly short[] opPawnScore = { 0, 0 };
         private readonly short[] egPawnScore = { 0, 0 };
         private readonly ulong[] pawnAttacks = { 0ul, 0ul };
+        private readonly EvalInfo[] evalInfos = new EvalInfo[2];
 
         private static readonly ulong maskFileA = Board.MaskFile(Index.A1);
         private static readonly ulong maskFileH = Board.MaskFile(Index.H1);
@@ -1050,6 +1088,50 @@ namespace Pedantic.Chess
             0x0000000000000000ul, 0x0000000000000000ul, 0x0000000000000000ul, 0x0000000000000000ul
 
             #endregion AdjacentPawnMasks data
+        };
+
+        public static readonly ulong[] Diagonals =
+        {
+            #region Diagonals data
+            0x8040201008040201ul, 0x0080402010080402ul, 0x0000804020100804ul, 0x0000008040201008ul,
+            0x0000000080402010ul, 0x0000000000804020ul, 0x0000000000008040ul, 0x0000000000000080ul,
+            0x4020100804020100ul, 0x8040201008040201ul, 0x0080402010080402ul, 0x0000804020100804ul,
+            0x0000008040201008ul, 0x0000000080402010ul, 0x0000000000804020ul, 0x0000000000008040ul,
+            0x2010080402010000ul, 0x4020100804020100ul, 0x8040201008040201ul, 0x0080402010080402ul,
+            0x0000804020100804ul, 0x0000008040201008ul, 0x0000000080402010ul, 0x0000000000804020ul,
+            0x1008040201000000ul, 0x2010080402010000ul, 0x4020100804020100ul, 0x8040201008040201ul,
+            0x0080402010080402ul, 0x0000804020100804ul, 0x0000008040201008ul, 0x0000000080402010ul,
+            0x0804020100000000ul, 0x1008040201000000ul, 0x2010080402010000ul, 0x4020100804020100ul,
+            0x8040201008040201ul, 0x0080402010080402ul, 0x0000804020100804ul, 0x0000008040201008ul,
+            0x0402010000000000ul, 0x0804020100000000ul, 0x1008040201000000ul, 0x2010080402010000ul,
+            0x4020100804020100ul, 0x8040201008040201ul, 0x0080402010080402ul, 0x0000804020100804ul,
+            0x0201000000000000ul, 0x0402010000000000ul, 0x0804020100000000ul, 0x1008040201000000ul,
+            0x2010080402010000ul, 0x4020100804020100ul, 0x8040201008040201ul, 0x0080402010080402ul,
+            0x0100000000000000ul, 0x0201000000000000ul, 0x0402010000000000ul, 0x0804020100000000ul,
+            0x1008040201000000ul, 0x2010080402010000ul, 0x4020100804020100ul, 0x8040201008040201ul,
+            #endregion Diagonals data
+        };
+
+        public static readonly ulong[] Antidiagonals =
+        {
+            #region Antidiagonals data
+            0x0000000000000001ul, 0x0000000000000102ul, 0x0000000000010204ul, 0x0000000001020408ul,
+            0x0000000102040810ul, 0x0000010204081020ul, 0x0001020408102040ul, 0x0102040810204080ul,
+            0x0000000000000102ul, 0x0000000000010204ul, 0x0000000001020408ul, 0x0000000102040810ul,
+            0x0000010204081020ul, 0x0001020408102040ul, 0x0102040810204080ul, 0x0204081020408000ul,
+            0x0000000000010204ul, 0x0000000001020408ul, 0x0000000102040810ul, 0x0000010204081020ul,
+            0x0001020408102040ul, 0x0102040810204080ul, 0x0204081020408000ul, 0x0408102040800000ul,
+            0x0000000001020408ul, 0x0000000102040810ul, 0x0000010204081020ul, 0x0001020408102040ul,
+            0x0102040810204080ul, 0x0204081020408000ul, 0x0408102040800000ul, 0x0810204080000000ul,
+            0x0000000102040810ul, 0x0000010204081020ul, 0x0001020408102040ul, 0x0102040810204080ul,
+            0x0204081020408000ul, 0x0408102040800000ul, 0x0810204080000000ul, 0x1020408000000000ul,
+            0x0000010204081020ul, 0x0001020408102040ul, 0x0102040810204080ul, 0x0204081020408000ul,
+            0x0408102040800000ul, 0x0810204080000000ul, 0x1020408000000000ul, 0x2040800000000000ul,
+            0x0001020408102040ul, 0x0102040810204080ul, 0x0204081020408000ul, 0x0408102040800000ul,
+            0x0810204080000000ul, 0x1020408000000000ul, 0x2040800000000000ul, 0x4080000000000000ul,
+            0x0102040810204080ul, 0x0204081020408000ul, 0x0408102040800000ul, 0x0810204080000000ul,
+            0x1020408000000000ul, 0x2040800000000000ul, 0x4080000000000000ul, 0x8000000000000000ul,
+            #endregion Antidiagonals data
         };
 
         public static readonly short[] mopupMate =

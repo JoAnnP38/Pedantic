@@ -1065,6 +1065,14 @@ namespace Pedantic
             WriteLine();
             WriteLine("/* king on open diagonal */");
             WriteWtLine(wts, ChessWeights.KING_ON_OPEN_DIAGONAL);
+            WriteLine();
+            WriteLine("/* passed pawn can advance */");
+            WriteIndent();
+            for (int n = 0; n < 4; n++)
+            {
+                WriteWt(wts, ChessWeights.PP_CAN_ADVANCE + n);
+            }
+            Console.WriteLine();
             indentLevel--;            
             WriteLine("};");
         }
@@ -1351,6 +1359,14 @@ namespace Pedantic
             WriteLine();
             WriteLine($"/* {section} king on open diagonal */");
             WriteLine($"{wts[ChessWeights.KING_ON_OPEN_DIAGONAL]},");
+            WriteLine();
+            WriteLine($"/* {section} passed pawn can advance */");
+            WriteIndent();
+            for (int n = 0; n < 4; n++)
+            {
+                Console.Write($"{wts[ChessWeights.PP_CAN_ADVANCE + n],4}, ");
+            }
+            Console.WriteLine();
             WriteLine();
         }
 

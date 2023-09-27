@@ -113,6 +113,7 @@ namespace Pedantic.Tuning
         public const int PIECE_THREAT = ChessWeights.PIECE_THREAT;
         public const int PAWN_PUSH_THREAT = ChessWeights.PAWN_PUSH_THREAT;
         public const int KING_ON_OPEN_DIAGONAL = ChessWeights.KING_ON_OPEN_DIAGONAL;
+        public const int PP_CAN_ADVANCE = ChessWeights.PP_CAN_ADVANCE;
 
         private readonly SparseArray<short>[] sparse = { new(), new() };
 		private readonly short[][] features = { Array.Empty<short>(), Array.Empty<short>() };
@@ -201,7 +202,6 @@ namespace Pedantic.Tuning
                     Ray ray = Board.Vectors[sq];
                     ulong doubledFriends = color == Color.White ? ray.North : ray.South;
                     int normalSq = Index.NormalizedIndex[c][sq];
-                    bool potentialBackward = true;
 
                     if ((otherPawns & Evaluation.PassedPawnMasks[c, sq]) == 0 && (pawns & doubledFriends) == 0)
                     {
@@ -236,19 +236,24 @@ namespace Pedantic.Tuning
 
                             dist = Index.Distance(blockSq, kingIndex[o]);
                             IncrementPPEnemyKingDistance(v, dist);
+
+                            int rank = Index.GetRank(normalSq) - Coord.RANK_4;
+                            ulong advanceMask = BitOps.GetMask(Board.PawnPlus[c, sq]);
+                            if ((advanceMask & bd.All & pawnAttacks[o] & bd.GetPieceMoves(Piece.King, kingIndex[o])) == 0)
+                            {
+                                IncrementPPCanAdvance(v, rank);
+                            }
                         }
                     }
 
                     if ((pawns & Evaluation.IsolatedPawnMasks[sq]) == 0)
                     {
                         IncrementIsolatedPawns(v);
-                        potentialBackward = false;
                     }
 
                     if ((pawns & Evaluation.AdjacentPawnMasks[sq]) != 0)
                     {
                         SetAdjacentPawns(v, normalSq);
-                        potentialBackward = false;
                     }
                 }
 
@@ -500,18 +505,19 @@ namespace Pedantic.Tuning
 					features[c][i] = kvp.Value;
 					indexMap[c][i++] = kvp.Key;
 				}
+            }
 
-                coefficients = new(sparse[0]);
-                foreach (var kvp in sparse[1])
+            coefficients = new(sparse[0]);
+            coefficients.EnsureCapacity(sparse[0].Count + sparse[1].Count);
+            foreach (var kvp in sparse[1])
+            {
+                if (coefficients.ContainsKey(kvp.Key))
                 {
-                    if (coefficients.ContainsKey(kvp.Key))
-                    {
-                        coefficients[kvp.Key] -= kvp.Value;
-                    }
-                    else
-                    {
-                        coefficients.Add(kvp.Key, (short)-kvp.Value);
-                    }
+                    coefficients[kvp.Key] -= kvp.Value;
+                }
+                else
+                {
+                    coefficients.Add(kvp.Key, (short)-kvp.Value);
                 }
             }
         }
@@ -955,6 +961,19 @@ namespace Pedantic.Tuning
             else
             {
                 v[KING_ON_OPEN_DIAGONAL] = 1;
+            }
+        }
+
+        public static void IncrementPPCanAdvance(IDictionary<int, short> v, int rank)
+        {
+            int key = PP_CAN_ADVANCE + rank;
+            if (v.ContainsKey(key))
+            {
+                v[key]++;
+            }
+            else
+            {
+                v[key] = 1;
             }
         }
 
