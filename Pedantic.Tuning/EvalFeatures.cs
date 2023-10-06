@@ -24,303 +24,367 @@ using Pedantic.Chess;
 using Pedantic.Utilities;
 
 using Index = Pedantic.Chess.Index;
-using Pedantic.Genetics;
 
 namespace Pedantic.Tuning
 {
-    public sealed class EvalFeatures
+    public unsafe sealed class EvalFeatures
     {
         // values required to determine phase and for mopup eval
         private readonly Color sideToMove;
-        private readonly sbyte[] kingIndex = new sbyte[Constants.MAX_COLORS];
-        private readonly sbyte totalPawns;
-
-        /*
-         * Array/Vector of features (one per game phase)
-         * [0]              # pawns
-         * [1]              # knights
-         * [2]              # bishops
-         * [3]              # rooks
-         * [4]              # queens
-         * [5]              # kings
-         * [6 - 261]        0-1 pawn on square & king placement
-         * [262 - 517]      0-1 knight on square & king placement
-         * [518 - 773]      0-1 bishop on square & king placement
-         * [774 - 1029]     0-1 rook on square & king placement
-         * [1030 - 1285]    0-1 queen on square & king placement
-         * [1286 - 1541]    0-1 king on square & king placement
-         * [1542]           # knight mobility
-         * [1543]           # bishop mobility
-         * [1544]           # rook mobility
-         * [1545]           # queen mobility
-         * [1546 - 1548]    # king attack (d0 - d2)
-         * [1549 - 1551]    # pawn shield (d0 - d2)
-         * [1552]           # isolated pawns
-         * [1553]           # backward pawns
-         * [1554]           # doubled pawns
-         * [1555 - 1618]    0-1 connected/adjacent pawns on square
-         * [1619]           # knights on outpost
-         * [1620]           # bishops on outpost
-         * [1621]           0-1 bishop pair
-         * [1622]           # rooks on open file
-         * [1623]           # rooks on half-open file
-         * [1624]           # rooks behind passed pawn
-         * [1625]           # doubled rooks on file
-         * [1626]           0-1 king on open file
-         * [1627]           0-1 king on half-open file
-         * [1628]           # of potential castle moves available
-         * [1629]           0-1 side has already castled
-         * [1630 - 1631]    # center control (d0 - d1)
-         * [1632]           # queens on open file
-         * [1633]           # queens on half-open file
-         * [1634]           # rooks on seventh rank
-         * [1635 - 1698]    0-1 passed pawns on square
-         * [1699 - 1762]    0-1 bad bishop pawn on square
-         */
-        public const int FEATURE_SIZE = ChessWeights.ENDGAME_WEIGHTS;
-        public const int MATERIAL = ChessWeights.PIECE_VALUES;
-        public const int PIECE_SQUARE_TABLES = ChessWeights.PIECE_SQUARE_TABLE;
-        public const int MOBILITY = ChessWeights.PIECE_MOBILITY;
-        public const int KING_ATTACK = ChessWeights.KING_ATTACK;
-        public const int PAWN_SHIELD = ChessWeights.PAWN_SHIELD;
-        public const int ISOLATED_PAWNS = ChessWeights.ISOLATED_PAWN;
-        public const int UNUSED_0 = ChessWeights.UNUSED_0;
-        public const int DOUBLED_PAWNS = ChessWeights.DOUBLED_PAWN;
-        public const int ADJACENT_PAWNS = ChessWeights.CONNECTED_PAWN;
-        public const int KNIGHTS_ON_OUTPOST = ChessWeights.KNIGHT_OUTPOST;
-        public const int BISHOPS_ON_OUTPOST = ChessWeights.BISHOP_OUTPOST;
-        public const int BISHOP_PAIR = ChessWeights.BISHOP_PAIR;
-        public const int ROOK_OPEN_FILE = ChessWeights.ROOK_ON_OPEN_FILE;
-        public const int ROOK_HALF_OPEN_FILE = ChessWeights.ROOK_ON_HALF_OPEN_FILE;
-        public const int ROOK_BEHIND_PASSED_PAWN = ChessWeights.ROOK_BEHIND_PASSED_PAWN;
-        public const int DOUBLED_ROOKS_ON_FILE = ChessWeights.DOUBLED_ROOKS_ON_FILE;
-        public const int KING_ON_OPEN_FILE = ChessWeights.KING_ON_OPEN_FILE;
-        public const int KING_ON_HALF_OPEN_FILE = ChessWeights.KING_ON_HALF_OPEN_FILE;
-        public const int CASTLING_AVAILABLE = ChessWeights.CASTLING_AVAILABLE;
-        public const int CASTLING_COMPLETE = ChessWeights.CASTLING_COMPLETE;
-        public const int CENTER_CONTROL = ChessWeights.CENTER_CONTROL;
-        public const int QUEEN_OPEN_FILE = ChessWeights.QUEEN_ON_OPEN_FILE;
-        public const int QUEEN_HALF_OPEN_FILE = ChessWeights.QUEEN_ON_HALF_OPEN_FILE;
-        public const int ROOK_ON_7TH_RANK = ChessWeights.ROOK_ON_7TH_RANK;
-        public const int PASSED_PAWNS = ChessWeights.PASSED_PAWN;
-        public const int BAD_BISHOP_PAWN = ChessWeights.BAD_BISHOP_PAWN;
-        public const int BLOCK_PASSED_PAWN = ChessWeights.BLOCK_PASSED_PAWN;
-        public const int SUPPORTED_PAWN = ChessWeights.SUPPORTED_PAWN;
-        public const int KING_OUTSIDE_SQUARE = ChessWeights.KING_OUTSIDE_PP_SQUARE;
-        public const int PP_FRIENDLY_KING_DIST = ChessWeights.PP_FRIENDLY_KING_DISTANCE;
-        public const int PP_ENEMY_KING_DIST = ChessWeights.PP_ENEMY_KING_DISTANCE;
-        public const int PAWN_RAM = ChessWeights.PAWN_RAM;
-        public const int PIECE_THREAT = ChessWeights.PIECE_THREAT;
-        public const int PAWN_PUSH_THREAT = ChessWeights.PAWN_PUSH_THREAT;
-        public const int KING_ON_OPEN_DIAGONAL = ChessWeights.KING_ON_OPEN_DIAGONAL;
-        public const int PP_CAN_ADVANCE = ChessWeights.PP_CAN_ADVANCE;
-
-        private readonly SparseArray<short>[] sparse = { new(), new() };
-		private readonly short[][] features = { Array.Empty<short>(), Array.Empty<short>() };
-		private readonly int[][] indexMap = { Array.Empty<int>(), Array.Empty<int>() };
         private readonly short phase = 0;
+
+        public const int FEATURE_SIZE = HceWeights.MAX_WEIGHTS;
+        public const int MATERIAL = HceWeights.PIECE_VALUES;
+        public const int PIECE_SQUARE_TABLES = HceWeights.PIECE_SQUARE_TABLE;
+        public const int MOBILITY = HceWeights.PIECE_MOBILITY;
+        public const int CENTER_CONTROL = HceWeights.CENTER_CONTROL;
+
+        public const int KING_ATTACK = HceWeights.KING_ATTACK;
+        public const int PAWN_SHIELD = HceWeights.PAWN_SHIELD;
+        public const int CASTLING_AVAILABLE = HceWeights.CASTLING_AVAILABLE;
+        public const int CASTLING_COMPLETE = HceWeights.CASTLING_COMPLETE;
+        public const int KING_ON_OPEN_FILE = HceWeights.KING_ON_OPEN_FILE;
+        public const int KING_ON_HALF_OPEN_FILE = HceWeights.KING_ON_HALF_OPEN_FILE;
+        public const int KING_ON_OPEN_DIAGONAL = HceWeights.KING_ON_OPEN_DIAGONAL;
+
+        public const int ISOLATED_PAWNS = HceWeights.ISOLATED_PAWN;
+        public const int DOUBLED_PAWNS = HceWeights.DOUBLED_PAWN;
+        public const int BACKWARD_PAWNS = HceWeights.BACKWARD_PAWN;
+        public const int ADJACENT_PAWNS = HceWeights.PHALANX_PAWN;
+        public const int PASSED_PAWNS = HceWeights.PASSED_PAWN;
+        public const int PAWN_RAM = HceWeights.PAWN_RAM;
+        public const int SUPPORTED_PAWN = HceWeights.CHAINED_PAWN;
+
+        //public const int PP_CAN_ADVANCE = HceWeights.PP_CAN_ADVANCE;
+        public const int KING_OUTSIDE_SQUARE = HceWeights.KING_OUTSIDE_PP_SQUARE;
+        public const int PP_FRIENDLY_KING_DIST = HceWeights.PP_FRIENDLY_KING_DISTANCE;
+        public const int PP_ENEMY_KING_DIST = HceWeights.PP_ENEMY_KING_DISTANCE;
+        public const int BLOCK_PASSED_PAWN = HceWeights.BLOCK_PASSED_PAWN;
+
+        public const int KNIGHTS_ON_OUTPOST = HceWeights.KNIGHT_OUTPOST;
+        public const int BISHOPS_ON_OUTPOST = HceWeights.BISHOP_OUTPOST;
+        public const int BISHOP_PAIR = HceWeights.BISHOP_PAIR;
+        public const int BAD_BISHOP_PAWN = HceWeights.BAD_BISHOP_PAWN;
+        public const int ROOK_OPEN_FILE = HceWeights.ROOK_ON_OPEN_FILE;
+        public const int ROOK_HALF_OPEN_FILE = HceWeights.ROOK_ON_HALF_OPEN_FILE;
+        public const int ROOK_BEHIND_PASSED_PAWN = HceWeights.ROOK_BEHIND_PASSED_PAWN;
+        public const int ROOK_ON_7TH_RANK = HceWeights.ROOK_ON_7TH_RANK;
+        public const int DOUBLED_ROOKS_ON_FILE = HceWeights.DOUBLED_ROOKS_ON_FILE;
+        public const int QUEEN_OPEN_FILE = HceWeights.QUEEN_ON_OPEN_FILE;
+        public const int QUEEN_HALF_OPEN_FILE = HceWeights.QUEEN_ON_HALF_OPEN_FILE;
+
+        public const int PIECE_THREAT = HceWeights.PIECE_THREAT;
+        public const int PAWN_PUSH_THREAT = HceWeights.PAWN_PUSH_THREAT;
+
         private readonly Dictionary<int, short> coefficients;
+        private readonly SparseArray<short>[] sparse = { new(), new() };
 
         private readonly static ulong maskFileA = Board.MaskFile(Index.A1);
         private readonly static ulong maskFileH = Board.MaskFile(Index.H1);
 
         public EvalFeatures(Board bd)
         {
-            Span<short> mobility = stackalloc short[Constants.MAX_PIECES];
-            Span<short> kingAttacks = stackalloc short[3];
-            Span<short> centerControl = stackalloc short[3];
-            Span<ulong> pawnAttacks = stackalloc ulong[Constants.MAX_COLORS];
-
-            totalPawns = (sbyte)BitOps.PopCount(bd.Pieces(Color.White, Piece.Pawn) | bd.Pieces(Color.Black, Piece.Pawn));
+            //SparseArray<short>[] sparse = { new(), new() };
             sideToMove = bd.SideToMove;
-            kingIndex[0] = (sbyte)BitOps.TzCount(bd.Pieces(Color.White, Piece.King));
-            kingIndex[1] = (sbyte)BitOps.TzCount(bd.Pieces(Color.Black, Piece.King));
             phase = bd.Phase;
-            ulong pawns = bd.Pieces(Color.White, Piece.Pawn);
-            pawnAttacks[0] = ((pawns & ~Board.MaskFile(Index.A1)) << 7) |
-                             ((pawns & ~Board.MaskFile(Index.H1)) << 9);
 
-            pawns = bd.Pieces(Color.Black, Piece.Pawn);
-            pawnAttacks[1] = ((pawns & ~Board.MaskFile(Index.H1)) >> 7) |
-                             ((pawns & ~Board.MaskFile(Index.A1)) >> 9);
-
+            Span<Evaluation2.EvalInfo> evalInfo = stackalloc Evaluation2.EvalInfo[2];
+            Evaluation2.InitializeEvalInfo(bd, evalInfo);
 
             for (Color color = Color.White; color <= Color.Black; color++)
             {
+                Color other = color.Other();
                 int c = (int)color;
-                int o = (int)color.Other();
-                KingPlacement kp = Index.GetKingPlacement(kingIndex[c], kingIndex[o]);
+                int o = (int)other;
                 var v = sparse[c];
+                ulong pawns = evalInfo[c].Pawns;
+                ulong otherPawns = evalInfo[o].Pawns;
 
-
-                for (int index = 0; index < Constants.MAX_SQUARES; index++)
+                // Material + PST
+                for (ulong bb = bd.Units(color); bb != 0; bb = BitOps.ResetLsb(bb))
                 {
-                    Square square = bd.PieceBoard[index];
-                    int pstIndex = Index.NormalizedIndex[c][index];
-                    if (!square.IsEmpty && square.Color == color)
-                    {
-                        IncrementPieceCount(v, square.Piece);
-                        SetPieceSquare(v, square.Piece, kp, pstIndex);
-                    }
+                    int sq = BitOps.TzCount(bb);
+                    int normalSq = Index.NormalizedIndex[c][sq];
+                    Piece piece = bd.PieceBoard[sq].Piece;
+                    IncrementPieceCount(v, piece);
+                    SetPieceSquare(v, piece, evalInfo[c].KP, normalSq);
                 }
 
-                bd.GetPieceMobility(color, mobility, kingAttacks, centerControl);
-                for (Piece pc = Piece.Knight; pc <= Piece.Queen; pc++)
-                {
-                    int p = (int)pc;
-                    if (mobility[p] > 0)
-                    {
-                        SetMobility(v, pc, mobility[p]);
-                    }
-                }
-
-                for (int d = 0; d < 3; d++)
-                {
-                    if (kingAttacks[d] > 0)
-                    {
-                        SetKingAttack(v, d, kingAttacks[d]);
-                    }
-                }
-
-                for (int d = 0; d < 2; d++)
-                {
-                    if (centerControl[d] > 0)
-                    {
-                        SetCenterControl(v, d, centerControl[d]);
-                    }
-                }
-
-                int ki = kingIndex[c];
-                Color other = (Color)(c ^ 1);
-                pawns = bd.Pieces(color, Piece.Pawn);
-                ulong otherPawns = bd.Pieces(other, Piece.Pawn);
-                bd.Pieces(color, Piece.King);
-
+                // Pawns
+                ulong pawnRams = (color == Color.White ? otherPawns >> 8 : otherPawns << 8);
                 for (ulong p = pawns; p != 0; p = BitOps.ResetLsb(p))
                 {
                     int sq = BitOps.TzCount(p);
-                    Ray ray = Board.Vectors[sq];
-                    ulong doubledFriends = color == Color.White ? ray.North : ray.South;
                     int normalSq = Index.NormalizedIndex[c][sq];
+                    Ray ray = Board.Vectors[sq];
+                    ulong friendMask = color == Color.White ? ray.North : ray.South;
+                    ulong sqMask = BitOps.GetMask(sq);
+                    bool canBeBackward = true;
 
-                    if ((otherPawns & Evaluation.PassedPawnMasks[c, sq]) == 0 && (pawns & doubledFriends) == 0)
+                    if ((otherPawns & Evaluation2.PassedPawnMasks[c, sq]) == 0 && (pawns & friendMask) == 0)
                     {
                         SetPassedPawns(v, normalSq);
-
-                        ulong bb;
-                        if (color == Color.White)
-                        {
-                            bb = BitOps.AndNot(ray.South, Board.RevVectors[BitOps.LzCount(ray.South & bd.All)].South);
-                        }
-                        else
-                        {
-                            bb = BitOps.AndNot(ray.North, Board.Vectors[BitOps.TzCount(ray.North & bd.All)].North);
-                        }
-                        if ((bb & bd.Pieces(color, Piece.Rook)) != 0)
-                        {
-                            IncrementRookBehindPassedPawn(v);
-                        }
-
-                        if (Index.GetRank(normalSq) >= Coord.RANK_4)
-                        {
-                            int promoteSq = Index.NormalizedIndex[c][Index.ToIndex(Index.GetFile(sq), Coord.RANK_8)];
-                            if (bd.PieceCount(other) == 1 &&
-                                Index.Distance(sq, promoteSq) < Index.Distance(kingIndex[o], promoteSq) - (other == bd.SideToMove ? 1 : 0))
-                            {
-                                IncrementKingOutsideSquare(v);
-                            }
-
-                            int blockSq = Board.PawnPlus[c, sq];
-                            int dist = Index.Distance(blockSq, kingIndex[c]);
-                            IncrementPPFriendlyKingDistance(v, dist);
-
-                            dist = Index.Distance(blockSq, kingIndex[o]);
-                            IncrementPPEnemyKingDistance(v, dist);
-
-                            int rank = Index.GetRank(normalSq) - Coord.RANK_4;
-                            ulong advanceMask = BitOps.GetMask(Board.PawnPlus[c, sq]);
-                            if ((advanceMask & bd.All & pawnAttacks[o] & bd.GetPieceMoves(Piece.King, kingIndex[o])) == 0)
-                            {
-                                IncrementPPCanAdvance(v, rank);
-                            }
-                        }
+                        evalInfo[c].PassedPawns |= sqMask;
+                        canBeBackward = false;
                     }
 
-                    if ((pawns & Evaluation.IsolatedPawnMasks[sq]) == 0)
+                    if ((pawns & Evaluation2.IsolatedPawnMasks[sq]) == 0)
                     {
                         IncrementIsolatedPawns(v);
+                        canBeBackward = false;
                     }
 
-                    if ((pawns & Evaluation.AdjacentPawnMasks[sq]) != 0)
+                    //if (canBeBackward & (pawns & Evaluation2.BackwardPawnMasks[c, sq]) == 0)
+                    //{
+                    //    IncrementBackwardPawns(v);
+                    //}
+
+                    if ((pawns & Evaluation2.AdjacentPawnMasks[sq]) != 0)
                     {
                         SetAdjacentPawns(v, normalSq);
                     }
+
+                    if ((evalInfo[c].PawnAttacks & sqMask) != 0)
+                    {
+                        SetSupportedPawn(v, normalSq);
+                    }
+
+                    if ((pawnRams & sqMask) != 0)
+                    {
+                        SetPawnRam(v, normalSq);
+                    }
                 }
 
-                for (ulong p = otherPawns; p != 0; p = BitOps.ResetLsb(p))
+                for (int file = 0; file < Constants.MAX_COORDS; file++)
                 {
-                    int sq = BitOps.TzCount(p);
-                    Ray ray = Board.Vectors[sq];
-                    ulong doubledFriends = other == Color.White ? ray.North : ray.South;
-
-                    if ((pawns & Evaluation.PassedPawnMasks[o, sq]) == 0 && (otherPawns & doubledFriends) == 0)
+                    int count = BitOps.PopCount(pawns & Board.MaskFile(file));
+                    if (count > 1)
                     {
-                        int blockerSq = Board.PawnPlus[o, sq];
-                        int normalRank = Index.GetRank(Index.NormalizedIndex[o][sq]);
-                        Square blocker = bd.PieceBoard[blockerSq];
-                        if (blocker.Color == color && blocker.Piece != Piece.None)
+                        IncrementDoubledPawns(v, (short)--count);
+                    }
+                }
+
+                // Mobility
+                for (Piece pc = Piece.Knight; pc <= Piece.Queen; pc++)
+                {
+                    for (ulong bb = bd.Pieces(color, pc); bb != 0; bb = BitOps.ResetLsb(bb))
+                    {
+                        int from = BitOps.TzCount(bb);
+                        ulong moves = bd.GetPieceMoves(pc, from);
+                        evalInfo[c].PieceAttacks |= moves;
+                        IncrementMobility(v, pc, (short)BitOps.PopCount(moves & evalInfo[c].MobilityArea));
+
+                        if (evalInfo[c].AttackCount < Evaluation2.MAX_ATTACK_LEN)
                         {
-                            IncrementBlockPassedPawn(v, normalRank, blocker.Piece);
+                            evalInfo[c].Attacks[evalInfo[c].AttackCount++] = moves;
                         }
                     }
                 }
 
-                for (int file = 0; file < Constants.MAX_COORDS && pawns != 0; file++)
+                // King Safety / Attack
+                int enemyKI = evalInfo[o].KI;
+                for (int n = 0; n < evalInfo[c].AttackCount; n++)
                 {
-                    short count = (short)BitOps.PopCount(pawns & Board.MaskFile(file));
-                    if ( count > 1)
+                    ulong attacks = evalInfo[c].Attacks[n] & ~evalInfo[o].PawnAttacks;
+                    IncrementKingAttack(v, 0, (short)BitOps.PopCount(attacks & Evaluation2.KingProximity[0, enemyKI]));
+                    IncrementKingAttack(v, 1, (short)BitOps.PopCount(attacks & Evaluation2.KingProximity[1, enemyKI]));
+                    IncrementKingAttack(v, 2, (short)BitOps.PopCount(attacks & Evaluation2.KingProximity[2, enemyKI]));
+                }
+
+                // Pawn Shield
+                int ki = evalInfo[c].KI;
+                SetPawnShield(v, 0, (short)BitOps.PopCount(pawns & Evaluation2.KingProximity[0, ki]));
+                SetPawnShield(v, 1, (short)BitOps.PopCount(pawns & Evaluation2.KingProximity[1, ki]));
+                SetPawnShield(v, 2, (short)BitOps.PopCount(pawns & Evaluation2.KingProximity[2, ki]));
+
+                // Castling
+                if (bd.HasCastled[c])
+                {
+                    SetCastlingComplete(v);
+                }
+                else
+                {
+                    ulong castling = evalInfo[c].CastlingRightsMask & (ulong)bd.Castling;
+                    SetCastlingAvailable(v, (short)BitOps.PopCount(castling));
+                }
+
+                // Pieces - Knights & Bishops
+                ulong knights = bd.Pieces(color, Piece.Knight);
+                ulong bishops = bd.Pieces(color, Piece.Bishop);
+
+                if (BitOps.PopCount(bishops) >= 2)
+                {
+                    SetBishopPair(v);
+                }
+
+                for (ulong bb = knights | bishops; bb != 0; bb = BitOps.ResetLsb(bb))
+                {
+                    int sq = BitOps.TzCount(bb);
+                    int normalRank = Index.GetRank(Index.NormalizedIndex[c][sq]);
+                    ulong sqMask = BitOps.GetMask(sq);
+
+                    if (normalRank > Coord.RANK_4 && (evalInfo[c].PawnAttacks & sqMask) != 0)
                     {
-                        IncrementDoubledPawns(v, --count);
+                        Piece pc = bd.PieceBoard[sq].Piece;
+                        if (pc == Piece.Knight)
+                        {
+                            IncrementKnightsOnOutpost(v);
+                        }
+                        else
+                        {
+                            IncrementBishopsOnOutpost(v);
+                        }
+                    }
+
+                    if ((bishops & sqMask) != 0)
+                    {
+                        ulong badPawns = pawns & Evaluation2.DARK_SQUARES_MASK;
+                        if (!Index.IsDark(sq))
+                        {
+                            badPawns = pawns & Evaluation2.LITE_SQUARES_MASK;
+                        }
+
+                        for (ulong bbBadPawn = badPawns; bbBadPawn != 0; bbBadPawn = BitOps.ResetLsb(bbBadPawn))
+                        {
+                            int pawnSq = BitOps.TzCount(bbBadPawn);
+                            int normalSq = Index.NormalizedIndex[c][pawnSq];
+                            SetBadBishopPawn(v, normalSq);
+                        }
                     }
                 }
 
+                // Pieces - Rooks
+                ulong rooks = bd.Pieces(color, Piece.Rook);
+                ulong allPawns = pawns | otherPawns;
+                int enemyKingRank = Index.GetRank(Index.NormalizedIndex[c][evalInfo[o].KI]);
+
+                for (ulong bb = rooks; bb != 0; bb = BitOps.ResetLsb(bb))
+                {
+                    int sq = BitOps.TzCount(bb);
+                    int normalRank = Index.GetRank(Index.NormalizedIndex[c][sq]);
+                    ulong maskFile = Board.MaskFile(sq);
+                    ulong maskRank = Board.MaskRank(sq);
+
+                    if (normalRank == Coord.RANK_7 && ((otherPawns & maskRank) != 0 || enemyKingRank >= Coord.RANK_7))
+                    {
+                        IncrementRookOnSeventhRank(v);
+                    }
+
+                    if ((maskFile & allPawns) == 0)
+                    {
+                        IncrementRookOnOpenFile(v);
+
+                        if (Evaluation2.IsDoubled(bd, sq))
+                        {
+                            IncrementDoubledRook(v);
+                        }
+                    }
+
+                    if ((maskFile & pawns) == 0 && (maskFile & otherPawns) != 0)
+                    {
+                        IncrementRookOnHalfOpenFile(v);
+
+                        if (Evaluation2.IsDoubled(bd, sq))
+                        {
+                            IncrementDoubledRook(v);
+                        }
+                    }
+                }
+
+                // Pieces - Queen(s)
+                ulong queens = bd.Pieces(color, Piece.Queen);
+
+                for (ulong bb = queens; bb != 0; bb = BitOps.ResetLsb(bb))
+                {
+                    int sq = BitOps.TzCount(bb);
+                    ulong maskFile = Board.MaskFile(sq);
+
+                    if ((maskFile & allPawns) == 0)
+                    {
+                        IncrementQueenOnOpenFile(v);
+                    }
+
+                    if ((maskFile & pawns) == 0 && (maskFile & otherPawns) != 0)
+                    {
+                        IncrementQueenOnHalfOpenFile(v);
+                    }
+                }
+
+                // Pieces - King
+                ulong kingFileMask = Board.MaskFile(evalInfo[c].KI);
+                if ((kingFileMask & allPawns) == 0)
+                {
+                    SetKingOnOpenFile(v);
+                }
+
+                if ((kingFileMask & pawns) == 0 && (kingFileMask & otherPawns) != 0)
+                {
+                    SetKingOnHalfOpenFile(v);
+                }
+
+                ulong kingDiagonalMask = Evaluation2.Diagonals[evalInfo[c].KI];
+                if (BitOps.PopCount(kingDiagonalMask) > 3 && (kingDiagonalMask & allPawns) == 0)
+                {
+                    IncrementKingOnOpenDiagonal(v);
+                }
+
+                kingDiagonalMask = Evaluation2.Antidiagonals[evalInfo[c].KI];
+                if (BitOps.PopCount(kingDiagonalMask) > 3 && (kingDiagonalMask & allPawns) == 0)
+                {
+                    IncrementKingOnOpenDiagonal(v);
+                }
+
+                // Passed Pawns
+                for (ulong p = evalInfo[c].PassedPawns; p != 0; p = BitOps.ResetLsb(p))
+                {
+                    int sq = BitOps.TzCount(p);
+                    Ray ray = Board.Vectors[sq];
+                    ulong bbDefender = color == Color.White ?
+                        ray.South & ~Board.RevVectors[BitOps.LzCount(ray.South & bd.All)].South :
+                        ray.North & ~Board.Vectors[BitOps.TzCount(ray.North & bd.All)].North;
+
+                    if ((bbDefender & bd.Pieces(color, Piece.Rook)) != 0)
+                    {
+                        IncrementRookBehindPassedPawn(v);
+                    }
+                    
+                    int normalRank = Index.GetRank(Index.NormalizedIndex[c][sq]);
+                    if (normalRank < Coord.RANK_4)
+                    {
+                        continue;
+                    }
+
+                    int promoteSq = Index.NormalizedIndex[c][Index.ToIndex(Index.GetFile(sq), Coord.RANK_8)];
+                    if (bd.PieceCount(other) == 1 && 
+                        Index.Distance(sq, promoteSq) < Index.Distance(evalInfo[o].KI, promoteSq) - (other == bd.SideToMove ? 1 : 0))
+                    {
+                        IncrementKingOutsideSquare(v);
+                    }
+
+                    int blockSq = Board.PawnPlus[c, sq];
+                    int dist = Index.Distance(blockSq, evalInfo[c].KI);
+                    IncrementPPFriendlyKingDistance(v, dist);
+
+                    dist = Index.Distance(blockSq, evalInfo[o].KI);
+                    IncrementPPEnemyKingDistance(v, dist);
+                }
+
+                // Threats
+                ulong targets = bd.Units(other) & ~(otherPawns | bd.Pieces(other, Piece.King));
                 ulong pushAttacks;
-                ulong defended;
-                ulong targets = bd.Units(other) ^ (otherPawns | bd.Pieces(other, Piece.King));
 
                 if (color == Color.White)
                 {
                     ulong pawnPushes = (pawns << 8) & ~bd.All;
-                    pushAttacks = ((pawnPushes & ~maskFileA) << 7) |
-                                  ((pawnPushes & ~maskFileH) << 9);
-
-                    defended = ((otherPawns & ~maskFileH) >> 7) |
-                               ((otherPawns & ~maskFileA) >> 9);
+                    pushAttacks = ((pawnPushes & ~maskFileA) << 7) | ((pawnPushes & ~maskFileH) << 9);
                 }
                 else
                 {
                     ulong pawnPushes = (pawns >> 8) & ~bd.All;
-                    pushAttacks = ((pawnPushes & ~maskFileH) >> 7) |
-                                  ((pawnPushes & ~maskFileA) >> 9);
-
-                    defended = ((otherPawns & ~maskFileA) << 7) |
-                               ((otherPawns & ~maskFileH) << 9);
+                    pushAttacks = ((pawnPushes & ~maskFileH) >> 7) | ((pawnPushes & ~maskFileA) >> 9);
                 }
 
-                for (ulong p = pawns & pawnAttacks[c]; p != 0; p = BitOps.ResetLsb(p))
-                {
-                    int normalSq = Index.NormalizedIndex[c][BitOps.TzCount(p)];
-                    SetSupportedPawn(v, normalSq);
-                }
-
-                ulong pawnRams = pawns & (color == Color.White ? otherPawns >> 8 : otherPawns << 8);
-                for (ulong p = pawnRams; p != 0; p = BitOps.ResetLsb(p))
-                {
-                    int normalSq = Index.NormalizedIndex[c][BitOps.TzCount(p)];
-                    SetPawnRam(v, normalSq);
-                }
-
-                for (ulong bb = pawnAttacks[c] & targets; bb != 0; bb = BitOps.ResetLsb(bb))
+                for (ulong bb = evalInfo[c].PawnAttacks & targets; bb != 0; bb = BitOps.ResetLsb(bb))
                 {
                     int sq = BitOps.TzCount(bb);
                     Piece defender = bd.PieceBoard[sq].Piece;
@@ -334,7 +398,7 @@ namespace Pedantic.Tuning
                     IncrementPawnPushThreat(v, defender);
                 }
 
-                targets &= ~defended;
+                targets &= ~evalInfo[o].PawnAttacks;
 
                 for (Piece attacker = Piece.Knight; attacker <= Piece.Queen; attacker++)
                 {
@@ -342,173 +406,80 @@ namespace Pedantic.Tuning
                     {
                         int from = BitOps.TzCount(bb);
                         ulong bb2 = bd.GetPieceMoves(attacker, from);
-                        for (ulong attacks = bb2 & targets; attacks != 0; attacks = BitOps.ResetLsb(attacks))
+                        for (ulong bbAttacks = bb2 & targets; bbAttacks != 0; bbAttacks = BitOps.ResetLsb(bbAttacks))
                         {
-                            int to = BitOps.TzCount(attacks);
+                            int to = BitOps.TzCount(bbAttacks);
                             Piece defender = bd.PieceBoard[to].Piece;
-                            IncrementPieceThreat(v, attacker, defender);
+
+                            // TODO: change from canonical values to phased values
+                            if (attacker.Value() <= defender.Value())
+                            {
+                                IncrementPieceThreat(v, attacker, defender);
+                            }
                         }
                     }
                 }
 
-                ulong bishops = bd.Pieces(color, Piece.Bishop);
-                for (ulong bbBishop = bishops; bbBishop != 0; bbBishop = BitOps.ResetLsb(bbBishop))
+                // Miscellaneous
+                // TODO: test whether removing squares defended by opposing pawns gains
+                // TODO: Fix bug because overlapping pawn attacks should not count as 1 attack for center control
+                IncrementCenterControl(v, 0, (short)BitOps.PopCount(evalInfo[c].PawnAttacks & Evaluation2.D0_CENTER_CONTROL_MASK));
+                IncrementCenterControl(v, 1, (short)BitOps.PopCount(evalInfo[c].PawnAttacks & Evaluation2.D1_CENTER_CONTROL_MASK));
+
+                for (int n = 0; n < evalInfo[c].AttackCount; n++)
                 {
-                    int sq = BitOps.TzCount(bbBishop);
-                    ulong badPawns = pawns & Evaluation.DARK_SQUARES_MASK;
-                    if (!Index.IsDark(sq))
-                    {
-                        badPawns = pawns & Evaluation.LITE_SQUARES_MASK;
-                    }
-
-                    for (ulong bbBadPawn = badPawns; bbBadPawn != 0; bbBadPawn = BitOps.ResetLsb(bbBadPawn))
-                    {
-                        int normalSq = Index.NormalizedIndex[c][BitOps.TzCount(bbBadPawn)];
-                        SetBadBishopPawn(v, normalSq);
-                    }
+                    short d0Count = (short)BitOps.PopCount(evalInfo[c].Attacks[n] & Evaluation2.D0_CENTER_CONTROL_MASK);
+                    short d1Count = (short)BitOps.PopCount(evalInfo[c].Attacks[n] & Evaluation2.D1_CENTER_CONTROL_MASK);
+                    IncrementCenterControl(v, 0, d0Count);
+                    IncrementCenterControl(v, 1, d1Count);
                 }
-
-                int bishopCount = BitOps.PopCount(bishops);
-                if (bishopCount >= 2)
-                {
-                    SetBishopPair(v);
-                }
-
-                ulong knights = bd.Pieces(color, Piece.Knight);
-                for (ulong bb = knights; bb != 0; bb = BitOps.ResetLsb(bb))
-                {
-                    int sq = BitOps.TzCount(bb);
-                    int normalRank = Index.GetRank(Index.NormalizedIndex[c][sq]);
-                    if (normalRank > 3 && (Board.PawnDefends(color, sq) & pawns) != 0)
-                    {
-                        IncrementKnightsOnOutpost(v);
-                    }
-                }
-
-                for (ulong bb = bishops; bb != 0; bb = BitOps.ResetLsb(bb))
-                {
-                    int sq = BitOps.TzCount(bb);
-                    int normalRank = Index.GetRank(Index.NormalizedIndex[c][sq]);
-                    if (normalRank > 3 && (Board.PawnDefends(color, sq) & pawns) != 0)
-                    {
-                        IncrementBishopsOnOutpost(v);
-                    }
-                }
-
-                for (int d = 0; d < 3; d++)
-                {
-                    short count = (short)BitOps.PopCount(pawns & Evaluation.KingProximity[d, ki]);
-                    if (count > 0)
-                    {
-                        SetPawnShield(v, d, count);
-                    }
-                }
-
-                ulong allPawns = pawns | otherPawns;
-                ulong rooks = bd.Pieces(color, Piece.Rook);
-
-                for (ulong bb = rooks; bb != 0; bb = BitOps.ResetLsb(bb))
-                {
-                    int sq = BitOps.TzCount(bb);
-                    int rank = Index.GetRank(Index.NormalizedIndex[c][sq]);
-                    ulong maskFile = Board.MaskFile(sq);
-                    ulong maskRank = Board.MaskRank(sq);
-                    ulong potentials = maskFile & rooks;
-                    int enemyKingRank = Index.GetRank(Index.NormalizedIndex[c][kingIndex[o]]);
-
-                    if (rank == Coord.RANK_7 && ((otherPawns & maskRank) != 0 || enemyKingRank >= Coord.RANK_7))
-                    {
-                        IncrementRookOnSeventhRank(v);
-                    }
-
-                    if ((maskFile & allPawns) == 0)
-                    {
-                        IncrementRookOnOpenFile(v);
-
-                        if (BitOps.PopCount(potentials) > 1 && Evaluation.IsDoubled(bd, potentials))
-                        {
-                            IncrementDoubledRook(v);
-                        }
-                    }
-
-                    if ((maskFile & pawns) == 0 && (maskFile & otherPawns) != 0)
-                    {
-                        IncrementRookOnHalfOpenFile(v);
-
-                        if (BitOps.PopCount(potentials) > 1 && Evaluation.IsDoubled(bd, potentials))
-                        {
-                            IncrementDoubledRook(v);
-                        }
-                    }
-                }
-
-                ulong queens = bd.Pieces(color, Piece.Queen);
-
-                for (ulong bb = queens; bb != 0; bb = BitOps.ResetLsb(bb))
-                {
-                    int sq = BitOps.TzCount(bb);
-                    ulong mask = Board.MaskFile(sq);
-
-                    if ((mask & allPawns) == 0)
-                    {
-                        IncrementQueenOnOpenFile(v);
-                    }
-
-                    if ((mask & pawns) == 0 && (mask & otherPawns) != 0)
-                    {
-                        IncrementQueenOnHalfOpenFile(v);
-                    }
-                }
-
-                int kingFile = Index.GetFile(ki);
-                ulong kingFileMask = Board.MaskFile(kingFile);
-                if ((kingFileMask & allPawns) == 0)
-                {
-                    SetKingOnOpenFile(v);
-                }
-
-                if ((kingFileMask & pawns) == 0 && (kingFileMask & otherPawns) != 0)
-                {
-                    SetKingOnHalfOpenFile(v);
-                }
-
-                ulong kingDiagonalMask = Board.MaskDiagonal(ki);
-                if (BitOps.PopCount(kingDiagonalMask) > 3 && (kingDiagonalMask & allPawns) == 0)
-                {
-                    IncrementKingOnOpenDiagonal(v);
-                }
-
-                kingDiagonalMask = Board.MaskAntiDiagonal(ki);
-                if (BitOps.PopCount(kingDiagonalMask) > 3 && (kingDiagonalMask & allPawns) == 0)
-                {
-                    IncrementKingOnOpenDiagonal(v);
-                }
-
-                if (bd.HasCastled[c])
-                {
-                    SetCastlingComplete(v);
-                }
-                else
-                {
-                    ulong mask = (ulong)CastlingRights.WhiteRights << (c << 1);
-                    short cntRights = (short)BitOps.PopCount((ulong)bd.Castling & mask);
-                    SetCastlingAvailable(v, cntRights);
-                }
-
-                int length = sparse[c].Count;
-				features[c] = new short[length];
-				indexMap[c] = new int[length];
-
-				int i = 0;
-				foreach (var kvp in sparse[c])
-				{
-					features[c][i] = kvp.Value;
-					indexMap[c][i++] = kvp.Key;
-				}
             }
 
+            for (Color color = Color.White; color <= Color.Black; color++)
+            {
+                Color other = color.Other();
+                int c = (int)color;
+                int o = (int)other;
+                var v = sparse[c];
+
+                for (ulong pp = evalInfo[c].PassedPawns; pp != 0; pp = BitOps.ResetLsb(pp))
+                {
+                    int sq = BitOps.TzCount(pp);
+                    int normalRank = Index.GetRank(Index.NormalizedIndex[c][sq]);
+                    if (normalRank < Coord.RANK_4)
+                    {
+                        continue;
+                    }
+
+#if PP_CAN_ADVANCE
+                    int blockSq = Board.PawnPlus[c, sq];
+                    ulong advanceMask = BitOps.GetMask(blockSq);
+                    ulong atkMask = evalInfo[o].PawnAttacks | evalInfo[o].KingAttacks | evalInfo[o].PieceAttacks;
+                    if ((advanceMask & atkMask) == 0)
+                    {
+                        IncrementPPCanAdvance(v, normalRank);
+                    }
+#endif
+                }
+
+                ulong blockedPawns = (other == Color.White) ? (evalInfo[o].PassedPawns << 8) : (evalInfo[o].PassedPawns >> 8);
+                ulong blockers = blockedPawns & bd.Units(color);
+                for (ulong p = blockers; p != 0; p = BitOps.ResetLsb(p))
+                {
+                    int sq = BitOps.TzCount(p);
+                    int normalRank = Index.GetRank(Index.NormalizedIndex[o][sq]);
+                    Piece blocker = bd.PieceBoard[sq].Piece;
+                    IncrementBlockPassedPawn(v, normalRank - 1, blocker);
+                }
+            }
+
+            int distinctCount = sparse[0].Select(kvp => kvp.Key)
+                .Concat(sparse[1].Select(kvp => kvp.Key))
+                .Distinct()
+                .Count();
+            
             coefficients = new(sparse[0]);
-            coefficients.EnsureCapacity(sparse[0].Count + sparse[1].Count);
+            coefficients.EnsureCapacity(distinctCount);
             foreach (var kvp in sparse[1])
             {
                 if (coefficients.ContainsKey(kvp.Key))
@@ -523,35 +494,23 @@ namespace Pedantic.Tuning
         }
 
         public IDictionary<int, short> Coefficients => coefficients;
+        public SparseArray<short>[] Sparse => sparse;
         public short Phase => phase;
 
-        public short Compute(ReadOnlySpan<short> opWeights, ReadOnlySpan<short> egWeights)
+        public short Compute(HceWeights weights, int start = MATERIAL, int end = FEATURE_SIZE)
         {
             try
             {
-                Span<short> opScore = stackalloc short[2];
-                Span<short> egScore = stackalloc short[2];
-                Span<short> openingWts = stackalloc short[features[0].Length + features[1].Length];
-                Span<short> endGameWts = stackalloc short[features[0].Length + features[1].Length];
-                opScore.Clear();
-                egScore.Clear();
-
-                MapWeights(opWeights, egWeights, openingWts, endGameWts);
-
-                for (Color color = Color.White; color <= Color.Black; color++)
+                Score computeScore = Score.Zero;
+                foreach (var coeff in coefficients)
                 {
-                    int c = (int)color;
-                    int start = color == Color.White ? 0 : indexMap[0].Length;
-                    opScore[c] = DotProduct(features[c], openingWts.Slice(start, indexMap[c].Length));
-                    egScore[c] = DotProduct(features[c], endGameWts.Slice(start, indexMap[c].Length));
+                    if (coeff.Key >= start && coeff.Key < end)
+                    {
+                        computeScore += coeff.Value * weights[coeff.Key];
+                    }
                 }
-
-                short opWt = phase;
-                short egWt = (short)(Constants.MAX_PHASE - phase);
-
-                int score = ((opScore[0] - opScore[1]) * opWt + (egScore[0] - egScore[1]) * egWt) / Constants.MAX_PHASE;
-                score = ((int)sideToMove * -2 + 1) * score;
-                return (short)score;
+                int score = computeScore.NormalizeScore(phase);
+                return Evaluation2.StmScore(sideToMove, score);
             }
             catch (Exception ex)
             {
@@ -562,20 +521,6 @@ namespace Pedantic.Tuning
 
         public Color SideToMove => sideToMove;
 
-		private void MapWeights(ReadOnlySpan<short> opWeights, ReadOnlySpan<short> egWeights, Span<short> openingWts, Span<short> endGameWts)
-		{
-			for (int c = 0; c < Constants.MAX_COLORS; c++)
-			{
-                int index = c * indexMap[0].Length;
-
-				for (int n = 0; n < indexMap[c].Length; n++)
-				{
-					openingWts[index + n] = opWeights[indexMap[c][n]];
-                    endGameWts[index + n] = egWeights[indexMap[c][n]];
-				}
-			}
-		}
-        
         public static short GetOptimizationIncrement(int index)
         {
             return index switch
@@ -586,36 +531,6 @@ namespace Pedantic.Tuning
                 >= (MATERIAL + FEATURE_SIZE) and < (MATERIAL + (int)Piece.King + FEATURE_SIZE) => 5,
                 _ => 1
             };
-        }
-
-        private static short DotProduct(ReadOnlySpan<short> f, ReadOnlySpan<short> weights)
-        {
-            int results = 0;
-            if (f.Length >= Vector<short>.Count)
-            {
-                int remaining = f.Length % Vector<short>.Count;
-
-                for (int i = 0; i < f.Length - remaining; i += Vector<short>.Count)
-                {
-                    var v1 = new Vector<short>(f[i..]);
-                    var v2 = new Vector<short>(weights[i..]);
-                    results += Vector.Dot(v1, v2);
-                }
-
-                for (int i = f.Length - remaining; i < f.Length; i++)
-                {
-                    results += (short)(f[i] * weights[i]);
-                }
-            }
-            else
-            {
-                for (int i = 0; i < f.Length; i++)
-                {
-                    results += (short)(f[i] * weights[i]);
-                }
-            }
-
-            return (short)results;
         }
 
 #pragma warning disable CA1854
@@ -642,27 +557,60 @@ namespace Pedantic.Tuning
         private static void SetPieceSquare(IDictionary<int, short> v, Piece piece, KingPlacement kp, int square)
         {
             
-            int index = PIECE_SQUARE_TABLES + ((((int)piece << 2) + (int)kp) << 6) + square;
+            //int index = PIECE_SQUARE_TABLES + ((((int)piece << 2) + (int)kp) << 6) + square;
+            int index = PIECE_SQUARE_TABLES + (int)piece * 256 + (int)kp * 64 + square;
             v[index] = 1;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static void SetMobility(IDictionary<int, short> v, Piece piece, short mobility)
+        private static void IncrementMobility(IDictionary<int, short> v, Piece piece, short mobility)
         {
-            int p = (int)piece - 1;
-            v[MOBILITY + p] = mobility;
+            int key = MOBILITY + (int)piece - 1;
+            if (v.ContainsKey(key))
+            {
+                v[key] += mobility;
+            }
+            else
+            {
+                v.Add(key, mobility);
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static void SetKingAttack(IDictionary<int, short> v, int d, short count)
+        private static void IncrementKingAttack(IDictionary<int, short> v, int d, short count)
         {
-            v[KING_ATTACK + d] = count;
+            if (count <= 0)
+            {
+                return;
+            }
+
+            int key = KING_ATTACK + d;
+            if (v.ContainsKey(key))
+            {
+                v[key] += count;
+            }
+            else
+            {
+                v.Add(key, count);
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static void SetCenterControl(IDictionary<int, short> v, int d, short count)
+        private static void IncrementCenterControl(IDictionary<int, short> v, int d, short count)
         {
-            v[CENTER_CONTROL + d] = count;
+            if (count <= 0)
+            {
+                return;
+            }
+            int key = CENTER_CONTROL + d;
+            if (v.ContainsKey(key))
+            {
+                v[key] += count;
+            }
+            else
+            {
+                v.Add(key, count);
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -681,6 +629,18 @@ namespace Pedantic.Tuning
             else
             {
                 v.Add(ISOLATED_PAWNS, 1);
+            }
+        }
+
+        private static void IncrementBackwardPawns(IDictionary<int, short> v)
+        {
+            if (v.ContainsKey(BACKWARD_PAWNS))
+            {
+                v[BACKWARD_PAWNS]++;
+            }
+            else
+            {
+                v.Add(BACKWARD_PAWNS, 1);
             }
         }
 
@@ -964,8 +924,10 @@ namespace Pedantic.Tuning
             }
         }
 
+#if PP_CAN_ADVANCE
         public static void IncrementPPCanAdvance(IDictionary<int, short> v, int rank)
         {
+            rank -= Coord.RANK_4;
             int key = PP_CAN_ADVANCE + rank;
             if (v.ContainsKey(key))
             {
@@ -976,6 +938,7 @@ namespace Pedantic.Tuning
                 v[key] = 1;
             }
         }
+#endif
 
 #pragma warning restore CA1854
     }

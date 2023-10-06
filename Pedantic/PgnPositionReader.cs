@@ -88,10 +88,13 @@ namespace Pedantic
             };
             Board bd = new();
             SearchStack searchStack = new();
-            BasicSearch search = new(searchStack, bd, tc, 0)
+            EvalCache cache = new();
+            BasicSearch search = new(searchStack, bd, tc, cache, Constants.MAX_PLY);
+            /*
             {
-                Eval = new Evaluation(false)
+                Eval = new Evaluation2()
             };
+            */
             PositionState state = PositionState.SeekHeader;
             List<string> moves = new();
             float result = 0;

@@ -80,6 +80,12 @@ namespace Pedantic.Utilities
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static ulong ResetMsb(ulong bitBoard)
+        {
+            return ResetBit(bitBoard, LzCount(bitBoard));
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong AndNot(ulong bb1, ulong bb2)
         {
             return bb1 & ~bb2; // actually faster than Bmi1.X64.AndNot

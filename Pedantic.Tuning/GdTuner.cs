@@ -1,21 +1,45 @@
 ﻿using System.Collections.Concurrent;
-using System.Diagnostics;
-using System.Runtime.CompilerServices;
 
 using Pedantic.Chess;
-using Pedantic.Genetics;
 using Pedantic.Utilities;
 
 namespace Pedantic.Tuning
 {
     public class GdTuner : Tuner
     {
-        public GdTuner(short[] weights, IList<PosRecord> positions, int? seed)
+        public struct WeightPair
+        {
+            public WeightPair(Score s)
+            {
+                MG = s.MgScore;
+                EG = s.EgScore;
+            }
+
+            public static WeightPair operator +(WeightPair lhs, WeightPair rhs)
+            {
+                WeightPair result;
+                result.MG = lhs.MG + rhs.MG;
+                result.EG = lhs.EG + rhs.EG;
+                return result;
+            }
+
+            public override string ToString()
+            {
+                return $"({MG:F6}, {EG:F6})";
+            }
+
+            public static explicit operator Score(WeightPair pair) => new((short)Math.Round(pair.MG), (short)Math.Round(pair.EG));
+
+            public double MG;
+            public double EG;
+        }
+
+        public GdTuner(HceWeights weights, IList<PosRecord> positions, int? seed)
             : base(positions, seed)
         {
-            this.weights = new float[weights.Length];
+            this.weights = new WeightPair[HceWeights.MAX_WEIGHTS];
             CopyWeights(weights, this.weights);
-            gradient = new float[weights.Length];
+            gradient = new WeightPair[HceWeights.MAX_WEIGHTS];
             k = SolveK();
             if ((k > -TOLERENCE && k < TOLERENCE) || (k > 1.0 - TOLERENCE && k < 1.0 + TOLERENCE))
             {
@@ -27,15 +51,15 @@ namespace Pedantic.Tuning
             : base(positions, seed)
         {
             weights = ZeroWeights();
-            gradient = new float[weights.Length];
+            gradient = new WeightPair[HceWeights.MAX_WEIGHTS];
             k = DEFAULT_K;
         }
 
-        public override (double Error, double Accuracy, short[] Weights) Train(int maxEpoch, TimeSpan? maxTime, 
+        public override (double Error, double Accuracy, HceWeights Weights) Train(int maxEpoch, TimeSpan? maxTime, 
             double minError, double precision = TOLERENCE)
         {
-            float[] momentum = new float[weights.Length];
-            float[] velocity = new float[weights.Length];
+            WeightPair[] momentum = new WeightPair[weights.Length];
+            WeightPair[] velocity = new WeightPair[weights.Length];
 
             const double beta1 = 0.9;
             const double beta2 = 0.999;
@@ -55,10 +79,15 @@ namespace Pedantic.Tuning
                 
                 for (int n = 0; n < weights.Length; n++)
                 {
-                    double grad = -k * gradient[n] / positions.Count;
-                    momentum[n] = (float)(beta1 * momentum[n] + (1.0 - beta1) * grad);
-                    velocity[n] = (float)(beta2 * velocity[n] + (1.0 - beta2) * grad * grad);
-                    weights[n] -= (float)(lRate * momentum[n] / (1e-8 + Math.Sqrt(velocity[n])));
+                    double grad = -k * gradient[n].MG / positions.Count;
+                    momentum[n].MG = beta1 * momentum[n].MG + (1.0 - beta1) * grad;
+                    velocity[n].MG = beta2 * velocity[n].MG + (1.0 - beta2) * grad * grad;
+                    weights[n].MG -= lRate * momentum[n].MG / (1e-8 + Math.Sqrt(velocity[n].MG));
+
+                    grad = -k * gradient[n].EG / positions.Count;
+                    momentum[n].EG = beta1 * momentum[n].EG + (1.0 - beta1) * grad;
+                    velocity[n].EG = beta2 * velocity[n].EG + (1.0 - beta2) * grad * grad;
+                    weights[n].EG -= lRate * momentum[n].EG / (1e-8 + Math.Sqrt(velocity[n].EG));
                 }
 
                 if (++epoch % 100 == 0)
@@ -74,7 +103,7 @@ namespace Pedantic.Tuning
 
             currError = MeanSquaredError(k);
             accuracy = Accuracy();
-            short[] nWeights = new short[weights.Length];
+            HceWeights nWeights = new(true);
             CopyWeights(weights, nWeights);
             return (currError, accuracy, nWeights);
         }
@@ -106,10 +135,10 @@ namespace Pedantic.Tuning
 
         private void ComputeGradient()
         {
-            ConcurrentBag<float[]> gradients = new();
+            ConcurrentBag<WeightPair[]> gradients = new();
             Array.Clear(gradient);
 
-            Parallel.For(0, positions.Count, () => new float[gradient.Length], 
+            Parallel.For(0, positions.Count, () => new WeightPair[gradient.Length], 
                 (j, loop, grad) =>
                 {
                     UpdateSingleGradient(grad, positions[j]);
@@ -127,7 +156,7 @@ namespace Pedantic.Tuning
             }
         }
 
-        public void UpdateSingleGradient(float[] grad, PosRecord pos)
+        public void UpdateSingleGradient(WeightPair[] grad, PosRecord pos)
         {
             double sig = Sigmoid(k, ComputeEval(pos));
             double res = (pos.Result - sig) * sig * (1.0 - sig);
@@ -136,8 +165,8 @@ namespace Pedantic.Tuning
 
             foreach (var kvp in pos.Features.Coefficients)
             {
-                grad[kvp.Key] += (float)(mgBase * kvp.Value);
-                grad[kvp.Key + ChessWeights.ENDGAME_WEIGHTS] += (float)(egBase * kvp.Value);
+                grad[kvp.Key].MG += mgBase * kvp.Value;
+                grad[kvp.Key].EG += egBase * kvp.Value;
             }
         }
 
@@ -192,33 +221,28 @@ namespace Pedantic.Tuning
             return (double)total.correct / (total.correct + total.wrong);
         }
 
-        private static void CopyWeights(short[] src, float[] dst)
+        private static void CopyWeights(HceWeights src, WeightPair[] dst)
         {
-            Util.Assert(src.Length == dst.Length);
             for (int n = 0; n < src.Length; n++)
             {
-                dst[n] = src[n];
+                dst[n] = new WeightPair(src[n]);
             }
         }
 
-        private static void CopyWeights(float[] src, short[] dst)
+        private static void CopyWeights(WeightPair[] src, HceWeights dst)
         {
             Util.Assert(src.Length == dst.Length);
             for (int n = 0; n < src.Length; n++)
             { 
-                dst[n] = (short)Math.Round(src[n]);
+                dst[n] = (Score)src[n];
             }
         }
 
-        private static float[] ZeroWeights()
+        private static WeightPair[] ZeroWeights()
         {
-            float[] wts = new float[EvalFeatures.FEATURE_SIZE * 2];
-            for (Piece pc = Piece.Pawn; pc <= Piece.Queen; pc++)
-            {
-                int index = EvalFeatures.MATERIAL + (int)pc;
-                wts[index] = pc.Value();
-                wts[index + EvalFeatures.FEATURE_SIZE] = pc.Value();
-            }
+            HceWeights weights = new(true);
+            WeightPair[] wts = new WeightPair[HceWeights.MAX_WEIGHTS];
+            CopyWeights(weights, wts);
             return wts;
         }
 
@@ -228,16 +252,16 @@ namespace Pedantic.Tuning
 
             foreach (var kvp in p.Features.Coefficients)
             {
-                opening += kvp.Value * weights[kvp.Key];
-                endgame += kvp.Value * weights[kvp.Key + ChessWeights.ENDGAME_WEIGHTS];
+                opening += kvp.Value * weights[kvp.Key].MG;
+                endgame += kvp.Value * weights[kvp.Key].EG;
             }
 
             double phase = p.Features.Phase;
             return (opening * phase + endgame * (Constants.MAX_PHASE - phase)) / Constants.MAX_PHASE;
         }
 
-        private readonly float[] weights;
-        private readonly float[] gradient;
+        private readonly WeightPair[] weights;
+        private readonly WeightPair[] gradient;
         private readonly double lRate = 1.0;
     }
 }

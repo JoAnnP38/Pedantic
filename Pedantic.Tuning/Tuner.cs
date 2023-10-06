@@ -1,4 +1,5 @@
 ﻿using System.Runtime.CompilerServices;
+using Pedantic.Chess;
 
 namespace Pedantic.Tuning
 {
@@ -19,7 +20,7 @@ namespace Pedantic.Tuning
 #endif
         }
 
-        public abstract (double Error, double Accuracy, short[] Weights) Train(int maxEpoch, 
+        public abstract (double Error, double Accuracy, HceWeights Weights) Train(int maxEpoch, 
             TimeSpan? maxTime, double minError, double precision = TOLERENCE);
 
         public abstract double SolveK(double a = 0.0, double b = 1.0);

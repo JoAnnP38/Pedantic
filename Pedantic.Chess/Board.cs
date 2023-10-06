@@ -41,8 +41,7 @@ namespace Pedantic.Chess
 
         #region Incrementally updated values used by Evaluation
 
-        private readonly short[] opMaterial = new short[Constants.MAX_COLORS];
-        private readonly short[] egMaterial = new short[Constants.MAX_COLORS];
+        private readonly Score[] material = new Score[Constants.MAX_COLORS];
         private ulong pawnHash;
 
         #endregion
@@ -122,8 +121,7 @@ namespace Pedantic.Chess
             fullMoveCounter = other.fullMoveCounter;
             hash = other.hash;
             gameStack = new(other.gameStack);
-            Array.Copy(other.opMaterial, opMaterial, opMaterial.Length);
-            Array.Copy(other.egMaterial, egMaterial, egMaterial.Length);
+            Array.Copy(other.material, material, material.Length);
             Array.Copy(other.hasCastled, hasCastled, hasCastled.Length);
             pawnHash = other.pawnHash;
         }
@@ -196,8 +194,7 @@ namespace Pedantic.Chess
         }
 
         public ulong PawnHash => pawnHash;
-        public short[] OpeningMaterial => opMaterial;
-        public short[] EndGameMaterial => egMaterial;
+        public Score[] Material => material;
 
         public ulong LastMove
         {
@@ -239,8 +236,7 @@ namespace Pedantic.Chess
             fullMoveCounter = 0;
             hash = 0;
             gameStack.Clear();
-            Array.Clear(opMaterial);
-            Array.Clear(egMaterial);
+            Array.Clear(material);
             Array.Fill(hasCastled, false);
             pawnHash = 0;
             phase = 0;
@@ -331,7 +327,7 @@ namespace Pedantic.Chess
                 Ray ray = Vectors[to];
                 ulong doubledFriends = color == Color.White ? ray.North : ray.South;
 
-                if ((pieces[o, (int)Piece.Pawn] & Evaluation.PassedPawnMasks[c, to]) == 0 &&
+                if ((pieces[o, (int)Piece.Pawn] & Evaluation2.PassedPawnMasks[c, to]) == 0 &&
                     (pieces[c, (int)Piece.Pawn] & doubledFriends) == 0)
                 {
                     int normalRank = Index.GetRank(Index.NormalizedIndex[c][to]);
@@ -1252,13 +1248,13 @@ namespace Pedantic.Chess
                 pawnCaptures = ((friendlyPawns & ~MaskFile(Index.H1)) >> 7) | ((friendlyPawns & ~MaskFile(Index.A1)) >> 9);
             }
 
-            centerControl[0] += (short)BitOps.PopCount(pawnCaptures & Evaluation.D0_CENTER_CONTROL_MASK);
-            centerControl[1] += (short)BitOps.PopCount(pawnCaptures & Evaluation.D1_CENTER_CONTROL_MASK);
+            centerControl[0] += (short)BitOps.PopCount(pawnCaptures & Evaluation2.D0_CENTER_CONTROL_MASK);
+            centerControl[1] += (short)BitOps.PopCount(pawnCaptures & Evaluation2.D1_CENTER_CONTROL_MASK);
 
             ulong excluded = pawnDefended | Units(color);
-            ulong d0 = Evaluation.KingProximity[0, kingIndex];
-            ulong d1 = Evaluation.KingProximity[1, kingIndex];
-            ulong d2 = Evaluation.KingProximity[2, kingIndex];
+            ulong d0 = Evaluation2.KingProximity[0, kingIndex];
+            ulong d1 = Evaluation2.KingProximity[1, kingIndex];
+            ulong d2 = Evaluation2.KingProximity[2, kingIndex];
             for (Piece piece = Piece.Knight; piece <= Piece.Queen; piece++)
             {
                 for (ulong pcLoc = Pieces(color, piece); pcLoc != 0; pcLoc = BitOps.ResetLsb(pcLoc))
@@ -1271,8 +1267,8 @@ namespace Pedantic.Chess
                     kingAttacks[0] += (short)BitOps.PopCount(atkMoves & d0);
                     kingAttacks[1] += (short)BitOps.PopCount(atkMoves & d1);
                     kingAttacks[2] += (short)BitOps.PopCount(atkMoves & d2);
-                    centerControl[0] += (short)BitOps.PopCount(moves & Evaluation.D0_CENTER_CONTROL_MASK);
-                    centerControl[1] += (short)BitOps.PopCount(moves & Evaluation.D1_CENTER_CONTROL_MASK);
+                    centerControl[0] += (short)BitOps.PopCount(moves & Evaluation2.D0_CENTER_CONTROL_MASK);
+                    centerControl[1] += (short)BitOps.PopCount(moves & Evaluation2.D1_CENTER_CONTROL_MASK);
                 }
             }
         }
@@ -2082,8 +2078,7 @@ namespace Pedantic.Chess
             units[(int)color] = BitOps.SetBit(units[(int)color], square);
             all = BitOps.SetBit(all, square);
             phase += piece.PhaseValue();
-            opMaterial[(int)color] += Evaluation.OpeningPieceValues(piece);
-            egMaterial[(int)color] += Evaluation.EndGamePieceValues(piece);
+            material[(int)color] += Evaluation2.Weights.PieceValue(piece);
         }
 
         public void RemovePiece(Color color, Piece piece, int square)
@@ -2104,8 +2099,7 @@ namespace Pedantic.Chess
             units[(int)color] = BitOps.ResetBit(Units(color), square);
             all = BitOps.ResetBit(all, square);
             phase -= piece.PhaseValue();
-            opMaterial[(int)color] -= Evaluation.OpeningPieceValues(piece);
-            egMaterial[(int)color] -= Evaluation.EndGamePieceValues(piece);
+            material[(int)color] -= Evaluation2.Weights.PieceValue(piece);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

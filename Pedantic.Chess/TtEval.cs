@@ -37,11 +37,11 @@ namespace Pedantic.Chess
                 this.hash = hash ^ data;
             }
 
-            public ulong Hash => hash ^ data;
-            public short Score => (short)data;
+            public readonly ulong Hash => hash ^ data;
+            public readonly short Score => (short)data;
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public bool IsValid(ulong hash)
+            public readonly bool IsValid(ulong hash)
             {
                 return (this.hash ^ data) == hash;
             }

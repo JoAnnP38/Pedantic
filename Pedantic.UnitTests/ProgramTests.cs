@@ -382,8 +382,8 @@ namespace Pedantic.UnitTests
             Engine.Wait();
             */
             Board board = new(fen);
-            Evaluation eval = new(false, false, false);
-            eval.ShowIntermediateResults = true;
+            EvalCache cache = new();
+            Evaluation2 eval = new(cache, false, false);
             short evalScore1 = eval.Compute(board);
 
             Engine.ClearHashTable();

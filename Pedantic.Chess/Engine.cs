@@ -26,8 +26,10 @@ namespace Pedantic.Chess
         private static int searchThreads = 1;
         private static Thread? searchThread;
         private static PolyglotEntry[]? bookEntries;
+        private static HceWeights? weights;
         private static Color color = Color.White;
         private static BasicSearch? search = null;
+        private static EvalCache cache = new();
         private static readonly SearchStack searchStack = new();
 
         public static bool Debug { get; set; } = false;
@@ -61,6 +63,19 @@ namespace Pedantic.Chess
                 }
 
                 return bookEntries ?? Array.Empty<PolyglotEntry>();
+            }
+        }
+
+        public static HceWeights Weights
+        {
+            get
+            {
+                if (weights == null)
+                {
+                    LoadWeights();
+                }
+
+                return weights ?? new HceWeights();
             }
         }
 
@@ -117,8 +132,7 @@ namespace Pedantic.Chess
         public static void ClearHashTable()
         {
             TtTran.Clear();
-            TtEval.Clear();
-            TtPawnEval.Clear();
+            cache.Clear();
             GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, true);
         }
 
@@ -139,8 +153,7 @@ namespace Pedantic.Chess
             }
 
             TtTran.Resize(sizeMb);
-            TtEval.Resize(sizeMb >> 2);
-            TtPawnEval.Resize(sizeMb >> 5);
+            cache.Resize(sizeMb >> 2);
         }
 
         public static bool SetupPosition(string fen)
@@ -238,11 +251,6 @@ namespace Pedantic.Chess
             }
         }
 
-        public static void LoadEvaluation()
-        {
-            Evaluation.LoadWeights(UciOptions.EvaluationID);
-        }
-
         private static int FindFirstBookMove(ulong hash)
         {
             int low = 0;
@@ -330,6 +338,36 @@ namespace Pedantic.Chess
             }
         }
 
+        public static void LoadWeights()
+        {
+            try
+            {
+                string? exeFullName = Environment.ProcessPath;
+                string? dirFullName = Path.GetDirectoryName(exeFullName);
+                string? weightsPath = (exeFullName != null && dirFullName != null) ?
+                    Path.Combine(dirFullName, "Pedantic.hce") : null;
+
+                if (weightsPath != null && File.Exists(weightsPath))
+                {
+                    weights = new HceWeights(weightsPath);
+                    Evaluation2.Weights = weights;
+                }
+                else
+                {
+                    weights = new HceWeights();
+                    if (weightsPath != null)
+                    {
+                        weights.Save(weightsPath);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+                throw;
+            }
+        }
+
         public static string GetBookMove()
         {
             string move = "0000";
@@ -409,7 +447,7 @@ namespace Pedantic.Chess
 
             ++MovesOutOfBook;
             searchStack.Initialize(Board);
-            search = new(searchStack, Board, time, maxDepth, maxNodes, UciOptions.RandomSearch)
+            search = new(searchStack, Board, time, cache, maxDepth, maxNodes, UciOptions.RandomSearch)
             {
                 CanPonder = UciOptions.Ponder,
                 CollectStats = UciOptions.CollectStatistics

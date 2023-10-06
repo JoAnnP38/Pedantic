@@ -43,7 +43,7 @@ namespace Pedantic.Chess
         internal const int SEE_PRUNING_CAPTURE_INC = 90;
         internal const int LMP_PRUNING_DEPTH = 3;
 
-        public BasicSearch(SearchStack searchStack, Board board, GameClock time, int maxSearchDepth, long maxNodes = long.MaxValue - 100, bool randomSearch = false) 
+        public BasicSearch(SearchStack searchStack, Board board, GameClock time, EvalCache cache, int maxSearchDepth, long maxNodes = long.MaxValue - 100, bool randomSearch = false) 
         {
             this.board = board;
             this.time = time;
@@ -53,7 +53,7 @@ namespace Pedantic.Chess
             PV = Array.Empty<ulong>();
             Score = 0;
             NodesVisited = 0L;
-            evaluation = new Evaluation(true, randomSearch, true);
+            evaluation = new Evaluation2(cache, randomSearch, true);
             startDateTime = DateTime.Now;
             this.searchStack = searchStack;
         }
@@ -79,7 +79,6 @@ namespace Pedantic.Chess
                 }
 #endif                
 
-                Eval.CalcMaterialAdjustment(board);
                 Score = Quiesce(-Constants.INFINITE_WINDOW, Constants.INFINITE_WINDOW, 0, searchStack[-1].IsCheckingMove);
                 location = "1";
                 while (++Depth < maxSearchDepth && time.CanSearchDeeper())
@@ -1057,7 +1056,7 @@ namespace Pedantic.Chess
         public bool CollectStats { get; set; } = false;
         public IEnumerable<ChessStats> Stats => stats;
 
-        public Evaluation Eval
+        public Evaluation2 Eval
         {
             get => evaluation;
             set => evaluation = value;
@@ -1071,7 +1070,7 @@ namespace Pedantic.Chess
 
         private readonly Board board;
         private readonly GameClock time;
-        private Evaluation evaluation;
+        private Evaluation2 evaluation;
         private readonly int maxSearchDepth;
         private readonly long maxNodes;
         private readonly History history = new();

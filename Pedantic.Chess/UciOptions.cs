@@ -21,7 +21,6 @@ namespace Pedantic.Chess
         static UciOptions()
         {
             CollectStatistics = DEFAULT_COLLECT_STATISTICS;
-            EvaluationID = null;
             Hash = DEFAULT_HASH;
             OwnBook = DEFAULT_OWN_BOOK;
             Ponder = DEFAULT_PONDER;
@@ -33,7 +32,6 @@ namespace Pedantic.Chess
         }
 
         public static bool CollectStatistics { get; set; }
-        public static Guid? EvaluationID { get; set; }
         public static int Hash { get; set;}
         public static bool OwnBook { get; set; }
         public static bool Ponder { get; set; }

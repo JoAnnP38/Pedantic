@@ -9,6 +9,10 @@
     "Pedantic_Search": {
       "commandName": "Project",
       "commandLineArgs": "uci --input e:/repos/Pedantic/uci_test.txt"
+    },
+    "Pedantic_Convert": {
+      "commandName": "Project",
+      "commandLineArgs": "convert"
     }
   }
 }

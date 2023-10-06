@@ -15,7 +15,7 @@ namespace Pedantic.Collections
 
         public void Add(T item)
         {
-            if (insertIndex + 1 >= length)
+            if (insertIndex >= length)
             {
                 throw new InvalidOperationException("Cannot add more items to Array2D than its current size.");
             }

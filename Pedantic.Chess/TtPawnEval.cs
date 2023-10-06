@@ -44,22 +44,22 @@ namespace Pedantic.Chess
                 this.hash = hash ^ data;
             }
 
-            public ulong Hash => hash ^ data;
-            public ulong Data => data;
+            public readonly ulong Hash => hash ^ data;
+            public readonly ulong Data => data;
 
-            public short GetOpeningScore(Color color)
+            public readonly short GetOpeningScore(Color color)
             {
                 byte start = (byte)(16 * (byte)color);
                 return (short)BitOps.BitFieldExtract(data, start, 16);
             }
 
-            public short GetEndGameScore(Color color)
+            public readonly short GetEndGameScore(Color color)
             {
                 byte start = (byte)(32 + (16 * (int)color));
                 return (short)BitOps.BitFieldExtract(data, start, 16);
             }
 
-            public bool IsValid(ulong hash)
+            public readonly bool IsValid(ulong hash)
             {
                 return Hash == hash;
             }

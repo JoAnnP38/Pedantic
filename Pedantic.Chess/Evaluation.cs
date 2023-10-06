@@ -19,9 +19,48 @@ using System.Runtime.CompilerServices;
 using Pedantic.Collections;
 using System.Numerics;
 using System.Drawing;
+using System.ComponentModel.DataAnnotations;
 
 namespace Pedantic.Chess
 {
+    public struct EvalParts
+    {
+        public int MaterialPlusPst;
+        public int CachedPawns;
+        public int Mobility;
+        public int KingSafety;
+        public int PieceEval;
+        public int PassedPawnEval;
+        public int ThreatEval;
+        public int MiscEval;      
+
+        public void Clear()
+        {
+            MaterialPlusPst = 0;
+            CachedPawns = 0;
+            Mobility = 0;
+            KingSafety = 0; 
+            PieceEval = 0;
+            PassedPawnEval = 0;
+            ThreatEval = 0;
+            MiscEval = 0;
+        }
+
+        public void AdjustSign(Color stm)
+        {
+            if (stm == Color.Black)
+            {
+                MaterialPlusPst = -MaterialPlusPst;
+                CachedPawns = -CachedPawns;
+                Mobility = -Mobility;
+                KingSafety = -KingSafety;
+                PieceEval = -PieceEval;
+                PassedPawnEval = -PassedPawnEval;
+                ThreatEval = -ThreatEval;
+                MiscEval = -MiscEval;
+            }
+        }
+    }
     public sealed class Evaluation
     {
         public const ulong D0_CENTER_CONTROL_MASK = 0x0000001818000000ul;
@@ -74,6 +113,7 @@ namespace Pedantic.Chess
             bool isLazy = false;
             score = currentPhase == GamePhase.EndGameMopup ? ComputeMopUp(board) : ComputeNormal(board, alpha, beta, ref isLazy);
             score = board.SideToMove == Color.White ? score : (short)-score;
+            evalParts.AdjustSign(board.SideToMove);
             if (!isLazy)
             {
                 TtEval.Add(board.Hash, score);
@@ -89,7 +129,7 @@ namespace Pedantic.Chess
                 int c = (int)color;
                 Color other = color.Other();
                 int o = (int)other;
-                egScore[c] += board.EndGameMaterial[c];
+                egScore[c] += board.Material[c].EgScore;
 
                 if (color == winning)
                 {
@@ -126,10 +166,14 @@ namespace Pedantic.Chess
 
         public short ComputeNormal(Board board, int alpha, int beta, ref bool isLazy)
         {
-            opScore[0] = AdjustMaterial(board.OpeningMaterial[0], adjust[0]);
-            egScore[0] = AdjustMaterial(board.EndGameMaterial[0], adjust[0]);
-            opScore[1] = AdjustMaterial(board.OpeningMaterial[1], adjust[1]);
-            egScore[1] = AdjustMaterial(board.EndGameMaterial[1], adjust[1]);
+            //opScore[0] = AdjustMaterial(board.OpeningMaterial[0], adjust[0]);
+            //egScore[0] = AdjustMaterial(board.EndGameMaterial[0], adjust[0]);
+            //opScore[1] = AdjustMaterial(board.OpeningMaterial[1], adjust[1]);
+            //egScore[1] = AdjustMaterial(board.EndGameMaterial[1], adjust[1]);
+            opScore[0] = board.Material[0].MgScore;
+            egScore[0] = board.Material[0].EgScore;
+            opScore[1] = board.Material[1].MgScore;
+            egScore[1] = board.Material[1].EgScore;
 
             for (Color color = Color.White; color <= Color.Black; color++)
             {
@@ -150,6 +194,8 @@ namespace Pedantic.Chess
 
             isLazy = true;
             int evalScore = ((int)board.SideToMove * -2 + 1) * score;
+            MaterialPlusPst = score;
+
             if (evalScore >= alpha - Constants.LAZY_EVAL_MARGIN && evalScore <= beta + Constants.LAZY_EVAL_MARGIN)
             {
                 isLazy = false;
@@ -220,8 +266,8 @@ namespace Pedantic.Chess
         public static (bool WhiteCanWin, bool BlackCanWin) CanWin(Board board)
         {
             bool whiteCanWin = false, blackCanWin = false;
-            short materialWhite = board.EndGameMaterial[(int)Color.White];
-            short materialBlack = board.EndGameMaterial[(int)Color.Black];
+            short materialWhite = board.Material[(int)Color.White].EgScore;
+            short materialBlack = board.Material[(int)Color.Black].EgScore;
             short pawnValue = EndGamePieceValues(Piece.Pawn);
 
             if (board.Pieces(Color.White, Piece.Pawn) != 0 ||
@@ -253,31 +299,66 @@ namespace Pedantic.Chess
             int c = (int)color;
             int o = (int)color.Other();
             board.GetPieceMobility(color, mobility, kingAttacks, centerControl);
+            int opMobility = 0, egMobility = 0;
+            int opKingSafety = 0, egKingSafety = 0;
+            int opMisc = 0, egMisc = 0;
+
             opScore[c] += (short)(mobility[(int)Piece.Knight] * wt.OpeningPieceMobility(Piece.Knight));
+            opMobility += (short)(mobility[(int)Piece.Knight] * wt.OpeningPieceMobility(Piece.Knight));
             egScore[c] += (short)(mobility[(int)Piece.Knight] * wt.EndGamePieceMobility(Piece.Knight));
+            egMobility += (short)(mobility[(int)Piece.Knight] * wt.EndGamePieceMobility(Piece.Knight));
 
             opScore[c] += (short)(mobility[(int)Piece.Bishop] * wt.OpeningPieceMobility(Piece.Bishop));
+            opMobility += (short)(mobility[(int)Piece.Bishop] * wt.OpeningPieceMobility(Piece.Bishop));
             egScore[c] += (short)(mobility[(int)Piece.Bishop] * wt.EndGamePieceMobility(Piece.Bishop));
+            egMobility += (short)(mobility[(int)Piece.Bishop] * wt.EndGamePieceMobility(Piece.Bishop));
 
             opScore[c] += (short)(mobility[(int)Piece.Rook] * wt.OpeningPieceMobility(Piece.Rook));
+            opMobility += (short)(mobility[(int)Piece.Rook] * wt.OpeningPieceMobility(Piece.Rook));
             egScore[c] += (short)(mobility[(int)Piece.Rook] * wt.EndGamePieceMobility(Piece.Rook));
+            egMobility += (short)(mobility[(int)Piece.Rook] * wt.EndGamePieceMobility(Piece.Rook));
 
             opScore[c] += (short)(mobility[(int)Piece.Queen] * wt.OpeningPieceMobility(Piece.Queen));
+            opMobility += (short)(mobility[(int)Piece.Queen] * wt.OpeningPieceMobility(Piece.Queen));
             egScore[c] += (short)(mobility[(int)Piece.Queen] * wt.EndGamePieceMobility(Piece.Queen));
+            egMobility += (short)(mobility[(int)Piece.Queen] * wt.EndGamePieceMobility(Piece.Queen));
 
             opScore[c] += (short)(kingAttacks[0] * wt.OpeningKingAttack(0));
+            opKingSafety += (short)(kingAttacks[0] * wt.OpeningKingAttack(0));
             opScore[c] += (short)(kingAttacks[1] * wt.OpeningKingAttack(1));
+            opKingSafety += (short)(kingAttacks[1] * wt.OpeningKingAttack(1));
             opScore[c] += (short)(kingAttacks[2] * wt.OpeningKingAttack(2));
+            opKingSafety += (short)(kingAttacks[2] * wt.OpeningKingAttack(2));
 
             egScore[c] += (short)(kingAttacks[0] * wt.EndGameKingAttack(0));
+            egKingSafety += (short)(kingAttacks[0] * wt.EndGameKingAttack(0));
             egScore[c] += (short)(kingAttacks[1] * wt.EndGameKingAttack(1));
+            egKingSafety += (short)(kingAttacks[1] * wt.EndGameKingAttack(1));
             egScore[c] += (short)(kingAttacks[2] * wt.EndGameKingAttack(2));
+            egKingSafety += (short)(kingAttacks[2] * wt.EndGameKingAttack(2));
 
             opScore[c] += (short)(centerControl[0] * wt.OpeningCenterControl(0));
+            opMisc += (short)(centerControl[0] * wt.OpeningCenterControl(0));
             opScore[c] += (short)(centerControl[1] * wt.OpeningCenterControl(1));
+            opMisc += (short)(centerControl[1] * wt.OpeningCenterControl(1));
 
             egScore[c] += (short)(centerControl[0] * wt.EndGameCenterControl(0));
+            egMisc += (short)(centerControl[0] * wt.EndGameCenterControl(0));
             egScore[c] += (short)(centerControl[1] * wt.EndGameCenterControl(1));
+            egMisc += (short)(centerControl[1] * wt.EndGameCenterControl(1));
+
+            if (color == Color.White)
+            {
+                Mobility += ((opMobility * opWt) + (egMobility * egWt)) / Constants.MAX_PHASE;
+                KingSafety += ((opKingSafety * opWt) + (egKingSafety * egWt)) / Constants.MAX_PHASE;
+                MiscEval += ((opMisc * opWt) + (egMisc * egWt)) / Constants.MAX_PHASE;
+            }
+            else
+            {
+                Mobility -= ((opMobility * opWt) + (egMobility * egWt)) / Constants.MAX_PHASE;
+                KingSafety -= ((opKingSafety * opWt) + (egKingSafety * egWt)) / Constants.MAX_PHASE;
+                MiscEval -= ((opMisc * opWt) + (egMisc * egWt)) / Constants.MAX_PHASE;
+            }
         }
 
         public void ComputePawns(Color color, Board board)
@@ -285,6 +366,7 @@ namespace Pedantic.Chess
             int c = (int)color;
             int o = c ^ 1;
             Color other = (Color)o;
+            int opPawns = 0, egPawns = 0;
 
             ulong pawns = board.Pieces(color, Piece.Pawn);
             if (pawns == 0)
@@ -304,20 +386,26 @@ namespace Pedantic.Chess
                 if ((otherPawns & PassedPawnMasks[c, sq]) == 0 && (pawns & doubledFriends) == 0)
                 {
                     opPawnScore[c] += wt.OpeningPassedPawn(normalSq);
+                    opPawns += wt.OpeningPassedPawn(normalSq);
                     egPawnScore[c] += wt.EndGamePassedPawn(normalSq);
+                    egPawns += wt.EndGamePassedPawn(normalSq);
                     passedPawns |= BitOps.GetMask(sq);
                 }
 
                 if ((pawns & IsolatedPawnMasks[sq]) == 0)
                 {
                     opPawnScore[c] += wt.OpeningIsolatedPawn;
+                    opPawns += wt.OpeningIsolatedPawn;
                     egPawnScore[c] += wt.EndGameIsolatedPawn;
+                    egPawns += wt.EndGameIsolatedPawn;
                 }
 
                 if ((pawns & AdjacentPawnMasks[sq]) != 0)
                 {
                     opPawnScore[c] += wt.OpeningConnectedPawn(normalSq);
+                    opPawns += wt.OpeningConnectedPawn(normalSq);
                     egPawnScore[c] += wt.EndGameConnectedPawn(normalSq);
+                    egPawns += wt.EndGameConnectedPawn(normalSq);
                 }
             }
 
@@ -327,7 +415,9 @@ namespace Pedantic.Chess
                 if (count > 1)
                 {
                     opPawnScore[c] += (short)((count - 1) * wt.OpeningDoubledPawn);
+                    opPawns += (short)((count - 1) * wt.OpeningDoubledPawn);
                     egPawnScore[c] += (short)((count - 1) * wt.EndGameDoubledPawn);
+                    egPawns += (short)((count - 1) * wt.EndGameDoubledPawn);
                 }
             }
 
@@ -336,7 +426,9 @@ namespace Pedantic.Chess
                 int sq = BitOps.TzCount(p);
                 int normalSq = Index.NormalizedIndex[c][sq];
                 opPawnScore[c] += wt.OpeningSupportedPawn(normalSq);
+                opPawns += wt.OpeningSupportedPawn(normalSq);
                 egPawnScore[c] += wt.EndGameSupportedPawn(normalSq);
+                egPawns += wt.EndGameSupportedPawn(normalSq);
             }
 
             ulong pawnRams = pawns & (color == Color.White ? otherPawns >> 8 : otherPawns << 8);
@@ -344,7 +436,18 @@ namespace Pedantic.Chess
             {
                 int normalSq = Index.NormalizedIndex[c][BitOps.TzCount(p)];
                 opPawnScore[c] += wt.OpeningPawnRam(normalSq);
+                opPawns += wt.OpeningPawnRam(normalSq);
                 egPawnScore[c] += wt.EndGamePawnRam(normalSq);
+                egPawns += wt.EndGamePawnRam(normalSq);
+            }
+
+            if (color == Color.White)
+            {
+                CachedPawns += ((opPawns * opWt) + (egPawns * egWt)) / Constants.MAX_PHASE;
+            }
+            else
+            {
+                CachedPawns -= ((opPawns * opWt) + (egPawns * egWt)) / Constants.MAX_PHASE;
             }
         }
 
@@ -356,11 +459,16 @@ namespace Pedantic.Chess
             ulong pawns = board.Pieces(color, Piece.Pawn);
             ulong otherPawns = board.Pieces(other, Piece.Pawn);
             ulong allPawns = pawns | otherPawns;
+            int opKingSafety = 0, egKingSafety = 0;
+            int opPieceEval = 0, egPieceEval = 0;
+            int opPassedPawnEval = 0, egPassedPawnEval = 0;
 
             if (BitOps.PopCount(board.Pieces(color, Piece.Bishop)) >= 2)
             {
                 opScore[c] += wt.OpeningBishopPair;
+                opPieceEval += wt.OpeningBishopPair;
                 egScore[c] += wt.EndGameBishopPair;
+                egPieceEval += wt.EndGameBishopPair;
             }
 
             ulong knights = board.Pieces(color, Piece.Knight);
@@ -376,12 +484,16 @@ namespace Pedantic.Chess
                     if (pc == Piece.Knight)
                     {
                         opScore[c] += wt.OpeningKnightOutpost;
+                        opPieceEval += wt.OpeningKnightOutpost;
                         egScore[c] += wt.EndGameKnightOutpost;
+                        egPieceEval += wt.EndGameKnightOutpost;
                     }
                     else
                     {
                         opScore[c] += wt.OpeningBishopOutpost;
+                        opPieceEval += wt.OpeningBishopOutpost;
                         egScore[c] += wt.EndGameKnightOutpost;
+                        egPieceEval += wt.EndGameKnightOutpost;
                     }
                 }
             }
@@ -400,17 +512,26 @@ namespace Pedantic.Chess
                     int pawnSq = BitOps.TzCount(bbBadPawn);
                     int normalSq = Index.NormalizedIndex[c][pawnSq];
                     opScore[c] += wt.OpeningBadBishopPawn(normalSq);
+                    opPieceEval += wt.OpeningBadBishopPawn(normalSq);
                     egScore[c] += wt.EndGameBadBishopPawn(normalSq);
+                    egPieceEval += wt.EndGameBadBishopPawn(normalSq);
                 }
             }
 
             int ki = kingIndex[c];
             opScore[c] += (short)(BitOps.PopCount(pawns & KingProximity[0, ki]) * wt.OpeningPawnShield(0));
+            opKingSafety += (short)(BitOps.PopCount(pawns & KingProximity[0, ki]) * wt.OpeningPawnShield(0));
             opScore[c] += (short)(BitOps.PopCount(pawns & KingProximity[1, ki]) * wt.OpeningPawnShield(1));
+            opKingSafety += (short)(BitOps.PopCount(pawns & KingProximity[1, ki]) * wt.OpeningPawnShield(1));
             opScore[c] += (short)(BitOps.PopCount(pawns & KingProximity[2, ki]) * wt.OpeningPawnShield(2));
+            opKingSafety += (short)(BitOps.PopCount(pawns & KingProximity[2, ki]) * wt.OpeningPawnShield(2));
+
             egScore[c] += (short)(BitOps.PopCount(pawns & KingProximity[0, ki]) * wt.EndGamePawnShield(0));
+            egKingSafety += (short)(BitOps.PopCount(pawns & KingProximity[0, ki]) * wt.EndGamePawnShield(0));
             egScore[c] += (short)(BitOps.PopCount(pawns & KingProximity[1, ki]) * wt.EndGamePawnShield(1));
+            egKingSafety += (short)(BitOps.PopCount(pawns & KingProximity[1, ki]) * wt.EndGamePawnShield(1));
             egScore[c] += (short)(BitOps.PopCount(pawns & KingProximity[2, ki]) * wt.EndGamePawnShield(2));
+            egKingSafety += (short)(BitOps.PopCount(pawns & KingProximity[2, ki]) * wt.EndGamePawnShield(2));
 
             // NOTE: passedPawns was initialized during ComputePawns()
             for (ulong p = passedPawns & board.Units(color); p != 0; p = BitOps.ResetLsb(p))
@@ -424,7 +545,9 @@ namespace Pedantic.Chess
                 if ((bb & board.Pieces(color, Piece.Rook)) != 0)
                 {
                     opScore[c] += wt.OpeningRookBehindPassedPawn;
+                    opPassedPawnEval += wt.OpeningRookBehindPassedPawn;
                     egScore[c] += wt.EndGameRookBehindPassedPawn;
+                    egPassedPawnEval += wt.EndGameRookBehindPassedPawn;
                 }
 
                 int normalRank = Index.GetRank(Index.NormalizedIndex[c][sq]);
@@ -438,18 +561,25 @@ namespace Pedantic.Chess
                     Index.Distance(sq, promoteSq) < Index.Distance(kingIndex[o], promoteSq) - (other == board.SideToMove ? 1 : 0))
                 {
                     opScore[c] += wt.OpeningKingOutsideSquare;
+                    opPassedPawnEval += wt.OpeningKingOutsideSquare;
                     egScore[c] += wt.EndGameKingOutsideSquare;
+                    egPassedPawnEval += wt.EndGameKingOutsideSquare;
                 }
 
                 int blockSq = Board.PawnPlus[c, sq];
                 int dist = Index.Distance(blockSq, kingIndex[c]);
                 opScore[c] += (short)(dist * wt.OpeningPpFriendlyKingDistance);
+                opPassedPawnEval += (short)(dist * wt.OpeningPpFriendlyKingDistance);
                 egScore[c] += (short)(dist * wt.EndGamePpFriendlyKingDistance);
+                egPassedPawnEval += (short)(dist * wt.EndGamePpFriendlyKingDistance);
 
                 dist = Index.Distance(blockSq, kingIndex[o]);
                 opScore[c] += (short)(dist * wt.OpeningPpEnemyKingDistance);
+                opPassedPawnEval += (short)(dist * wt.OpeningPpEnemyKingDistance);
                 egScore[c] += (short)(dist * wt.EndGamePpEnemyKingDistance);
+                egPassedPawnEval += (short)(dist * wt.EndGamePpEnemyKingDistance);
 
+#if PP_CAN_ADVANCE
                 int rank = normalRank - Coord.RANK_4;
                 ulong advanceMask = BitOps.GetMask(Board.PawnPlus[c, sq]);
                 if ((advanceMask & board.All & pawnAttacks[o] & board.GetPieceMoves(Piece.King, kingIndex[o])) == 0)
@@ -457,6 +587,7 @@ namespace Pedantic.Chess
                     opScore[c] += wt.OpeningPassedPawnCanAdvance(rank);
                     egScore[c] += wt.EndGamePassedPawnCanAdvance(rank);
                 }
+#endif
             }
 
             for (ulong p = passedPawns & board.Units(other); p != 0; p = BitOps.ResetLsb(p))
@@ -468,7 +599,9 @@ namespace Pedantic.Chess
                 if (blocker.Color == color && blocker.Piece != Piece.None)
                 {
                     opScore[c] += wt.OpeningBlockPassedPawn(normalRank, blocker.Piece);
+                    opPassedPawnEval += wt.OpeningBlockPassedPawn(normalRank, blocker.Piece);
                     egScore[c] += wt.EndGameBlockPassedPawn(normalRank, blocker.Piece);
+                    egPassedPawnEval += wt.EndGameBlockPassedPawn(normalRank, blocker.Piece);
                 }
             }
 
@@ -486,31 +619,41 @@ namespace Pedantic.Chess
                 if (rank == Coord.RANK_7 && ((otherPawns & maskRank) != 0 || enemyKingRank >= Coord.RANK_7))
                 {
                     opScore[c] += wt.OpeningRookOnSeventhRank;
+                    opPieceEval += wt.OpeningRookOnSeventhRank;
                     egScore[c] += wt.EndGameRookOnSeventhRank;
+                    egPieceEval += wt.EndGameRookOnSeventhRank;
                 }
                 
                 if ((maskFile & allPawns) == 0)
                 {
                     opScore[c] += wt.OpeningRookOnOpenFile;
+                    opPieceEval += wt.OpeningRookOnOpenFile;
                     egScore[c] += wt.EndGameRookOnOpenFile;
+                    egPieceEval += wt.EndGameRookOnOpenFile;
 
 
                     if (BitOps.PopCount(potentials) > 1 && IsDoubled(board, potentials))
                     {
                         opScore[c] += wt.OpeningDoubledRooks;
+                        opPieceEval += wt.OpeningDoubledRooks;
                         egScore[c] += wt.EndGameDoubledRooks;
+                        egPieceEval += wt.EndGameDoubledRooks;
                     }
                 }
 
                 if ((maskFile & pawns) == 0 && (maskFile & otherPawns) != 0)
                 {
                     opScore[c] += wt.OpeningRookOnHalfOpenFile;
+                    opPieceEval += wt.OpeningRookOnHalfOpenFile;
                     egScore[c] += wt.EndGameRookOnHalfOpenFile;
+                    egPieceEval += wt.EndGameRookOnHalfOpenFile;
 
                     if (BitOps.PopCount(potentials) > 1 && IsDoubled(board, potentials))
                     {
                         opScore[c] += wt.OpeningDoubledRooks;
+                        opPieceEval += wt.OpeningDoubledRooks;
                         egScore[c] += wt.EndGameDoubledRooks;
+                        egPieceEval += wt.EndGameDoubledRooks;
                     }
                 }
             }
@@ -524,13 +667,17 @@ namespace Pedantic.Chess
                 if ((mask & allPawns) == 0)
                 {
                     opScore[c] += wt.OpeningQueenOnOpenFile;
+                    opPieceEval += wt.OpeningQueenOnOpenFile;
                     egScore[c] += wt.EndGameQueenOnOpenFile;
+                    egPieceEval += wt.EndGameQueenOnOpenFile;
                 }
 
                 if ((mask & pawns) == 0 && (mask & otherPawns) != 0)
                 {
                     opScore[c] += wt.OpeningQueenOnHalfOpenFile;
+                    opPieceEval += wt.OpeningQueenOnHalfOpenFile;
                     egScore[c] += wt.EndGameQueenOnHalfOpenFile;
+                    egPieceEval += wt.EndGameQueenOnHalfOpenFile;
                 }
             }
 
@@ -538,40 +685,65 @@ namespace Pedantic.Chess
             if ((kingFileMask & allPawns) == 0)
             {
                 opScore[c] += wt.OpeningKingOnOpenFile;
+                opKingSafety += wt.OpeningKingOnOpenFile;
                 egScore[c] += wt.EndGameKingOnOpenFile;
+                egKingSafety += wt.EndGameKingOnOpenFile;
             }
 
             if ((kingFileMask & pawns) == 0 && (kingFileMask & otherPawns) != 0)
             {
                 opScore[c] += wt.OpeningKingOnHalfOpenFile;
+                opKingSafety += wt.OpeningKingOnHalfOpenFile;
                 egScore[c] += wt.EndGameKingOnHalfOpenFile;
+                egKingSafety += wt.EndGameKingOnHalfOpenFile;
             }
 
             ulong kingDiagonalMask = Diagonals[ki];
             if (BitOps.PopCount(kingDiagonalMask) > 3 && (kingDiagonalMask & allPawns) == 0)
             {
                 opScore[c] += wt.OpeningKingOnOpenDiagonal;
+                opKingSafety += wt.OpeningKingOnOpenDiagonal;
                 egScore[c] += wt.EndGameKingOnOpenDiagonal;
+                egKingSafety += wt.EndGameKingOnOpenDiagonal;
             }
 
             kingDiagonalMask = Antidiagonals[ki];
             if (BitOps.PopCount(kingDiagonalMask) > 3 && (kingDiagonalMask & allPawns) == 0)
             {
                 opScore[c] += wt.OpeningKingOnOpenDiagonal;
+                opKingSafety += wt.OpeningKingOnOpenDiagonal;
                 egScore[c] += wt.EndGameKingOnOpenDiagonal;
+                egKingSafety += wt.EndGameKingOnOpenDiagonal;
             }
 
             if (board.HasCastled[(int)color])
             {
                 opScore[c] += wt.OpeningCastlingComplete;
+                opKingSafety += wt.OpeningCastlingComplete;
                 egScore[c] += wt.EndGameCastlingComplete;
+                egKingSafety += wt.EndGameCastlingComplete;
             }
             else
             {
                 ulong mask = (ulong)CastlingRights.WhiteRights << (c << 1);
                 short cntRights = (short)BitOps.PopCount((ulong)board.Castling & mask);
                 opScore[c] += (short)(cntRights * wt.OpeningCastlingAvailable);
+                opKingSafety += (short)(cntRights * wt.OpeningCastlingAvailable);
                 egScore[c] += (short)(cntRights * wt.EndGameCastlingAvailable);
+                egKingSafety += (short)(cntRights * wt.EndGameCastlingAvailable);
+            }
+
+            if (color == Color.White)
+            {
+                KingSafety += ((opKingSafety * opWt) + (egKingSafety * egWt)) / Constants.MAX_PHASE;
+                PieceEval += ((opPieceEval * opWt) + (egPieceEval * egWt)) / Constants.MAX_PHASE;
+                PassedPawnEval += ((opPassedPawnEval * opWt) + (egPassedPawnEval * egWt)) / Constants.MAX_PHASE;
+            }
+            else
+            {
+                KingSafety -= ((opKingSafety * opWt) + (egKingSafety * egWt)) / Constants.MAX_PHASE;
+                PieceEval -= ((opPieceEval * opWt) + (egPieceEval * egWt)) / Constants.MAX_PHASE;
+                PassedPawnEval -= ((opPassedPawnEval * opWt) + (egPassedPawnEval * egWt)) / Constants.MAX_PHASE;
             }
         }
 
@@ -581,8 +753,9 @@ namespace Pedantic.Chess
             Color other = color.Other();
             ulong pawns = board.Pieces(color, Piece.Pawn);
             ulong otherPawns = board.Pieces(other, Piece.Pawn);
+            int opThreatEval = 0, egThreatEval = 0;
 
-            ulong targets = board.Units(other) ^ (otherPawns | board.Pieces(other, Piece.King));
+            ulong targets = board.Units(other) & ~(otherPawns | board.Pieces(other, Piece.King));
             if (targets == 0)
             {
                 return;
@@ -614,7 +787,9 @@ namespace Pedantic.Chess
                 int sq = BitOps.TzCount(bb);
                 Piece defender = board.PieceBoard[sq].Piece;
                 opScore[c] += wt.OpeningPieceThreat(Piece.Pawn, defender);
+                opThreatEval += wt.OpeningPieceThreat(Piece.Pawn, defender);
                 egScore[c] += wt.EndGamePieceThreat(Piece.Pawn, defender);
+                egThreatEval += wt.EndGamePieceThreat(Piece.Pawn, defender);
             }
 
             for (ulong bb = pushAttacks & targets; bb != 0; bb = BitOps.ResetLsb(bb))
@@ -622,7 +797,9 @@ namespace Pedantic.Chess
                 int sq = BitOps.TzCount(bb);
                 Piece defender = board.PieceBoard[sq].Piece;
                 opScore[c] += wt.OpeningPawnPushThreat(defender);
+                opThreatEval += wt.OpeningPawnPushThreat(defender);
                 egScore[c] += wt.EndGamePawnPushThreat(defender);
+                egThreatEval += wt.EndGamePawnPushThreat(defender);
             }
 
             targets &= ~defended;
@@ -642,16 +819,27 @@ namespace Pedantic.Chess
                         int to = BitOps.TzCount(attacks);
                         Piece defender = board.PieceBoard[to].Piece;
                         opScore[c] += wt.OpeningPieceThreat(attacker, defender);
+                        opThreatEval += wt.OpeningPieceThreat(attacker, defender);
                         egScore[c] += wt.EndGamePieceThreat(attacker, defender);
+                        egThreatEval += wt.EndGamePieceThreat(attacker, defender);
                     }
                 }
+            }
+
+            if (color == Color.White)
+            {
+                ThreatEval += ((opThreatEval * opWt) + (egThreatEval * egWt)) / Constants.MAX_PHASE;
+            }
+            else
+            {
+                ThreatEval -= ((opThreatEval * opWt) + (egThreatEval * egWt)) / Constants.MAX_PHASE;
             }
         }
 
         public void CalcMaterialAdjustment(Board board)
         {
-            int materialWhite = board.EndGameMaterial[(int)Color.White];
-            int materialBlack = board.EndGameMaterial[(int)Color.Black];
+            int materialWhite = board.Material[(int)Color.White].EgScore;
+            int materialBlack = board.Material[(int)Color.Black].EgScore;
             int pawnValue = EndGamePieceValues(Piece.Pawn);
 
             ulong move = board.LastMove;
@@ -682,8 +870,8 @@ namespace Pedantic.Chess
 
             if (gamePhase == GamePhase.EndGame)
             {
-                short materialWhite = board.EndGameMaterial[(int)Color.White];
-                short materialBlack = board.EndGameMaterial[(int)Color.Black];
+                short materialWhite = board.Material[(int)Color.White].EgScore;
+                short materialBlack = board.Material[(int)Color.Black].EgScore;
                 short pawnValue = EndGamePieceValues(Piece.Pawn);
 
                 if (useMopUp &&
@@ -714,35 +902,57 @@ namespace Pedantic.Chess
             Array.Clear(egScore);
             Array.Clear(opPawnScore);
             Array.Clear(egPawnScore);
+            evalParts.Clear();      
         }
 
-        public void InitEvalInfo(Board bd)
+        public EvalParts EvalParts => evalParts;
+
+        public int MaterialPlusPst
         {
-            Array.Clear(evalInfos);
-            for (Color color = Color.White; color <= Color.Black; color++)
-            {
-                Color other = color.Other();
-                int c = (int)color;
-                int o = (int)other;
+            get => evalParts.MaterialPlusPst;
+            set => evalParts.MaterialPlusPst = value;
+        }
 
-                ref EvalInfo ei = ref evalInfos[c];
-                ei.Pawns = bd.Pieces(color, Piece.Pawn);
-                ei.EnemyPawns = bd.Pieces(other, Piece.Pawn);
-                ei.AllPawns = ei.Pawns | ei.EnemyPawns;
-                ei.KP = Index.GetKingPlacement(kingIndex[c], kingIndex[o]);
-                ei.KingAttacks = bd.GetPieceMoves(Piece.King, kingIndex[c]);
+        public int CachedPawns
+        {
+            get => evalParts.CachedPawns;
+            set => evalParts.CachedPawns = value;
+        }
 
-                if (color == Color.White)
-                {
-                    ei.PawnAttacks = ((ei.Pawns & ~Board.MaskFile(Index.A1)) << 7) |
-                                     ((ei.Pawns & ~Board.MaskFile(Index.H1)) << 9);
-                }
-                else
-                {
+        public int Mobility
+        {
+            get => evalParts.Mobility;
+            set => evalParts.Mobility = value;
+        }
 
-                }
+        public int KingSafety
+        {
+            get => evalParts.KingSafety;
+            set => evalParts.KingSafety = value;
+        }
 
-            }
+        public int PieceEval
+        {
+            get => evalParts.PieceEval;
+            set => evalParts.PieceEval = value;
+        }
+
+        public int PassedPawnEval
+        {
+            get => evalParts.PassedPawnEval;
+            set => evalParts.PassedPawnEval = value;
+        }
+
+        public int ThreatEval
+        {
+            get => evalParts.ThreatEval;
+            set => evalParts.ThreatEval = value;
+        }
+
+        public int MiscEval
+        {
+            get => evalParts.MiscEval;
+            set => evalParts.MiscEval = value;
         }
 
         public static ulong PassedPawnBitboard(Board board)
@@ -778,17 +988,7 @@ namespace Pedantic.Chess
 
         public static ChessWeights LoadWeights(string? id = null)
         {
-            var rep = new ChessDb();
-            ChessWeights? w = (string.IsNullOrEmpty(id)
-                ? rep.Weights.FirstOrDefault(cw => cw.IsActive && cw.IsImmortal)
-                : rep.Weights.FirstOrDefault(cw => cw.Id == new Guid(id)));
-
-            if (w == null)
-            {
-                w = ChessWeights.CreateParagon();
-                rep.Weights.Insert(w);
-                rep.Save();
-            }
+            ChessWeights w = ChessWeights.CreateParagon();
             wt = new EvalWeights(w);
             return w;
         }
@@ -888,6 +1088,8 @@ namespace Pedantic.Chess
         private readonly short[] egPawnScore = { 0, 0 };
         private readonly ulong[] pawnAttacks = { 0ul, 0ul };
         private readonly EvalInfo[] evalInfos = new EvalInfo[2];
+
+        private EvalParts evalParts = new();
 
         private static readonly ulong maskFileA = Board.MaskFile(Index.A1);
         private static readonly ulong maskFileH = Board.MaskFile(Index.H1);
