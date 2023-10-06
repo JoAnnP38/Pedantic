@@ -81,7 +81,7 @@ namespace Pedantic.Chess
 
                 Score = Quiesce(-Constants.INFINITE_WINDOW, Constants.INFINITE_WINDOW, 0, searchStack[-1].IsCheckingMove);
                 location = "1";
-                while (++Depth < maxSearchDepth && time.CanSearchDeeper())
+                while (++Depth <= maxSearchDepth && time.CanSearchDeeper())
                 {
                     time.StartInterval();
                     UpdateTtWithPv(PV, Depth);
@@ -808,6 +808,7 @@ namespace Pedantic.Chess
 
         private void ReportSearchResults(ref ulong bestMove, ref ulong? ponderMove)
         {
+            Elapsed = time.Elapsed;
             bool bestMoveChanged = false;
             ulong oldBestMove = bestMove;
             PV = GetPv();
@@ -859,11 +860,11 @@ namespace Pedantic.Chess
 
             if (IsCheckmate(Score, out int mateIn))
             {
-                Uci.InfoMate(Depth, seldepth, mateIn, NodesVisited, time.Elapsed, PV, TtTran.Usage, tbHits);
+                Uci.InfoMate(Depth, seldepth, mateIn, NodesVisited, Elapsed, PV, TtTran.Usage, tbHits);
             }
             else
             {
-                Uci.Info(Depth, seldepth, Score, NodesVisited, time.Elapsed, PV, TtTran.Usage, tbHits);
+                Uci.Info(Depth, seldepth, Score, NodesVisited, Elapsed, PV, TtTran.Usage, tbHits);
             }
         }
 
@@ -1051,6 +1052,7 @@ namespace Pedantic.Chess
         public int Score { get; private set; }
         public ulong[] PV { get; private set; }
         public long NodesVisited { get; private set; }
+        public int Elapsed { get; private set; }
         public bool Pondering { get; set; }
         public bool CanPonder { get; set; }
         public bool CollectStats { get; set; } = false;

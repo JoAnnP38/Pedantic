@@ -329,9 +329,22 @@ namespace Pedantic
                     Engine.PonderHit();
                     break;
 
+                case "bench":
+                    Bench(tokens);
+                    break;
+
                 default:
                     Uci.Log($@"Unexpected input: '{input}'");
                     return;
+            }
+        }
+
+        private static void Bench(string[] tokens)
+        {
+            TryParse(tokens, "depth", out int maxDepth, Constants.MAX_PLY);
+            if (maxDepth < Constants.MAX_PLY)
+            {
+                Engine.Bench(maxDepth);
             }
         }
 
@@ -476,7 +489,7 @@ namespace Pedantic
 
         private static void Go(string[] tokens)
         {
-            TryParse(tokens, "depth", out int maxDepth, Constants.MAX_PLY);
+            TryParse(tokens, "depth", out int maxDepth, Constants.MAX_PLY - 1);
             TryParse(tokens, "movetime", out int maxTime, int.MaxValue);
             TryParse(tokens, "nodes", out long maxNodes, long.MaxValue);
             TryParse(tokens, "movestogo", out int movesToGo, -1);
