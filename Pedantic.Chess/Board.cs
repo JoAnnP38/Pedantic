@@ -311,7 +311,12 @@ namespace Pedantic.Chess
                     return board[from].Piece == Piece.King && board[rookMove.RookFrom].Piece == Piece.Rook &&
                            (all & rookMove.ClearMask) == 0 && (castling & rookMove.CastlingMask) == rookMove.CastlingMask;
                 }
-                return board[from].Piece == piece && board[to].Piece == capture;
+                Square captureSquare = Square.Empty;
+                if (capture != Piece.None)
+                {
+                    captureSquare = Square.Create(stm.Other(), capture);
+                }
+                return board[from].Piece == piece && board[from].Color == stm && board[to] == captureSquare;
             }
             return false;
         }
