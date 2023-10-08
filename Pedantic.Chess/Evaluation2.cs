@@ -315,19 +315,19 @@ namespace Pedantic.Chess
                 Ray ray = Board.Vectors[sq];
                 ulong friendMask = color == Color.White ? ray.North : ray.South;
                 ulong sqMask = BitOps.GetMask(sq);
-                bool canBeBackward = true;
+                //bool canBeBackward = true;
 
                 if ((otherPawns & PassedPawnMasks[c, sq]) == 0 && (pawns & friendMask) == 0)
                 {
                     pawnScore += wts.PassedPawn(normalSq);
                     evalInfo[c].PassedPawns |= sqMask;
-                    canBeBackward = false;
+                    //canBeBackward = false;
                 }
 
                 if ((pawns & IsolatedPawnMasks[sq]) == 0)
                 {
                     pawnScore += wts.IsolatedPawn;
-                    canBeBackward = false;
+                    //canBeBackward = false;
                 }
 
                 //if (canBeBackward && (pawns & BackwardPawnMasks[c, sq]) == 0)
@@ -716,9 +716,13 @@ namespace Pedantic.Chess
             int c = (int)color;
             Score evalMisc = Score.Zero;
 
-            // TODO: Fix bug because overlapping pawn attacks should not count as 1 attack for center control
-            evalMisc += BitOps.PopCount(evalInfo[c].PawnAttacks & D0_CENTER_CONTROL_MASK) * wts.CenterControl(0);
-            evalMisc += BitOps.PopCount(evalInfo[c].PawnAttacks & D1_CENTER_CONTROL_MASK) * wts.CenterControl(1);
+            for (ulong bb = evalInfo[c].Pawns; bb != 0; bb = BitOps.ResetLsb(bb))
+            {
+                int sq = BitOps.TzCount(bb);
+                ulong attacks = Board.PawnCaptures(color, sq);
+                evalMisc += BitOps.PopCount(attacks & D0_CENTER_CONTROL_MASK) * wts.CenterControl(0);
+                evalMisc += BitOps.PopCount(attacks & D1_CENTER_CONTROL_MASK) * wts.CenterControl(1);
+            }
 
             for (int n = 0; n < evalInfo[c].AttackCount; n++)
             {
