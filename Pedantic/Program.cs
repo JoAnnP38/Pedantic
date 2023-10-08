@@ -909,11 +909,9 @@ namespace Pedantic
             WriteLine("/* supported pawn chain */");
             WriteWts2D(wts.Weights, HceWeights.CHAINED_PAWN, 8, Constants.MAX_SQUARES);
             WriteLine();
-#if PP_CAN_ADVANCE
             WriteLine("/* passed pawn can advance */");
             WriteWtsLine(wts.Weights, HceWeights.PP_CAN_ADVANCE, 4);
             WriteLine();
-#endif
             WriteLine("/* enemy king outside passed pawn square */");
             WriteWtLine(wts[HceWeights.KING_OUTSIDE_PP_SQUARE]);
             WriteLine();
@@ -1125,11 +1123,9 @@ namespace Pedantic
             WriteLine("/* supported pawn chain */");
             WriteWts2D(ChessWeights.SUPPORTED_PAWN, 8, Constants.MAX_SQUARES);
             WriteLine();
-#if PP_CAN_ADVANCE
             WriteLine("/* passed pawn can advance */");
-            WriteWtsLine(wts.Weights, HceWeights.PP_CAN_ADVANCE, 4);
+            WriteWtsLine(ChessWeights.PP_CAN_ADVANCE, 4);
             WriteLine();
-#endif
             WriteLine("/* enemy king outside passed pawn square */");
             WriteWtLine(ChessWeights.KING_OUTSIDE_PP_SQUARE);
             WriteLine();

@@ -55,7 +55,7 @@ namespace Pedantic.Tuning
         public const int PAWN_RAM = HceWeights.PAWN_RAM;
         public const int SUPPORTED_PAWN = HceWeights.CHAINED_PAWN;
 
-        //public const int PP_CAN_ADVANCE = HceWeights.PP_CAN_ADVANCE;
+        public const int PP_CAN_ADVANCE = HceWeights.PP_CAN_ADVANCE;
         public const int KING_OUTSIDE_SQUARE = HceWeights.KING_OUTSIDE_PP_SQUARE;
         public const int PP_FRIENDLY_KING_DIST = HceWeights.PP_FRIENDLY_KING_DISTANCE;
         public const int PP_ENEMY_KING_DIST = HceWeights.PP_ENEMY_KING_DISTANCE;
@@ -119,19 +119,19 @@ namespace Pedantic.Tuning
                     Ray ray = Board.Vectors[sq];
                     ulong friendMask = color == Color.White ? ray.North : ray.South;
                     ulong sqMask = BitOps.GetMask(sq);
-                    bool canBeBackward = true;
+                    //bool canBeBackward = true;
 
                     if ((otherPawns & Evaluation2.PassedPawnMasks[c, sq]) == 0 && (pawns & friendMask) == 0)
                     {
                         SetPassedPawns(v, normalSq);
                         evalInfo[c].PassedPawns |= sqMask;
-                        canBeBackward = false;
+                    //    canBeBackward = false;
                     }
 
                     if ((pawns & Evaluation2.IsolatedPawnMasks[sq]) == 0)
                     {
                         IncrementIsolatedPawns(v);
-                        canBeBackward = false;
+                    //    canBeBackward = false;
                     }
 
                     //if (canBeBackward & (pawns & Evaluation2.BackwardPawnMasks[c, sq]) == 0)
@@ -456,15 +456,13 @@ namespace Pedantic.Tuning
                         continue;
                     }
 
-#if PP_CAN_ADVANCE
                     int blockSq = Board.PawnPlus[c, sq];
                     ulong advanceMask = BitOps.GetMask(blockSq);
                     ulong atkMask = evalInfo[o].PawnAttacks | evalInfo[o].KingAttacks | evalInfo[o].PieceAttacks;
-                    if ((advanceMask & atkMask) == 0)
+                    if ((advanceMask & bd.All) == 0 && (advanceMask & atkMask) == 0)
                     {
                         IncrementPPCanAdvance(v, normalRank);
                     }
-#endif
                 }
 
                 ulong blockedPawns = (other == Color.White) ? (evalInfo[o].PassedPawns << 8) : (evalInfo[o].PassedPawns >> 8);
@@ -929,7 +927,6 @@ namespace Pedantic.Tuning
             }
         }
 
-#if PP_CAN_ADVANCE
         public static void IncrementPPCanAdvance(IDictionary<int, short> v, int rank)
         {
             rank -= Coord.RANK_4;
@@ -943,7 +940,6 @@ namespace Pedantic.Tuning
                 v[key] = 1;
             }
         }
-#endif
 
 #pragma warning restore CA1854
     }

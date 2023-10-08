@@ -404,14 +404,12 @@ namespace Pedantic.Chess
                 dist = Index.Distance(blockSq, evalInfo[o].KI);
                 evalPassed += dist * wts.PasserEnemyKingDistance;
 
-#if PP_CAN_ADVANCE
                 ulong advanceMask = BitOps.GetMask(blockSq);
                 ulong attackMask = evalInfo[o].PawnAttacks | evalInfo[o].KingAttacks | evalInfo[o].PieceAttacks;
-                if ((advanceMask & attackMask) == 0)
+                if ((advanceMask & board.All) == 0 && (advanceMask & attackMask) == 0)
                 {
                     evalPassed += wts.PassedPawnCanAdvance(normalRank);
                 }
-#endif
             }
 
             ulong enemyPassedPawns = evalInfo[o].PassedPawns;
