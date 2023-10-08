@@ -421,10 +421,15 @@ namespace Pedantic.Tuning
                 }
 
                 // Miscellaneous
-                // TODO: test whether removing squares defended by opposing pawns gains
-                // TODO: Fix bug because overlapping pawn attacks should not count as 1 attack for center control
-                IncrementCenterControl(v, 0, (short)BitOps.PopCount(evalInfo[c].PawnAttacks & Evaluation2.D0_CENTER_CONTROL_MASK));
-                IncrementCenterControl(v, 1, (short)BitOps.PopCount(evalInfo[c].PawnAttacks & Evaluation2.D1_CENTER_CONTROL_MASK));
+                for (ulong bb = evalInfo[c].Pawns; bb != 0; bb = BitOps.ResetLsb(bb))
+                {
+                    int sq = BitOps.TzCount(bb);
+                    ulong attacks = Board.PawnCaptures(color, sq);
+                    short d0Count = (short)BitOps.PopCount(attacks & Evaluation2.D0_CENTER_CONTROL_MASK);
+                    short d1Count = (short)BitOps.PopCount(attacks & Evaluation2.D1_CENTER_CONTROL_MASK);
+                    IncrementCenterControl(v, 0, d0Count);
+                    IncrementCenterControl(v, 1, d0Count);
+                }
 
                 for (int n = 0; n < evalInfo[c].AttackCount; n++)
                 {
