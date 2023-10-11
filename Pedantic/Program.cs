@@ -265,8 +265,8 @@ namespace Pedantic
                     Console.WriteLine($@"id author {AUTHOR}");
                     Console.WriteLine(@"option name Clear Hash type button");
                     Console.WriteLine(@"option name CollectStats type check default false");
-                    Console.WriteLine($@"option name Hash type spin default {TtTran.DEFAULT_SIZE_MB} min 1 max {TtTran.MAX_SIZE_MB}");
-                    Console.WriteLine($@"option name Threads type spin default 1 min 1 max {Math.Max(Environment.ProcessorCount - 2, 1)}");
+                    Console.WriteLine($@"option name Hash type spin default {TtTran.DEFAULT_SIZE_MB} min 16 max {TtTran.MAX_SIZE_MB}");
+                    Console.WriteLine($@"option name Threads type spin default 1 min 1 max {Math.Max(Environment.ProcessorCount, 1)}");
                     Console.WriteLine(@"option name OwnBook type check default true");
                     Console.WriteLine(@"option name Ponder type check default true");
                     Console.WriteLine(@"option name RandomSearch type check default false");
@@ -375,6 +375,7 @@ namespace Pedantic
                     case "Hash":
                         if (tokens[3] == "value" && int.TryParse(tokens[4], out int sizeMb))
                         {
+                            sizeMb = Math.Clamp(sizeMb, 16, 2048);
                             UciOptions.Hash = sizeMb;
                             Engine.ResizeHashTable();
                         }
@@ -397,6 +398,7 @@ namespace Pedantic
                     case "Threads":
                         if (tokens[3] == "value" && int.TryParse(tokens[4], out int searchThreads))
                         {
+                            searchThreads = Math.Clamp(searchThreads, 1, Environment.ProcessorCount);
                             Engine.SearchThreads = searchThreads;
                             UciOptions.Threads = Engine.SearchThreads;
                         }
