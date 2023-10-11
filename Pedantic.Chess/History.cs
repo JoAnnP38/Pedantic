@@ -95,7 +95,7 @@ namespace Pedantic.Chess
             return ((int)Move.GetStm(move) * 384) + ((int)Move.GetPiece(move) * 64) + Move.GetTo(move);
         }
 
-        private unsafe void Rescale()
+        public unsafe void Rescale()
         {
             fixed (short* p = &hhHistory[0])
             {

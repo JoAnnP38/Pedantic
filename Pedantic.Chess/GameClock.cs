@@ -7,18 +7,35 @@ using System.Threading.Tasks;
 
 namespace Pedantic.Chess
 {
-    public sealed class GameClock
+    public sealed class GameClock : ICloneable
     {
         public GameClock()
         {
             Reset();
         }
 
+        private GameClock(GameClock other)
+        {
+            t0 = other.t0;
+            tN = other.tN;
+            timeBudget = other.timeBudget;
+            adjustedBudget = other.adjustedBudget;
+            timeLimit = other.timeLimit;
+            absoluteLimit = other.absoluteLimit;
+            difficulty = other.difficulty;
+            remaining = other.remaining;
+        }
+
         public bool Infinite { get; set; }
-        public long Now => Stopwatch.GetTimestamp();
+        public static long Now => Stopwatch.GetTimestamp();
         public int Elapsed => Milliseconds(Now - t0);
         public int ElapsedInterval => Milliseconds(Now - tN);
         public int TimeLimit => timeLimit;
+        public Uci Uci
+        {
+            get => uci;
+            set => uci = value;
+        }
 
         public void Reset()
         {
@@ -170,7 +187,17 @@ namespace Pedantic.Chess
             return false;
         }
 
-        private int Milliseconds(long ticks) => (int)((ticks * 1000L) / Stopwatch.Frequency);
+        private static int Milliseconds(long ticks) => (int)((ticks * 1000L) / Stopwatch.Frequency);
+
+        public GameClock Clone()
+        {
+            return new(this);
+        }
+
+        object ICloneable.Clone()
+        {
+            return Clone();
+        }
 
         private const int time_margin = 25;
         private const int branch_factor_multiplier = 30; /* A: 28, B: 30, C: 32 */
@@ -191,5 +218,6 @@ namespace Pedantic.Chess
         private int absoluteLimit;      // time limit that represents the absolute limit on search time
         private int difficulty;         // a quantity that reflects difficulty of position
         private int remaining;
+        private Uci uci = Uci.Default;
     }
 }

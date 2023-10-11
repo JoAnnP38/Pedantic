@@ -1,247 +1,74 @@
-﻿// ***********************************************************************
-// Assembly         : Pedantic.Chess
-// Author           : JoAnn D. Peeler
-// Created          : 03-18-2023
-//
-// Last Modified By : JoAnn D. Peeler
-// Last Modified On : 03-27-2023
-// ***********************************************************************
-// <copyright file="Evaluation.cs" company="Pedantic.Chess">
-//     Copyright (c) . All rights reserved.
-// </copyright>
-// <summary>
-//     Class Evaluation is used to evaluate a static chess position.
-// </summary>
-// ***********************************************************************
-using Pedantic.Genetics;
-using Pedantic.Utilities;
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
+
 using Pedantic.Collections;
-using System.Numerics;
-using System.Drawing;
-using System.ComponentModel.DataAnnotations;
+using Pedantic.Utilities;
 
 namespace Pedantic.Chess
 {
-    public struct EvalParts
-    {
-        public int MaterialPlusPst;
-        public int CachedPawns;
-        public int Mobility;
-        public int KingSafety;
-        public int PieceEval;
-        public int PassedPawnEval;
-        public int ThreatEval;
-        public int MiscEval;      
-
-        public void Clear()
-        {
-            MaterialPlusPst = 0;
-            CachedPawns = 0;
-            Mobility = 0;
-            KingSafety = 0; 
-            PieceEval = 0;
-            PassedPawnEval = 0;
-            ThreatEval = 0;
-            MiscEval = 0;
-        }
-
-        public void AdjustSign(Color stm)
-        {
-            if (stm == Color.Black)
-            {
-                MaterialPlusPst = -MaterialPlusPst;
-                CachedPawns = -CachedPawns;
-                Mobility = -Mobility;
-                KingSafety = -KingSafety;
-                PieceEval = -PieceEval;
-                PassedPawnEval = -PassedPawnEval;
-                ThreatEval = -ThreatEval;
-                MiscEval = -MiscEval;
-            }
-        }
-    }
     public sealed class Evaluation
     {
         public const ulong D0_CENTER_CONTROL_MASK = 0x0000001818000000ul;
         public const ulong D1_CENTER_CONTROL_MASK = 0x00003C24243C0000ul;
         public const ulong DARK_SQUARES_MASK = 0xAA55AA55AA55AA55ul;
         public const ulong LITE_SQUARES_MASK = 0x55AA55AA55AA55AAul;
+        public const int LAZY_MARGIN = 500;
+        public const int MAX_ATTACK_LEN = 16;
+
+        public enum EgKingPst { Normal, MopUp, MopUpNBLight, MopUpNBDark }
+
+        unsafe public struct EvalInfo
+        {
+            public ulong Pawns;
+            public ulong PassedPawns;
+            public ulong PawnAttacks;
+            public ulong KingAttacks;
+            public ulong PieceAttacks;
+            public ulong MobilityArea;
+            public sbyte TotalPawns;
+            public sbyte KI;
+            public KingPlacement KP;
+            public short Material;
+            public bool CanWin;
+            public EgKingPst KingPst;
+            public byte CastlingRightsMask;
+            public byte AttackCount;
+            public fixed ulong Attacks[MAX_ATTACK_LEN];
+        }
 
         static Evaluation()
         {
-            wt = new EvalWeights(LoadWeights());
+            wts = new HceWeights();
+            InitializeMopUpTables();
         }
 
-        public Evaluation(bool adjustMaterial = true, bool random = false, bool useMopUp = false)
+        public Evaluation(EvalCache cache, bool random = false, bool useMopup = true)
         {
-            this.adjustMaterial = adjustMaterial;
+            this.cache = cache;
             this.random = random;
-            this.useMopUp = useMopUp;
-        }
-
-        public bool ShowIntermediateResults
-        {
-            get => showIntermediateResults;
-            set => showIntermediateResults = value;
+            this.useMopup = useMopup;
         }
 
         public short Compute(Board board, int alpha = -Constants.INFINITE_WINDOW, int beta = Constants.INFINITE_WINDOW)
         {
-            if (TtEval.TryGetScore(board.Hash, out short score))
+            if (cache.ProbeEvalCache(board.Hash, board.SideToMove, out EvalCache.EvalCacheItem item))
             {
-                return score;
+                return item.EvalScore;
             }
 
-            ClearScores();
-            totalPawns = BitOps.PopCount(board.Pieces(Color.White, Piece.Pawn) | board.Pieces(Color.Black, Piece.Pawn));
-            passedPawns = 0;
-            kingIndex[0] = BitOps.TzCount(board.Pieces(Color.White, Piece.King));
-            kingIndex[1] = BitOps.TzCount(board.Pieces(Color.Black, Piece.King));
-            ulong pawns = board.Pieces(Color.White, Piece.Pawn);
-            pawnAttacks[0] = ((pawns & ~Board.MaskFile(Index.A1)) << 7) |
-                             ((pawns & ~Board.MaskFile(Index.H1)) << 9);
-
-            pawns = board.Pieces(Color.Black, Piece.Pawn);
-            pawnAttacks[1] = ((pawns & ~Board.MaskFile(Index.H1)) >> 7) |
-                             ((pawns & ~Board.MaskFile(Index.A1)) >> 9);
-
-            kp[0] = Index.GetKingPlacement(kingIndex[0], kingIndex[1]);
-            kp[1] = Index.GetKingPlacement(kingIndex[1], kingIndex[0]);
-            currentPhase = GetGamePhase(board, out opWt, out egWt);
-
+            Span<EvalInfo> evalInfo = stackalloc EvalInfo[2];
+            InitializeEvalInfo(board, evalInfo);
+            gamePhase = GetGamePhase(board, evalInfo);
             bool isLazy = false;
-            score = currentPhase == GamePhase.EndGameMopup ? ComputeMopUp(board) : ComputeNormal(board, alpha, beta, ref isLazy);
-            score = board.SideToMove == Color.White ? score : (short)-score;
-            evalParts.AdjustSign(board.SideToMove);
-            if (!isLazy)
+            short score = gamePhase == GamePhase.EndGameMopup ? 
+                ComputeMopUp(board, evalInfo) :
+                ComputeNormal(board, evalInfo, alpha, beta, ref isLazy);
+
+            if (random)
             {
-                TtEval.Add(board.Hash, score);
-            }
-            return score;
-        }
-
-        // A variation of the Chess 4.5 MopUp evaluation (+14 Elo)
-        public short ComputeMopUp(Board board)
-        {
-            for (Color color = Color.White; color <= Color.Black; color++)
-            {
-                int c = (int)color;
-                Color other = color.Other();
-                int o = (int)other;
-                egScore[c] += board.Material[c].EgScore;
-
-                if (color == winning)
-                {
-                    short[] mate = mopupMate;
-                    /*if ((board.Units(other) ^ board.Pieces(other, Piece.King)) == 0 &&
-                        BitOps.PopCount(board.Pieces(color, Piece.Bishop)) == 1 &&
-                        BitOps.PopCount(board.Pieces(color, Piece.Knight)) == 1 &&
-                        (board.Pieces(color, Piece.Rook) | board.Pieces(color, Piece.Queen)) == 0)
-                    {
-                        int bishopIndex = BitOps.TzCount(board.Pieces(color, Piece.Bishop));
-                        if (Index.IsDark(bishopIndex))
-                        {
-                            mate = mopupMateNBDark;
-                        }
-                        else
-                        {
-                            mate = mopupMateNBLight;
-                        }
-                    }*/
-                    short mopup = mate[kingIndex[o]];
-                    mopup += (short)((14 - Index.ManhattanDistance(kingIndex[c], kingIndex[o])) * 10);
-
-                    for (ulong bb = board.Pieces(winning, Piece.Knight); bb != 0; bb = BitOps.ResetLsb(bb))
-                    {
-                        int index = BitOps.TzCount(bb);
-                        mopup += (short)((14 - Index.ManhattanDistance(index, kingIndex[o])) * 10);
-                    }
-                    egScore[c] += mopup;
-                }
+                score += (short)rand.Next(-8, 9);
             }
 
-            return (short)(egScore[0] - egScore[1]);
-        }
-
-        public short ComputeNormal(Board board, int alpha, int beta, ref bool isLazy)
-        {
-            //opScore[0] = AdjustMaterial(board.OpeningMaterial[0], adjust[0]);
-            //egScore[0] = AdjustMaterial(board.EndGameMaterial[0], adjust[0]);
-            //opScore[1] = AdjustMaterial(board.OpeningMaterial[1], adjust[1]);
-            //egScore[1] = AdjustMaterial(board.EndGameMaterial[1], adjust[1]);
-            opScore[0] = board.Material[0].MgScore;
-            egScore[0] = board.Material[0].EgScore;
-            opScore[1] = board.Material[1].MgScore;
-            egScore[1] = board.Material[1].EgScore;
-
-            for (Color color = Color.White; color <= Color.Black; color++)
-            {
-                int c = (int)color;
-                
-                for (Piece piece = Piece.Pawn; piece <= Piece.King; piece++)
-                {
-                    for (ulong bb = board.Pieces(color, piece); bb != 0; bb = BitOps.ResetLsb(bb))
-                    {
-                        int sq = BitOps.TzCount(bb);
-                        opScore[c] += wt.OpeningPieceSquareTable(piece, kp[c], Index.NormalizedIndex[c][sq]);
-                        egScore[c] += wt.EndGamePieceSquareTable(piece, kp[c], Index.NormalizedIndex[c][sq]);
-                    }
-                }
-            }
-
-            int score = ((opScore[0] - opScore[1]) * opWt + (egScore[0] - egScore[1]) * egWt) / Constants.MAX_PHASE;
-
-            isLazy = true;
-            int evalScore = ((int)board.SideToMove * -2 + 1) * score;
-            MaterialPlusPst = score;
-
-            if (evalScore >= alpha - Constants.LAZY_EVAL_MARGIN && evalScore <= beta + Constants.LAZY_EVAL_MARGIN)
-            {
-                isLazy = false;
-                bool pawnsHashed = TtPawnEval.TryLookup(board.PawnHash, out TtPawnEval.TtPawnItem item);
-
-                ComputeKingAttacks(Color.White, board);
-                ComputeKingAttacks(Color.Black, board);
-
-                if (pawnsHashed)
-                {
-                    opScore[0] += item.GetOpeningScore(Color.White);
-                    egScore[0] += item.GetEndGameScore(Color.White);
-                    opScore[1] += item.GetOpeningScore(Color.Black);
-                    egScore[1] += item.GetEndGameScore(Color.Black);
-                    passedPawns = PassedPawnBitboard(board);
-                }
-                else if (totalPawns > 0)
-                {
-                    ComputePawns(Color.White, board);
-                    ComputePawns(Color.Black, board);
-                    opScore[0] += opPawnScore[0];
-                    egScore[0] += egPawnScore[0];
-                    opScore[1] += opPawnScore[1];
-                    egScore[1] += egPawnScore[1];
-                }
-
-                if (!pawnsHashed)
-                {
-                    TtPawnEval.Add(board.PawnHash, opPawnScore, egPawnScore);
-                }
-
-                ComputeMisc(Color.White, board);
-                ComputeMisc(Color.Black, board);
-                ComputeThreats(Color.White, board);
-                ComputeThreats(Color.Black, board);
-
-                score = ((opScore[0] - opScore[1]) * opWt + (egScore[0] - egScore[1]) * egWt) / Constants.MAX_PHASE;
-
-                if (random)
-                {
-                    score += (short)Random.Shared.Next(-8, 9);
-                }
-            }
-
-            (bool whiteCanWin, bool blackCanWin) = CanWin(board);
-            if ((score > 0 && !whiteCanWin) || (score < 0 && !blackCanWin))
+            if ((score > 0 && !evalInfo[0].CanWin) || (score < 0 && !evalInfo[1].CanWin))
             {
                 score >>= 3;
             }
@@ -250,304 +77,310 @@ namespace Pedantic.Chess
                 score = (short)((score * Math.Min(100 - Math.Min(board.HalfMoveClock, 100), 16)) >> 4);
             }
 
-            return (short)score;
+            score = StmScore(board.SideToMove, score);
+
+            if (!isLazy)
+            {
+                cache.SaveEval(board.Hash, score, board.SideToMove);
+            }
+
+            return score;
         }
 
-        /// <summary>
-        /// Determines whether this instance can win the specified board.
-        /// </summary>
-        /// <remarks>
-        /// This function implements an estimate on whether a side can win;
-        /// however, it is simple. We can extend this with more detailed
-        /// heuristic in a later release.
-        /// </remarks>
-        /// <param name="board">The board.</param>
-        /// <returns>System.ValueTuple&lt;System.Boolean, System.Boolean&gt;.</returns>
-        public static (bool WhiteCanWin, bool BlackCanWin) CanWin(Board board)
+        public short ComputeNormal(Board board, Span<EvalInfo> evalInfo, int alpha, int beta, ref bool isLazy)
+        {
+            Score score = EvalMaterialAndPst(board, evalInfo, Color.White);
+            score -= EvalMaterialAndPst(board, evalInfo, Color.Black);
+
+            int normalScore = score.NormalizeScore(board.Phase);
+            int evalScore = StmScore(board.SideToMove, normalScore);
+
+            // if material + PST evaluation is outside alpha/beta window just return 
+            if (evalScore < alpha - LAZY_MARGIN || evalScore > beta + LAZY_MARGIN)
+            {
+                isLazy = true;
+                return (short)normalScore;
+            }
+            
+            score += ProbePawnCache(board, evalInfo);
+            score += EvalMobility(board, evalInfo, Color.White);
+            score -= EvalMobility(board, evalInfo, Color.Black);
+            score += EvalKingSafety(board, evalInfo, Color.White);
+            score -= EvalKingSafety(board, evalInfo, Color.Black);
+            score += EvalPieces(board, evalInfo, Color.White);
+            score -= EvalPieces(board, evalInfo, Color.Black);
+            score += EvalPassedPawns(board, evalInfo, Color.White);
+            score -= EvalPassedPawns(board, evalInfo, Color.Black);
+            score += EvalThreats(board, evalInfo, Color.White);
+            score -= EvalThreats(board, evalInfo, Color.Black);
+            score += EvalMisc(board, evalInfo, Color.White);
+            score -= EvalMisc(board, evalInfo, Color.Black);
+
+            return score.NormalizeScore(board.Phase);
+        }
+
+        public short ComputeMopUp(Board board, Span<EvalInfo> evalInfo)
+        {
+            Span<Score> eval = stackalloc Score[Constants.MAX_COLORS];
+            eval.Clear();
+
+            for (Color color = Color.White; color <= Color.Black; color++)
+            {
+                Color other = color.Other();
+                int c = (int)color;
+                int o = (int)other;
+                eval[c] += board.Material[c];
+                ReadOnlySpan<Score> kingTable = evalInfo[c].KingPst switch
+                {
+                    EgKingPst.MopUp         => mopUpMate,
+                    EgKingPst.MopUpNBLight  => mopUpMateNBLight,
+                    EgKingPst.MopUpNBDark   => mopUpMateNBDark,
+                    _ => new ReadOnlySpan<Score>(wts.Weights, 1286, Constants.MAX_SQUARES * Constants.MAX_KING_PLACEMENTS)
+                };
+
+                for (ulong bb = board.Units(color); bb != 0; bb = BitOps.ResetLsb(bb))
+                {
+                    int sq = BitOps.TzCount(bb);
+                    int normalSq = Index.NormalizedIndex[c][sq];
+                    Piece piece = board.PieceBoard[sq].Piece;
+                    if (piece == Piece.King)
+                    {
+                        int index = (int)evalInfo[c].KP * 64 + normalSq;
+                        eval[c] += kingTable[index];
+                    }
+                    else
+                    {
+                        eval[c] += wts.PieceSquareValue(piece, evalInfo[c].KP, normalSq);
+                    }
+                }
+
+                if (evalInfo[c].CanWin)
+                {
+                    short k2kDist = (short)((14 - Index.ManhattanDistance(evalInfo[c].KI, evalInfo[o].KI)) * 10);
+                    eval[c] += new Score(k2kDist, k2kDist);
+
+                    for (ulong bb = board.Pieces(color, Piece.Knight); bb != 0; bb = BitOps.ResetLsb(bb))
+                    {
+                        int sq = BitOps.TzCount(bb);
+                        short n2kDist = (short)((14 - Index.ManhattanDistance(sq, evalInfo[o].KI)) * 10);
+                        eval[c] += new Score(n2kDist, n2kDist);
+                    }
+                }
+            }
+
+            Score score = eval[0] - eval[1];
+            return score.NormalizeScore(board.Phase);
+        }
+
+        public static void InitializeEvalInfo(Board board, Span<EvalInfo> evalInfo)
+        {
+            for (Color color = Color.White; color <= Color.Black; color++)
+            {
+                int c = (int)color;
+
+                evalInfo[c].Pawns = board.Pieces(color, Piece.Pawn);
+                if (color == Color.White)
+                {
+                    evalInfo[c].PawnAttacks = ((evalInfo[c].Pawns & ~Board.MaskFile(Index.A1)) << 7) |
+                                              ((evalInfo[c].Pawns & ~Board.MaskFile(Index.H1)) << 9);
+                    evalInfo[c].CastlingRightsMask = (byte)CastlingRights.WhiteRights;
+                }
+                else
+                {
+                    evalInfo[c].PawnAttacks = ((evalInfo[c].Pawns & ~Board.MaskFile(Index.H1)) >> 7) |
+                                              ((evalInfo[c].Pawns & ~Board.MaskFile(Index.A1)) >> 9);
+                    evalInfo[c].CastlingRightsMask = (byte)CastlingRights.BlackRights;
+                }
+                evalInfo[c].KI = (sbyte)BitOps.TzCount(board.Pieces(color, Piece.King));
+                evalInfo[c].KingAttacks = board.GetPieceMoves(Piece.King, evalInfo[c].KI);
+                evalInfo[c].PieceAttacks = 0;
+                evalInfo[c].Material = board.Material[c].NormalizeScore(board.Phase);
+                evalInfo[c].CanWin = evalInfo[c].Pawns != 0;
+                evalInfo[c].KingPst = EgKingPst.Normal;
+                evalInfo[c].PassedPawns = 0;
+                evalInfo[c].MobilityArea = 0;
+                evalInfo[c].AttackCount = 0;
+            }
+            var (WhiteCanWin, BlackCanWin) = CanWin(board, evalInfo);
+            evalInfo[0].TotalPawns = evalInfo[1].TotalPawns = (sbyte)BitOps.PopCount(evalInfo[0].Pawns | evalInfo[1].Pawns);
+            evalInfo[0].KP = Index.GetKingPlacement(evalInfo[0].KI, evalInfo[1].KI);
+            evalInfo[0].CanWin = WhiteCanWin;
+            evalInfo[0].MobilityArea = ~(board.Units(Color.White) | evalInfo[1].PawnAttacks);
+            evalInfo[1].TotalPawns = evalInfo[0].TotalPawns;
+            evalInfo[1].KP = Index.GetKingPlacement(evalInfo[1].KI, evalInfo[0].KI);
+            evalInfo[1].CanWin = BlackCanWin;
+            evalInfo[1].MobilityArea = ~(board.Units(Color.Black) | evalInfo[0].PawnAttacks);
+        }
+
+        public static bool SufficientMatingMaterial(Board board, Span<EvalInfo> evalInfo, Color side)
+        {
+            int numKnights = BitOps.PopCount(board.Pieces(side, Piece.Knight));
+            int numBishops = BitOps.PopCount(board.Pieces(side, Piece.Bishop));
+            bool case1 = (board.Pieces(side, Piece.Rook) | board.Pieces(side, Piece.Queen)) != 0;
+            bool case2 = (numKnights >= 1 && numBishops >= 1) || numBishops >= 2 || numKnights >= 3;
+            int o = (int)side.Other();
+
+            if (case1 || case2)
+            {
+                evalInfo[o].KingPst = EgKingPst.MopUp;
+            }
+
+            if (!case1 && numKnights == 1 && numBishops == 1)
+            {
+                int sq = BitOps.TzCount(board.Pieces(side, Piece.Bishop));
+                evalInfo[o].KingPst = Index.IsDark(sq) ? EgKingPst.MopUpNBDark : EgKingPst.MopUpNBLight;
+            }
+            return case1 || case2;
+        }
+
+        public static (bool WhiteCanWin, bool BlackCanWin) CanWin(Board board, Span<EvalInfo> evalInfo)
         {
             bool whiteCanWin = false, blackCanWin = false;
-            short materialWhite = board.Material[(int)Color.White].EgScore;
-            short materialBlack = board.Material[(int)Color.Black].EgScore;
-            short pawnValue = EndGamePieceValues(Piece.Pawn);
+            int winMargin = wts.PieceValue(Piece.Pawn).NormalizeScore(board.Phase) * 4;
 
-            if (board.Pieces(Color.White, Piece.Pawn) != 0 ||
-                materialWhite - materialBlack >= (pawnValue << 2))
+            if (evalInfo[0].Pawns != 0)
             {
                 whiteCanWin = true;
             }
+            else if (evalInfo[0].Material - evalInfo[1].Material >= winMargin)
+            {
+                whiteCanWin = SufficientMatingMaterial(board, evalInfo, Color.White);
+            }
 
-            if (board.Pieces(Color.Black, Piece.Pawn) != 0 ||
-                materialBlack - materialWhite >= (pawnValue << 2))
+            if (evalInfo[1].Pawns != 0)
             {
                 blackCanWin = true;
+                evalInfo[1].KingPst = EgKingPst.Normal;
+            }
+            else if (evalInfo[1].Material - evalInfo[0].Material >= winMargin)
+            {
+                blackCanWin = SufficientMatingMaterial(board, evalInfo, Color.Black);
             }
 
             return (whiteCanWin, blackCanWin);
         }
 
-        public short AdjustMaterial(short material, int adjustWt)
+        public GamePhase GetGamePhase(Board board, Span<EvalInfo> evalInfo)
         {
-            return adjustMaterial ? (short)((material * adjustWt) >> 5) : material;
+            GamePhase gamePhase = board.GamePhase;
+
+            if (useMopup && gamePhase == GamePhase.EndGame && evalInfo[0].TotalPawns == 0)
+            {
+                Color winning = evalInfo[0].CanWin ? Color.White : (evalInfo[1].CanWin ? Color.Black : Color.None);
+                if (winning != Color.None)
+                {
+                    gamePhase = GamePhase.EndGameMopup;
+                }
+            }
+            return gamePhase;
         }
 
-        public void ComputeKingAttacks(Color color, Board board)
+        public static Score EvalMaterialAndPst(Board board, Span<EvalInfo> evalInfo, Color color)
         {
-            Span<short> mobility = stackalloc short[Constants.MAX_PIECES];
-            Span<short> kingAttacks = stackalloc short[3];
-            Span<short> centerControl = stackalloc short[2];
-
             int c = (int)color;
-            int o = (int)color.Other();
-            board.GetPieceMobility(color, mobility, kingAttacks, centerControl);
-            int opMobility = 0, egMobility = 0;
-            int opKingSafety = 0, egKingSafety = 0;
-            int opMisc = 0, egMisc = 0;
+            Score evalPst = board.Material[c];
 
-            opScore[c] += (short)(mobility[(int)Piece.Knight] * wt.OpeningPieceMobility(Piece.Knight));
-            opMobility += (short)(mobility[(int)Piece.Knight] * wt.OpeningPieceMobility(Piece.Knight));
-            egScore[c] += (short)(mobility[(int)Piece.Knight] * wt.EndGamePieceMobility(Piece.Knight));
-            egMobility += (short)(mobility[(int)Piece.Knight] * wt.EndGamePieceMobility(Piece.Knight));
-
-            opScore[c] += (short)(mobility[(int)Piece.Bishop] * wt.OpeningPieceMobility(Piece.Bishop));
-            opMobility += (short)(mobility[(int)Piece.Bishop] * wt.OpeningPieceMobility(Piece.Bishop));
-            egScore[c] += (short)(mobility[(int)Piece.Bishop] * wt.EndGamePieceMobility(Piece.Bishop));
-            egMobility += (short)(mobility[(int)Piece.Bishop] * wt.EndGamePieceMobility(Piece.Bishop));
-
-            opScore[c] += (short)(mobility[(int)Piece.Rook] * wt.OpeningPieceMobility(Piece.Rook));
-            opMobility += (short)(mobility[(int)Piece.Rook] * wt.OpeningPieceMobility(Piece.Rook));
-            egScore[c] += (short)(mobility[(int)Piece.Rook] * wt.EndGamePieceMobility(Piece.Rook));
-            egMobility += (short)(mobility[(int)Piece.Rook] * wt.EndGamePieceMobility(Piece.Rook));
-
-            opScore[c] += (short)(mobility[(int)Piece.Queen] * wt.OpeningPieceMobility(Piece.Queen));
-            opMobility += (short)(mobility[(int)Piece.Queen] * wt.OpeningPieceMobility(Piece.Queen));
-            egScore[c] += (short)(mobility[(int)Piece.Queen] * wt.EndGamePieceMobility(Piece.Queen));
-            egMobility += (short)(mobility[(int)Piece.Queen] * wt.EndGamePieceMobility(Piece.Queen));
-
-            opScore[c] += (short)(kingAttacks[0] * wt.OpeningKingAttack(0));
-            opKingSafety += (short)(kingAttacks[0] * wt.OpeningKingAttack(0));
-            opScore[c] += (short)(kingAttacks[1] * wt.OpeningKingAttack(1));
-            opKingSafety += (short)(kingAttacks[1] * wt.OpeningKingAttack(1));
-            opScore[c] += (short)(kingAttacks[2] * wt.OpeningKingAttack(2));
-            opKingSafety += (short)(kingAttacks[2] * wt.OpeningKingAttack(2));
-
-            egScore[c] += (short)(kingAttacks[0] * wt.EndGameKingAttack(0));
-            egKingSafety += (short)(kingAttacks[0] * wt.EndGameKingAttack(0));
-            egScore[c] += (short)(kingAttacks[1] * wt.EndGameKingAttack(1));
-            egKingSafety += (short)(kingAttacks[1] * wt.EndGameKingAttack(1));
-            egScore[c] += (short)(kingAttacks[2] * wt.EndGameKingAttack(2));
-            egKingSafety += (short)(kingAttacks[2] * wt.EndGameKingAttack(2));
-
-            opScore[c] += (short)(centerControl[0] * wt.OpeningCenterControl(0));
-            opMisc += (short)(centerControl[0] * wt.OpeningCenterControl(0));
-            opScore[c] += (short)(centerControl[1] * wt.OpeningCenterControl(1));
-            opMisc += (short)(centerControl[1] * wt.OpeningCenterControl(1));
-
-            egScore[c] += (short)(centerControl[0] * wt.EndGameCenterControl(0));
-            egMisc += (short)(centerControl[0] * wt.EndGameCenterControl(0));
-            egScore[c] += (short)(centerControl[1] * wt.EndGameCenterControl(1));
-            egMisc += (short)(centerControl[1] * wt.EndGameCenterControl(1));
-
-            if (color == Color.White)
+            for (ulong bb = board.Units(color); bb != 0; bb = BitOps.ResetLsb(bb))
             {
-                Mobility += ((opMobility * opWt) + (egMobility * egWt)) / Constants.MAX_PHASE;
-                KingSafety += ((opKingSafety * opWt) + (egKingSafety * egWt)) / Constants.MAX_PHASE;
-                MiscEval += ((opMisc * opWt) + (egMisc * egWt)) / Constants.MAX_PHASE;
+                int sq = BitOps.TzCount(bb);
+                int normalSq = Index.NormalizedIndex[c][sq];
+                Square square = board.PieceBoard[sq];
+
+                evalPst += wts.PieceSquareValue(square.Piece, evalInfo[c].KP, normalSq);
             }
-            else
-            {
-                Mobility -= ((opMobility * opWt) + (egMobility * egWt)) / Constants.MAX_PHASE;
-                KingSafety -= ((opKingSafety * opWt) + (egKingSafety * egWt)) / Constants.MAX_PHASE;
-                MiscEval -= ((opMisc * opWt) + (egMisc * egWt)) / Constants.MAX_PHASE;
-            }
+
+            return evalPst;
         }
 
-        public void ComputePawns(Color color, Board board)
+        public static Score EvalPawns(Board board, Span<EvalInfo> evalInfo, Color color)
         {
+            Color other = color.Other();
             int c = (int)color;
-            int o = c ^ 1;
-            Color other = (Color)o;
-            int opPawns = 0, egPawns = 0;
+            int o = (int)other;
+            ulong pawns = evalInfo[c].Pawns;
+            ulong otherPawns = evalInfo[o].Pawns;
+            Score pawnScore = (Score)0;
 
-            ulong pawns = board.Pieces(color, Piece.Pawn);
-            if (pawns == 0)
+            if (evalInfo[c].Pawns == 0)
             {
-                return;
+                return (Score)0;
             }
 
-            ulong otherPawns = board.Pieces(other, Piece.Pawn);
+            ulong pawnRams = (color == Color.White ? otherPawns >> 8 : otherPawns << 8);
 
             for (ulong p = pawns; p != 0; p = BitOps.ResetLsb(p))
             {
                 int sq = BitOps.TzCount(p);
-                Ray ray = Board.Vectors[sq];
-                ulong doubledFriends = color == Color.White ? ray.North : ray.South;
                 int normalSq = Index.NormalizedIndex[c][sq];
+                Ray ray = Board.Vectors[sq];
+                ulong friendMask = color == Color.White ? ray.North : ray.South;
+                ulong sqMask = BitOps.GetMask(sq);
+                //bool canBeBackward = true;
 
-                if ((otherPawns & PassedPawnMasks[c, sq]) == 0 && (pawns & doubledFriends) == 0)
+                if ((otherPawns & PassedPawnMasks[c, sq]) == 0 && (pawns & friendMask) == 0)
                 {
-                    opPawnScore[c] += wt.OpeningPassedPawn(normalSq);
-                    opPawns += wt.OpeningPassedPawn(normalSq);
-                    egPawnScore[c] += wt.EndGamePassedPawn(normalSq);
-                    egPawns += wt.EndGamePassedPawn(normalSq);
-                    passedPawns |= BitOps.GetMask(sq);
+                    pawnScore += wts.PassedPawn(normalSq);
+                    evalInfo[c].PassedPawns |= sqMask;
+                    //canBeBackward = false;
                 }
 
                 if ((pawns & IsolatedPawnMasks[sq]) == 0)
                 {
-                    opPawnScore[c] += wt.OpeningIsolatedPawn;
-                    opPawns += wt.OpeningIsolatedPawn;
-                    egPawnScore[c] += wt.EndGameIsolatedPawn;
-                    egPawns += wt.EndGameIsolatedPawn;
+                    pawnScore += wts.IsolatedPawn;
+                    //canBeBackward = false;
                 }
+
+                //if (canBeBackward && (pawns & BackwardPawnMasks[c, sq]) == 0)
+                //{
+                //    pawnScore += wts.BackwardPawn;
+                //}
 
                 if ((pawns & AdjacentPawnMasks[sq]) != 0)
                 {
-                    opPawnScore[c] += wt.OpeningConnectedPawn(normalSq);
-                    opPawns += wt.OpeningConnectedPawn(normalSq);
-                    egPawnScore[c] += wt.EndGameConnectedPawn(normalSq);
-                    egPawns += wt.EndGameConnectedPawn(normalSq);
+                    pawnScore += wts.PhalanxPawns(normalSq);
+                }
+
+                if ((evalInfo[c].PawnAttacks & sqMask) != 0)
+                {
+                    pawnScore += wts.ChainedPawn(normalSq);
+                }
+
+                if ((pawnRams & sqMask) != 0)
+                {
+                    pawnScore += wts.PawnRam(normalSq);
                 }
             }
 
             for (int file = 0; file < Constants.MAX_COORDS; file++)
             {
-                short count = (short)BitOps.PopCount(pawns & Board.MaskFile(file));
+                int count = BitOps.PopCount(pawns & Board.MaskFile(file));
                 if (count > 1)
                 {
-                    opPawnScore[c] += (short)((count - 1) * wt.OpeningDoubledPawn);
-                    opPawns += (short)((count - 1) * wt.OpeningDoubledPawn);
-                    egPawnScore[c] += (short)((count - 1) * wt.EndGameDoubledPawn);
-                    egPawns += (short)((count - 1) * wt.EndGameDoubledPawn);
+                    pawnScore += --count * wts.DoubledPawn;
                 }
             }
 
-            for (ulong p = pawns & pawnAttacks[c]; p != 0; p = BitOps.ResetLsb(p))
-            {
-                int sq = BitOps.TzCount(p);
-                int normalSq = Index.NormalizedIndex[c][sq];
-                opPawnScore[c] += wt.OpeningSupportedPawn(normalSq);
-                opPawns += wt.OpeningSupportedPawn(normalSq);
-                egPawnScore[c] += wt.EndGameSupportedPawn(normalSq);
-                egPawns += wt.EndGameSupportedPawn(normalSq);
-            }
-
-            ulong pawnRams = pawns & (color == Color.White ? otherPawns >> 8 : otherPawns << 8);
-            for (ulong p = pawnRams; p != 0; p = BitOps.ResetLsb(p))
-            {
-                int normalSq = Index.NormalizedIndex[c][BitOps.TzCount(p)];
-                opPawnScore[c] += wt.OpeningPawnRam(normalSq);
-                opPawns += wt.OpeningPawnRam(normalSq);
-                egPawnScore[c] += wt.EndGamePawnRam(normalSq);
-                egPawns += wt.EndGamePawnRam(normalSq);
-            }
-
-            if (color == Color.White)
-            {
-                CachedPawns += ((opPawns * opWt) + (egPawns * egWt)) / Constants.MAX_PHASE;
-            }
-            else
-            {
-                CachedPawns -= ((opPawns * opWt) + (egPawns * egWt)) / Constants.MAX_PHASE;
-            }
+            return pawnScore;
         }
 
-        public void ComputeMisc(Color color, Board board)
+        public static Score EvalPassedPawns(Board board, Span<EvalInfo> evalInfo, Color color)
         {
+            Score evalPassed = Score.Zero;
+            Color other = color.Other();
             int c = (int)color;
-            Color other = (Color)(c ^ 1);
             int o = (int)other;
-            ulong pawns = board.Pieces(color, Piece.Pawn);
-            ulong otherPawns = board.Pieces(other, Piece.Pawn);
-            ulong allPawns = pawns | otherPawns;
-            int opKingSafety = 0, egKingSafety = 0;
-            int opPieceEval = 0, egPieceEval = 0;
-            int opPassedPawnEval = 0, egPassedPawnEval = 0;
 
-            if (BitOps.PopCount(board.Pieces(color, Piece.Bishop)) >= 2)
-            {
-                opScore[c] += wt.OpeningBishopPair;
-                opPieceEval += wt.OpeningBishopPair;
-                egScore[c] += wt.EndGameBishopPair;
-                egPieceEval += wt.EndGameBishopPair;
-            }
-
-            ulong knights = board.Pieces(color, Piece.Knight);
-            ulong bishops = board.Pieces(color, Piece.Bishop);
-
-            for (ulong bb = knights | bishops; bb != 0; bb = BitOps.ResetLsb(bb))
-            {
-                int sq = BitOps.TzCount(bb);
-                int normalRank = Index.GetRank(Index.NormalizedIndex[c][sq]);
-                if (normalRank > Coord.RANK_4 && (Board.PawnDefends(color, sq) & pawns) != 0)
-                {
-                    Piece pc = board.PieceBoard[sq].Piece;
-                    if (pc == Piece.Knight)
-                    {
-                        opScore[c] += wt.OpeningKnightOutpost;
-                        opPieceEval += wt.OpeningKnightOutpost;
-                        egScore[c] += wt.EndGameKnightOutpost;
-                        egPieceEval += wt.EndGameKnightOutpost;
-                    }
-                    else
-                    {
-                        opScore[c] += wt.OpeningBishopOutpost;
-                        opPieceEval += wt.OpeningBishopOutpost;
-                        egScore[c] += wt.EndGameKnightOutpost;
-                        egPieceEval += wt.EndGameKnightOutpost;
-                    }
-                }
-            }
-
-            for (ulong bbBishop = bishops; bbBishop != 0; bbBishop = BitOps.ResetLsb(bbBishop))
-            { 
-                int sq = BitOps.TzCount(bbBishop);
-                ulong badPawns = pawns & DARK_SQUARES_MASK;
-                if (!Index.IsDark(sq))
-                {
-                    badPawns = pawns & LITE_SQUARES_MASK;
-                }
-
-                for (ulong bbBadPawn = badPawns; bbBadPawn != 0; bbBadPawn = BitOps.ResetLsb(bbBadPawn))
-                {
-                    int pawnSq = BitOps.TzCount(bbBadPawn);
-                    int normalSq = Index.NormalizedIndex[c][pawnSq];
-                    opScore[c] += wt.OpeningBadBishopPawn(normalSq);
-                    opPieceEval += wt.OpeningBadBishopPawn(normalSq);
-                    egScore[c] += wt.EndGameBadBishopPawn(normalSq);
-                    egPieceEval += wt.EndGameBadBishopPawn(normalSq);
-                }
-            }
-
-            int ki = kingIndex[c];
-            opScore[c] += (short)(BitOps.PopCount(pawns & KingProximity[0, ki]) * wt.OpeningPawnShield(0));
-            opKingSafety += (short)(BitOps.PopCount(pawns & KingProximity[0, ki]) * wt.OpeningPawnShield(0));
-            opScore[c] += (short)(BitOps.PopCount(pawns & KingProximity[1, ki]) * wt.OpeningPawnShield(1));
-            opKingSafety += (short)(BitOps.PopCount(pawns & KingProximity[1, ki]) * wt.OpeningPawnShield(1));
-            opScore[c] += (short)(BitOps.PopCount(pawns & KingProximity[2, ki]) * wt.OpeningPawnShield(2));
-            opKingSafety += (short)(BitOps.PopCount(pawns & KingProximity[2, ki]) * wt.OpeningPawnShield(2));
-
-            egScore[c] += (short)(BitOps.PopCount(pawns & KingProximity[0, ki]) * wt.EndGamePawnShield(0));
-            egKingSafety += (short)(BitOps.PopCount(pawns & KingProximity[0, ki]) * wt.EndGamePawnShield(0));
-            egScore[c] += (short)(BitOps.PopCount(pawns & KingProximity[1, ki]) * wt.EndGamePawnShield(1));
-            egKingSafety += (short)(BitOps.PopCount(pawns & KingProximity[1, ki]) * wt.EndGamePawnShield(1));
-            egScore[c] += (short)(BitOps.PopCount(pawns & KingProximity[2, ki]) * wt.EndGamePawnShield(2));
-            egKingSafety += (short)(BitOps.PopCount(pawns & KingProximity[2, ki]) * wt.EndGamePawnShield(2));
-
-            // NOTE: passedPawns was initialized during ComputePawns()
-            for (ulong p = passedPawns & board.Units(color); p != 0; p = BitOps.ResetLsb(p))
+            for (ulong p = evalInfo[c].PassedPawns; p != 0; p = BitOps.ResetLsb(p))
             {
                 int sq = BitOps.TzCount(p);
                 Ray ray = Board.Vectors[sq];
-                ulong bb = color == Color.White ?
-                    BitOps.AndNot(ray.South, Board.RevVectors[BitOps.LzCount(ray.South & board.All)].South) :
-                    BitOps.AndNot(ray.North, Board.Vectors[BitOps.TzCount(ray.North & board.All)].North);
+                ulong bb = color == Color.White ? 
+                    ray.South & ~Board.RevVectors[BitOps.LzCount(ray.South & board.All)].South :
+                    ray.North & ~Board.Vectors[BitOps.TzCount(ray.North & board.All)].North;
 
                 if ((bb & board.Pieces(color, Piece.Rook)) != 0)
                 {
-                    opScore[c] += wt.OpeningRookBehindPassedPawn;
-                    opPassedPawnEval += wt.OpeningRookBehindPassedPawn;
-                    egScore[c] += wt.EndGameRookBehindPassedPawn;
-                    egPassedPawnEval += wt.EndGameRookBehindPassedPawn;
+                    evalPassed += wts.RookBehindPassedPawn;
                 }
 
                 int normalRank = Index.GetRank(Index.NormalizedIndex[c][sq]);
@@ -557,108 +390,144 @@ namespace Pedantic.Chess
                 }
 
                 int promoteSq = Index.NormalizedIndex[c][Index.ToIndex(Index.GetFile(sq), Coord.RANK_8)];
-                if (board.PieceCount(other) == 1 && 
-                    Index.Distance(sq, promoteSq) < Index.Distance(kingIndex[o], promoteSq) - (other == board.SideToMove ? 1 : 0))
+                if (board.PieceCount(other) == 1 &&
+                    Index.Distance(sq, promoteSq) < 
+                    Index.Distance(evalInfo[o].KI, promoteSq) - (other == board.SideToMove ? 1 : 0))
                 {
-                    opScore[c] += wt.OpeningKingOutsideSquare;
-                    opPassedPawnEval += wt.OpeningKingOutsideSquare;
-                    egScore[c] += wt.EndGameKingOutsideSquare;
-                    egPassedPawnEval += wt.EndGameKingOutsideSquare;
+                    evalPassed += wts.KingOutsidePasserSquare;
                 }
 
                 int blockSq = Board.PawnPlus[c, sq];
-                int dist = Index.Distance(blockSq, kingIndex[c]);
-                opScore[c] += (short)(dist * wt.OpeningPpFriendlyKingDistance);
-                opPassedPawnEval += (short)(dist * wt.OpeningPpFriendlyKingDistance);
-                egScore[c] += (short)(dist * wt.EndGamePpFriendlyKingDistance);
-                egPassedPawnEval += (short)(dist * wt.EndGamePpFriendlyKingDistance);
+                int dist = Index.Distance(blockSq, evalInfo[c].KI);
+                evalPassed += dist * wts.PasserFriendlyKingDistance;
 
-                dist = Index.Distance(blockSq, kingIndex[o]);
-                opScore[c] += (short)(dist * wt.OpeningPpEnemyKingDistance);
-                opPassedPawnEval += (short)(dist * wt.OpeningPpEnemyKingDistance);
-                egScore[c] += (short)(dist * wt.EndGamePpEnemyKingDistance);
-                egPassedPawnEval += (short)(dist * wt.EndGamePpEnemyKingDistance);
+                dist = Index.Distance(blockSq, evalInfo[o].KI);
+                evalPassed += dist * wts.PasserEnemyKingDistance;
 
-#if PP_CAN_ADVANCE
-                int rank = normalRank - Coord.RANK_4;
-                ulong advanceMask = BitOps.GetMask(Board.PawnPlus[c, sq]);
-                if ((advanceMask & board.All & pawnAttacks[o] & board.GetPieceMoves(Piece.King, kingIndex[o])) == 0)
+                ulong advanceMask = BitOps.GetMask(blockSq);
+                ulong attackMask = evalInfo[o].PawnAttacks | evalInfo[o].KingAttacks | evalInfo[o].PieceAttacks;
+                if ((advanceMask & board.All) == 0 && (advanceMask & attackMask) == 0)
                 {
-                    opScore[c] += wt.OpeningPassedPawnCanAdvance(rank);
-                    egScore[c] += wt.EndGamePassedPawnCanAdvance(rank);
+                    evalPassed += wts.PassedPawnCanAdvance(normalRank);
                 }
-#endif
             }
 
-            for (ulong p = passedPawns & board.Units(other); p != 0; p = BitOps.ResetLsb(p))
+            ulong enemyPassedPawns = evalInfo[o].PassedPawns;
+            if (other == Color.White)
+            {
+                enemyPassedPawns <<= 8;
+            }
+            else
+            {
+                enemyPassedPawns >>= 8;
+            }
+            ulong blockers = enemyPassedPawns & board.Units(color);
+            for (ulong p = blockers; p != 0; p = BitOps.ResetLsb(p))
             {
                 int sq = BitOps.TzCount(p);
-                int blockerSq = Board.PawnPlus[o, sq];
                 int normalRank = Index.GetRank(Index.NormalizedIndex[o][sq]);
-                Square blocker = board.PieceBoard[blockerSq];
-                if (blocker.Color == color && blocker.Piece != Piece.None)
+                Piece blocker = board.PieceBoard[sq].Piece;
+                evalPassed += wts.BlockedPassedPawn(blocker, normalRank - 1);
+            }
+
+            return evalPassed;
+        }
+
+        public static Score EvalPieces(Board board, Span<EvalInfo> evalInfo, Color color)
+        {
+            Color other = color.Other();
+            int c = (int)color;
+            int o = (int)other;
+            Score pieceEval = (Score)0;
+
+            ulong pawns = evalInfo[c].Pawns;
+            ulong knights = board.Pieces(color, Piece.Knight);
+            ulong bishops = board.Pieces(color, Piece.Bishop);
+
+            if (BitOps.PopCount(bishops) >= 2)
+            {
+                pieceEval += wts.BishopPair;
+            }
+
+            // outposts
+            for (ulong bb = knights | bishops; bb != 0; bb = BitOps.ResetLsb(bb))
+            {
+                int sq = BitOps.TzCount(bb);
+                int normalRank = Index.GetRank(Index.NormalizedIndex[c][sq]);
+                ulong sqMask = BitOps.GetMask(sq);
+
+                if (normalRank > Coord.RANK_4 && (evalInfo[c].PawnAttacks & sqMask) != 0)
                 {
-                    opScore[c] += wt.OpeningBlockPassedPawn(normalRank, blocker.Piece);
-                    opPassedPawnEval += wt.OpeningBlockPassedPawn(normalRank, blocker.Piece);
-                    egScore[c] += wt.EndGameBlockPassedPawn(normalRank, blocker.Piece);
-                    egPassedPawnEval += wt.EndGameBlockPassedPawn(normalRank, blocker.Piece);
+                    Piece pc = board.PieceBoard[sq].Piece;
+                    if (pc == Piece.Knight)
+                    {
+                        pieceEval += wts.KnightOutpost;
+                    }
+                    else
+                    {
+                        pieceEval += wts.BishopOutpost;
+                    }
+                }
+
+                if ((bishops & sqMask) != 0)
+                {
+                    // eval bad bishop pawns
+                    ulong badPawns = pawns & DARK_SQUARES_MASK;
+                    if (!Index.IsDark(sq))
+                    {
+                        badPawns = pawns & LITE_SQUARES_MASK;
+                    }
+
+                    for (ulong bbBadPawn = badPawns; bbBadPawn != 0; bbBadPawn = BitOps.ResetLsb(bbBadPawn))
+                    {
+                        int pawnSq = BitOps.TzCount(bbBadPawn);
+                        int normalSq = Index.NormalizedIndex[c][pawnSq];
+                        pieceEval += wts.BadBishopPawn(normalSq);
+                    }
                 }
             }
 
+            // evaluate rooks
             ulong rooks = board.Pieces(color, Piece.Rook);
+            ulong otherPawns = evalInfo[o].Pawns;
+            ulong allPawns = pawns | otherPawns;
+            int enemyKingRank = Index.GetRank(Index.NormalizedIndex[c][evalInfo[o].KI]);
 
             for (ulong bb = rooks; bb != 0; bb = BitOps.ResetLsb(bb))
             {
                 int sq = BitOps.TzCount(bb);
-                int rank = Index.GetRank(Index.NormalizedIndex[c][sq]);
-                int enemyKingRank = Index.GetRank(Index.NormalizedIndex[c][kingIndex[o]]);
+                int normalRank = Index.GetRank(Index.NormalizedIndex[c][sq]);
                 ulong maskFile = Board.MaskFile(sq);
                 ulong maskRank = Board.MaskRank(sq);
-                ulong potentials = maskFile & rooks;
 
-                if (rank == Coord.RANK_7 && ((otherPawns & maskRank) != 0 || enemyKingRank >= Coord.RANK_7))
+                if (normalRank == Coord.RANK_7 && ((otherPawns & maskRank) != 0 || enemyKingRank >= Coord.RANK_7))
                 {
-                    opScore[c] += wt.OpeningRookOnSeventhRank;
-                    opPieceEval += wt.OpeningRookOnSeventhRank;
-                    egScore[c] += wt.EndGameRookOnSeventhRank;
-                    egPieceEval += wt.EndGameRookOnSeventhRank;
+                    pieceEval += wts.RookOn7thRank;
                 }
-                
+
                 if ((maskFile & allPawns) == 0)
                 {
-                    opScore[c] += wt.OpeningRookOnOpenFile;
-                    opPieceEval += wt.OpeningRookOnOpenFile;
-                    egScore[c] += wt.EndGameRookOnOpenFile;
-                    egPieceEval += wt.EndGameRookOnOpenFile;
+                    pieceEval += wts.RookOnOpenFile;
 
-
-                    if (BitOps.PopCount(potentials) > 1 && IsDoubled(board, potentials))
+                    if (IsDoubled(board, sq))
                     {
-                        opScore[c] += wt.OpeningDoubledRooks;
-                        opPieceEval += wt.OpeningDoubledRooks;
-                        egScore[c] += wt.EndGameDoubledRooks;
-                        egPieceEval += wt.EndGameDoubledRooks;
+                        pieceEval += wts.DoubleRooksOnFile;
                     }
                 }
 
                 if ((maskFile & pawns) == 0 && (maskFile & otherPawns) != 0)
                 {
-                    opScore[c] += wt.OpeningRookOnHalfOpenFile;
-                    opPieceEval += wt.OpeningRookOnHalfOpenFile;
-                    egScore[c] += wt.EndGameRookOnHalfOpenFile;
-                    egPieceEval += wt.EndGameRookOnHalfOpenFile;
+                    pieceEval += wts.RookOnHalfOpenFile;
 
-                    if (BitOps.PopCount(potentials) > 1 && IsDoubled(board, potentials))
+                    if (IsDoubled(board, sq))
                     {
-                        opScore[c] += wt.OpeningDoubledRooks;
-                        opPieceEval += wt.OpeningDoubledRooks;
-                        egScore[c] += wt.EndGameDoubledRooks;
-                        egPieceEval += wt.EndGameDoubledRooks;
+                        pieceEval += wts.DoubleRooksOnFile;
                     }
                 }
             }
 
             ulong queens = board.Pieces(color, Piece.Queen);
+
             for (ulong bb = queens; bb != 0; bb = BitOps.ResetLsb(bb))
             {
                 int sq = BitOps.TzCount(bb);
@@ -666,148 +535,158 @@ namespace Pedantic.Chess
 
                 if ((mask & allPawns) == 0)
                 {
-                    opScore[c] += wt.OpeningQueenOnOpenFile;
-                    opPieceEval += wt.OpeningQueenOnOpenFile;
-                    egScore[c] += wt.EndGameQueenOnOpenFile;
-                    egPieceEval += wt.EndGameQueenOnOpenFile;
+                    pieceEval += wts.QueenOnOpenFile;
                 }
 
                 if ((mask & pawns) == 0 && (mask & otherPawns) != 0)
                 {
-                    opScore[c] += wt.OpeningQueenOnHalfOpenFile;
-                    opPieceEval += wt.OpeningQueenOnHalfOpenFile;
-                    egScore[c] += wt.EndGameQueenOnHalfOpenFile;
-                    egPieceEval += wt.EndGameQueenOnHalfOpenFile;
+                    pieceEval += wts.QueenOnHalfOpenFile;
                 }
             }
 
-            ulong kingFileMask = Board.MaskFile(ki);
+            return pieceEval;
+        }
+
+        public unsafe static Score EvalKingSafety(Board board, Span<EvalInfo> evalInfo, Color color)
+        {
+            Score kingSafety = Score.Zero;
+            Color other = color.Other();
+            int c = (int)color;
+            int o = (int)other;
+
+            int enemyKI = evalInfo[o].KI;
+            for (int n = 0; n < evalInfo[c].AttackCount; n++)
+            {
+                ulong attacks = evalInfo[c].Attacks[n] & ~evalInfo[o].PawnAttacks;
+                kingSafety += BitOps.PopCount(attacks & KingProximity[0, enemyKI]) * wts.KingAttack(0);
+                kingSafety += BitOps.PopCount(attacks & KingProximity[1, enemyKI]) * wts.KingAttack(1);
+                kingSafety += BitOps.PopCount(attacks & KingProximity[2, enemyKI]) * wts.KingAttack(2);
+            }
+
+            int ki = evalInfo[c].KI;
+            ulong pawns = evalInfo[c].Pawns;
+            // pawn shield
+            kingSafety += BitOps.PopCount(pawns & KingProximity[0, ki]) * wts.PawnShield(0);
+            kingSafety += BitOps.PopCount(pawns & KingProximity[1, ki]) * wts.PawnShield(1);
+            kingSafety += BitOps.PopCount(pawns & KingProximity[2, ki]) * wts.PawnShield(2);
+
+            if (board.HasCastled[c])
+            {
+                kingSafety += wts.CastlingComplete;
+            }
+            else
+            {
+                ulong castling = evalInfo[c].CastlingRightsMask & (ulong)board.Castling;
+                kingSafety += BitOps.PopCount(castling) * wts.CastlingAvailable;
+            }
+
+            ulong kingFileMask = Board.MaskFile(evalInfo[c].KI);
+            ulong otherPawns = evalInfo[o].Pawns;
+            ulong allPawns = pawns | otherPawns;
+
             if ((kingFileMask & allPawns) == 0)
             {
-                opScore[c] += wt.OpeningKingOnOpenFile;
-                opKingSafety += wt.OpeningKingOnOpenFile;
-                egScore[c] += wt.EndGameKingOnOpenFile;
-                egKingSafety += wt.EndGameKingOnOpenFile;
+                kingSafety += wts.KingOnOpenFile;
             }
 
             if ((kingFileMask & pawns) == 0 && (kingFileMask & otherPawns) != 0)
             {
-                opScore[c] += wt.OpeningKingOnHalfOpenFile;
-                opKingSafety += wt.OpeningKingOnHalfOpenFile;
-                egScore[c] += wt.EndGameKingOnHalfOpenFile;
-                egKingSafety += wt.EndGameKingOnHalfOpenFile;
+                kingSafety += wts.KingOnHalfOpenFile;
             }
 
-            ulong kingDiagonalMask = Diagonals[ki];
+            ulong kingDiagonalMask = Diagonals[evalInfo[c].KI];
             if (BitOps.PopCount(kingDiagonalMask) > 3 && (kingDiagonalMask & allPawns) == 0)
             {
-                opScore[c] += wt.OpeningKingOnOpenDiagonal;
-                opKingSafety += wt.OpeningKingOnOpenDiagonal;
-                egScore[c] += wt.EndGameKingOnOpenDiagonal;
-                egKingSafety += wt.EndGameKingOnOpenDiagonal;
+                kingSafety += wts.KingOnOpenDiagonal;
             }
 
-            kingDiagonalMask = Antidiagonals[ki];
+            kingDiagonalMask = Antidiagonals[evalInfo[c].KI];
             if (BitOps.PopCount(kingDiagonalMask) > 3 && (kingDiagonalMask & allPawns) == 0)
             {
-                opScore[c] += wt.OpeningKingOnOpenDiagonal;
-                opKingSafety += wt.OpeningKingOnOpenDiagonal;
-                egScore[c] += wt.EndGameKingOnOpenDiagonal;
-                egKingSafety += wt.EndGameKingOnOpenDiagonal;
+                kingSafety += wts.KingOnOpenDiagonal;
             }
 
-            if (board.HasCastled[(int)color])
-            {
-                opScore[c] += wt.OpeningCastlingComplete;
-                opKingSafety += wt.OpeningCastlingComplete;
-                egScore[c] += wt.EndGameCastlingComplete;
-                egKingSafety += wt.EndGameCastlingComplete;
-            }
-            else
-            {
-                ulong mask = (ulong)CastlingRights.WhiteRights << (c << 1);
-                short cntRights = (short)BitOps.PopCount((ulong)board.Castling & mask);
-                opScore[c] += (short)(cntRights * wt.OpeningCastlingAvailable);
-                opKingSafety += (short)(cntRights * wt.OpeningCastlingAvailable);
-                egScore[c] += (short)(cntRights * wt.EndGameCastlingAvailable);
-                egKingSafety += (short)(cntRights * wt.EndGameCastlingAvailable);
-            }
+            // TODO: Add evaluation term for distance of knight to friendly king and 
+            // opponent king
 
-            if (color == Color.White)
-            {
-                KingSafety += ((opKingSafety * opWt) + (egKingSafety * egWt)) / Constants.MAX_PHASE;
-                PieceEval += ((opPieceEval * opWt) + (egPieceEval * egWt)) / Constants.MAX_PHASE;
-                PassedPawnEval += ((opPassedPawnEval * opWt) + (egPassedPawnEval * egWt)) / Constants.MAX_PHASE;
-            }
-            else
-            {
-                KingSafety -= ((opKingSafety * opWt) + (egKingSafety * egWt)) / Constants.MAX_PHASE;
-                PieceEval -= ((opPieceEval * opWt) + (egPieceEval * egWt)) / Constants.MAX_PHASE;
-                PassedPawnEval -= ((opPassedPawnEval * opWt) + (egPassedPawnEval * egWt)) / Constants.MAX_PHASE;
-            }
+            return kingSafety;
         }
 
-        public void ComputeThreats(Color color, Board board)
+        public unsafe static Score EvalMobility(Board board, Span<EvalInfo> evalInfo, Color color)
         {
             int c = (int)color;
+            Score mobility = (Score)0;
+
+            for (Piece piece = Piece.Knight; piece <= Piece.Queen; piece++)
+            {
+                for (ulong pcLoc = board.Pieces(color, piece); pcLoc != 0; pcLoc = BitOps.ResetLsb(pcLoc))
+                {
+                    int from = BitOps.TzCount(pcLoc);
+                    ulong moves = board.GetPieceMoves(piece, from);
+                    evalInfo[c].PieceAttacks |= moves;
+                    if (evalInfo[c].AttackCount < MAX_ATTACK_LEN)
+                    {
+                        evalInfo[c].Attacks[evalInfo[c].AttackCount++] = moves;
+                    }
+                    mobility += BitOps.PopCount(moves & evalInfo[c].MobilityArea) * wts.PieceMobility(piece);
+                }
+            }
+
+            return mobility;
+        }
+
+        public static Score EvalThreats(Board board, Span<EvalInfo> evalInfo, Color color)
+        {
             Color other = color.Other();
-            ulong pawns = board.Pieces(color, Piece.Pawn);
-            ulong otherPawns = board.Pieces(other, Piece.Pawn);
-            int opThreatEval = 0, egThreatEval = 0;
+            int c = (int)color;
+            int o = (int)other;
+            ulong pawns = evalInfo[c].Pawns;
+            ulong otherPawns = evalInfo[o].Pawns;
+            Score evalThreats = Score.Zero;
 
             ulong targets = board.Units(other) & ~(otherPawns | board.Pieces(other, Piece.King));
             if (targets == 0)
             {
-                return;
+                return evalThreats;
             }
 
             ulong pushAttacks;
-            ulong defended;
             if (color == Color.White)
             {
                 ulong pawnPushes = (pawns << 8) & ~board.All;
-                pushAttacks = ((pawnPushes & ~maskFileA) << 7) |
-                              ((pawnPushes & ~maskFileH) << 9);
 
-                defended = ((otherPawns & ~maskFileH) >> 7) |
-                           ((otherPawns & ~maskFileA) >> 9);
+                pushAttacks = ((pawnPushes & ~Board.MaskFile(Index.A1)) << 7) |
+                              ((pawnPushes & ~Board.MaskFile(Index.H1)) << 9);
             }
             else
             {
                 ulong pawnPushes = (pawns >> 8) & ~board.All;
-                pushAttacks = ((pawnPushes & ~maskFileH) >> 7) |
-                              ((pawnPushes & ~maskFileA) >> 9);
 
-                defended = ((otherPawns & ~maskFileA) << 7) |
-                           ((otherPawns & ~maskFileH) << 9);
+                pushAttacks = ((pawnPushes & ~Board.MaskFile(Index.H1)) >> 7) |
+                              ((pawnPushes & ~Board.MaskFile(Index.A1)) >> 9);
             }
-
-            for (ulong bb = pawnAttacks[c] & targets; bb != 0; bb = BitOps.ResetLsb(bb))
+        
+            for (ulong bb = evalInfo[c].PawnAttacks & targets; bb != 0; bb = BitOps.ResetLsb(bb))
             {
                 int sq = BitOps.TzCount(bb);
                 Piece defender = board.PieceBoard[sq].Piece;
-                opScore[c] += wt.OpeningPieceThreat(Piece.Pawn, defender);
-                opThreatEval += wt.OpeningPieceThreat(Piece.Pawn, defender);
-                egScore[c] += wt.EndGamePieceThreat(Piece.Pawn, defender);
-                egThreatEval += wt.EndGamePieceThreat(Piece.Pawn, defender);
+                evalThreats += wts.PieceThreat(Piece.Pawn, defender);
             }
 
             for (ulong bb = pushAttacks & targets; bb != 0; bb = BitOps.ResetLsb(bb))
             {
                 int sq = BitOps.TzCount(bb);
                 Piece defender = board.PieceBoard[sq].Piece;
-                opScore[c] += wt.OpeningPawnPushThreat(defender);
-                opThreatEval += wt.OpeningPawnPushThreat(defender);
-                egScore[c] += wt.EndGamePawnPushThreat(defender);
-                egThreatEval += wt.EndGamePawnPushThreat(defender);
+                evalThreats += wts.PawnPushThreat(defender);
             }
 
-            targets &= ~defended;
+            targets &= ~evalInfo[o].PawnAttacks;
+
             if (targets == 0)
             {
-                return;
+                return evalThreats;
             }
-            
+
             for (Piece attacker = Piece.Knight; attacker <= Piece.Queen; attacker++)
             {
                 for (ulong bb = board.Pieces(color, attacker); bb != 0; bb = BitOps.ResetLsb(bb))
@@ -818,196 +697,135 @@ namespace Pedantic.Chess
                     {
                         int to = BitOps.TzCount(attacks);
                         Piece defender = board.PieceBoard[to].Piece;
-                        opScore[c] += wt.OpeningPieceThreat(attacker, defender);
-                        opThreatEval += wt.OpeningPieceThreat(attacker, defender);
-                        egScore[c] += wt.EndGamePieceThreat(attacker, defender);
-                        egThreatEval += wt.EndGamePieceThreat(attacker, defender);
+
+                        if (attacker.Value() <= defender.Value())
+                        {
+                            evalThreats += wts.PieceThreat(attacker, defender);
+                        }
                     }
                 }
             }
 
-            if (color == Color.White)
+            return evalThreats;
+        }
+
+        public unsafe static Score EvalMisc(Board board, Span<EvalInfo> evalInfo, Color color)
+        {
+            int c = (int)color;
+            Score evalMisc = Score.Zero;
+
+            for (ulong bb = evalInfo[c].Pawns; bb != 0; bb = BitOps.ResetLsb(bb))
             {
-                ThreatEval += ((opThreatEval * opWt) + (egThreatEval * egWt)) / Constants.MAX_PHASE;
+                int sq = BitOps.TzCount(bb);
+                ulong attacks = Board.PawnCaptures(color, sq);
+                evalMisc += BitOps.PopCount(attacks & D0_CENTER_CONTROL_MASK) * wts.CenterControl(0);
+                evalMisc += BitOps.PopCount(attacks & D1_CENTER_CONTROL_MASK) * wts.CenterControl(1);
+            }
+
+            for (int n = 0; n < evalInfo[c].AttackCount; n++)
+            {
+                evalMisc += BitOps.PopCount(evalInfo[c].Attacks[n] & D0_CENTER_CONTROL_MASK) * wts.CenterControl(0);
+                evalMisc += BitOps.PopCount(evalInfo[c].Attacks[n] & D1_CENTER_CONTROL_MASK) * wts.CenterControl(1);
+            }
+
+            // TODO: add tempo
+            // TODO: add knight distance to enemy/friendly king
+
+            return evalMisc;
+        }
+
+        public Score ProbePawnCache(Board board, Span<EvalInfo> evalInfo)
+        {
+            Score pawnScore;
+            if (cache.ProbePawnCache(board.PawnHash, out EvalCache.PawnCacheItem item))
+            {
+                evalInfo[0].PassedPawns = item.PassedPawns & board.Units(Color.White);
+                evalInfo[1].PassedPawns = item.PassedPawns & board.Units(Color.Black);
+                pawnScore = item.Eval;
             }
             else
             {
-                ThreatEval -= ((opThreatEval * opWt) + (egThreatEval * egWt)) / Constants.MAX_PHASE;
+                pawnScore = EvalPawns(board, evalInfo, Color.White) - EvalPawns(board, evalInfo, Color.Black);
+                ulong passedPawns = evalInfo[0].PassedPawns | evalInfo[1].PassedPawns;
+                cache.SavePawnEval(board.PawnHash, passedPawns, pawnScore);
+            }
+
+            return pawnScore;
+        }
+
+        public static HceWeights Weights
+        {
+            get
+            {
+                return wts;
+            }
+            set
+            {
+                wts = value;
+                InitializeMopUpTables();
             }
         }
 
-        public void CalcMaterialAdjustment(Board board)
+        public static void InitializeMopUpTables()
         {
-            int materialWhite = board.Material[(int)Color.White].EgScore;
-            int materialBlack = board.Material[(int)Color.Black].EgScore;
-            int pawnValue = EndGamePieceValues(Piece.Pawn);
+            Array.Clear(mopUpMate);
+            Array.Clear(mopUpMateNBLight);
+            Array.Clear(mopUpMateNBDark);
 
-            ulong move = board.LastMove;
-            int seeValue = 0;
-            if (Move.IsCapture(move))
+            for (KingPlacement kp = KingPlacement.KK; kp <= KingPlacement.QQ; kp++)
             {
-                seeValue = board.PostMoveStaticExchangeEval(board.SideToMove.Other(), move);
-                seeValue = board.SideToMove == Color.White ? seeValue : -seeValue;
-            }
-
-            if (materialWhite > 0 && materialBlack > 0 && Math.Abs(materialWhite - materialBlack + seeValue) >= pawnValue * 2)
-            {
-                adjust[0] = Math.Max(Math.Min((materialBlack * 32) / materialWhite, 32), 31);
-                adjust[1] = Math.Max(Math.Min((materialWhite * 32) / materialBlack, 32), 31);
-            }
-            else
-            {
-                adjust[0] = 32;
-                adjust[1] = 32;
-            }
-        }
-
-        public GamePhase GetGamePhase(Board board, out int opWt, out int egWt)
-        {
-            opWt = board.Phase;
-            egWt = Constants.MAX_PHASE - board.Phase;
-            GamePhase gamePhase = board.GamePhase;
-
-            if (gamePhase == GamePhase.EndGame)
-            {
-                short materialWhite = board.Material[(int)Color.White].EgScore;
-                short materialBlack = board.Material[(int)Color.Black].EgScore;
-                short pawnValue = EndGamePieceValues(Piece.Pawn);
-
-                if (useMopUp &&
-                    (board.Pieces(Color.White, Piece.Pawn) | board.Pieces(Color.Black, Piece.Pawn)) == 0ul && 
-                    Math.Abs(materialWhite - materialBlack) >= (pawnValue << 2) &&
-                    Math.Min(materialWhite, materialBlack) <= pawnValue * 7)
+                for (int sq = 0; sq < Constants.MAX_SQUARES; sq++)
                 {
-                    winning = materialWhite > materialBlack ? Color.White : Color.Black;
-
-                    int numKnights = BitOps.PopCount(board.Pieces(winning, Piece.Knight));
-                    int numBishops = BitOps.PopCount(board.Pieces(winning, Piece.Bishop));
-                    bool case1 = BitOps.PopCount(board.Pieces(winning, Piece.Queen) | board.Pieces(winning, Piece.Rook)) >= 1;
-                    bool case2 = (numKnights >= 1 && numBishops >= 1) || numBishops >= 2 || numKnights >= 3;
-
-                    if (case1 || case2)
+                    Score kingScore = wts.PieceSquareValue(Piece.King, kp, sq);
+                    if (kingScore != Score.Zero)
                     {
-                        gamePhase = GamePhase.EndGameMopup;
+                        int index = (int)kp * Constants.MAX_SQUARES + sq;
+                        mopUpMate[index] = new Score(kingScore.MgScore, (short)-egMopUpMate[sq]);
+                        mopUpMateNBLight[index] = new Score(kingScore.MgScore, (short)-egMopUpMateNBLight[sq]);
+                        mopUpMateNBDark[index] = new Score(kingScore.MgScore, (short)-egMopUpMateNBDark[sq]);
                     }
                 }
             }
-
-            return gamePhase;
-        }
-
-        public void ClearScores()
-        {
-            Array.Clear(opScore);
-            Array.Clear(egScore);
-            Array.Clear(opPawnScore);
-            Array.Clear(egPawnScore);
-            evalParts.Clear();      
-        }
-
-        public EvalParts EvalParts => evalParts;
-
-        public int MaterialPlusPst
-        {
-            get => evalParts.MaterialPlusPst;
-            set => evalParts.MaterialPlusPst = value;
-        }
-
-        public int CachedPawns
-        {
-            get => evalParts.CachedPawns;
-            set => evalParts.CachedPawns = value;
-        }
-
-        public int Mobility
-        {
-            get => evalParts.Mobility;
-            set => evalParts.Mobility = value;
-        }
-
-        public int KingSafety
-        {
-            get => evalParts.KingSafety;
-            set => evalParts.KingSafety = value;
-        }
-
-        public int PieceEval
-        {
-            get => evalParts.PieceEval;
-            set => evalParts.PieceEval = value;
-        }
-
-        public int PassedPawnEval
-        {
-            get => evalParts.PassedPawnEval;
-            set => evalParts.PassedPawnEval = value;
-        }
-
-        public int ThreatEval
-        {
-            get => evalParts.ThreatEval;
-            set => evalParts.ThreatEval = value;
-        }
-
-        public int MiscEval
-        {
-            get => evalParts.MiscEval;
-            set => evalParts.MiscEval = value;
-        }
-
-        public static ulong PassedPawnBitboard(Board board)
-        {
-            ulong passers = 0;
-            for (Color color = Color.White; color <= Color.Black; color++)
-            {
-                int c = (int)color;
-                ulong pawns = board.Pieces(color, Piece.Pawn);
-                ulong otherPawns = board.Pieces(color.Other(), Piece.Pawn);
-
-                for (ulong p = pawns; p != 0; p = BitOps.ResetLsb(p))
-                {
-                    int sq = BitOps.TzCount(p);
-                    Ray ray = Board.Vectors[sq];
-                    ulong doubledFriends = color == Color.White ? ray.North : ray.South;
-
-                    if ((otherPawns & PassedPawnMasks[c, sq]) == 0 && (pawns & doubledFriends) == 0)
-                    {
-                        passers |= BitOps.GetMask(sq);
-                    }
-                }
-            }
-            return passers;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool IsCheckmate(int score)
+        public static short StmScore(Color stm, int score)
         {
-            int absScore = Math.Abs(score);
-            return absScore is >= Constants.CHECKMATE_SCORE - Constants.MAX_PLY * 2 and <= Constants.CHECKMATE_SCORE;
+            return (short)(((int)stm * -2 + 1) * score);
         }
 
-        public static ChessWeights LoadWeights(string? id = null)
+        // Check whether piece on square (sq) is doubled with another piece
+        // of the same type. Only true if this the piece is *behind* the 
+        // other piece.
+        public static bool IsDoubled(Board board, int sq)
         {
-            ChessWeights w = ChessWeights.CreateParagon();
-            wt = new EvalWeights(w);
-            return w;
-        }
+            Square square = board.PieceBoard[sq];
+            Ray ray = Board.Vectors[sq];
+            ulong bbPotentials = board.Pieces(square.Color, square.Piece);
 
-        public static ChessWeights LoadWeights(Guid? id)
-        {
-            var rep = new ChessDb();
-            ChessWeights? w = id == null
-                ? rep.Weights.FirstOrDefault(cw => cw.IsActive && cw.IsImmortal)
-                : rep.Weights.FirstOrDefault(cw => cw.Id == id);
-
-            if (w == null)
+            if (square.Color == Color.White)
             {
-                w = ChessWeights.CreateParagon();
-                rep.Weights.Insert(w);
-                rep.Save();
+                ulong bb = bbPotentials & ray.North;
+                if (bb != 0)
+                {
+                    int sq2 = BitOps.TzCount(bb);
+                    Ray ray2 = Board.Vectors[sq2];
+                    // only indicate double if no other piece is between them
+                    return (ray.North & ray2.South & board.All) == 0;
+                }
             }
-            wt = new EvalWeights(w);
-            return w;
+            else
+            {
+                ulong bb = bbPotentials & ray.South;
+                if (bb != 0)
+                {
+                    int sq2 = BitOps.LzCount(bb);
+                    Ray ray2 = Board.Vectors[sq2];
+                    // only indicate double if no other piece is between them
+                    return (ray.South & ray2.North & board.All) == 0;
+                }
+            }
+            return false;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -1016,88 +834,31 @@ namespace Pedantic.Chess
             return canonicalPieceValues[(int)piece + 1];
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static short PiecePhaseValue(Piece piece)
         {
             return piecePhaseValues[(int)piece + 1];
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static short OpeningPieceValues(Piece piece)
-        {
-            return wt.OpeningPieceValues(piece);
-        }
+        public static Score[] MopUpMate => mopUpMate;
+        public static Score[] MopUpMateNBLight => mopUpMateNBLight;
+        public static Score[] MopUpMateNBDark => mopUpMateNBDark;
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static short EndGamePieceValues(Piece piece)
-        {
-            return wt.EndGamePieceValues(piece);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static short OpeningPieceSquareTable(Piece piece, KingPlacement placement, int square)
-        {
-            return wt.OpeningPieceSquareTable(piece, placement, square);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static short EndGamePieceSquareTable(Piece piece, KingPlacement placement,int square)
-        {
-            return wt.EndGamePieceSquareTable(piece, placement,square);
-        }
-
-        public static bool IsDoubled(Board bd, ulong piecesOnFile)
-        {
-            int sq1 = BitOps.TzCount(piecesOnFile);
-            piecesOnFile = BitOps.ResetLsb(piecesOnFile);
-            int sq2 = BitOps.TzCount(piecesOnFile);
-            int file1 = Index.GetFile(sq1);
-            int file2 = Index.GetFile(sq2);
-            ref Ray ray1 = ref Board.Vectors[sq1];
-            ref Ray ray2 = ref Board.Vectors[sq2];
-
-            return file1 == file2 &&
-                   (((ray1.South & ray2.North) | (ray1.North & ray2.South)) & bd.All) == 0ul;
-        }
-
-        public static int CenterDistance(int sq)
-        {
-            Index.ToCoords(sq, out int file, out int rank);
-            file ^= (file-4) >> 8;
-            rank ^= (rank-4) >> 8;
-            return (file + rank) & 7;
-        }
-
-        private GamePhase currentPhase;
-        private int opWt, egWt;
-        private Color winning;
-        private readonly bool useMopUp;
-
-        public static short[] Weights => wt.Weights;
-
-        private bool showIntermediateResults = false;
-        private readonly bool adjustMaterial;
+        private readonly EvalCache cache;
         private readonly bool random;
-        private int totalPawns;
-        private ulong passedPawns;
-        private readonly int[] adjust = { 32, 32 };
-        private readonly int[] kingIndex = new int[2];
-        private readonly KingPlacement[] kp = new KingPlacement[2];
-        private readonly short[] opScore = { 0, 0 };
-        private readonly short[] egScore = { 0, 0 };
-        private readonly short[] opPawnScore = { 0, 0 };
-        private readonly short[] egPawnScore = { 0, 0 };
-        private readonly ulong[] pawnAttacks = { 0ul, 0ul };
-        private readonly EvalInfo[] evalInfos = new EvalInfo[2];
+        private readonly bool useMopup;
+        private readonly Random rand = new();
+        private GamePhase gamePhase;
 
-        private EvalParts evalParts = new();
+        private static HceWeights wts;
+        private static readonly Score[] mopUpMate = new Score[Constants.MAX_SQUARES * Constants.MAX_KING_PLACEMENTS];
+        private static readonly Score[] mopUpMateNBLight =  new Score[Constants.MAX_SQUARES * Constants.MAX_KING_PLACEMENTS];
+        private static readonly Score[] mopUpMateNBDark = new Score[Constants.MAX_SQUARES * Constants.MAX_KING_PLACEMENTS];
+        private static readonly short[] canonicalPieceValues = { 0, 100, 300, 300, 500, 900, 9900 };
 
-        private static readonly ulong maskFileA = Board.MaskFile(Index.A1);
-        private static readonly ulong maskFileH = Board.MaskFile(Index.H1);
-        private static EvalWeights wt;
-        private static readonly UnsafeArray<short> canonicalPieceValues = new (7) 
-            { 0, 100, 300, 300, 500, 900, 9900 };
+        public static readonly sbyte[] piecePhaseValues = { 0, 1, 2, 2, 4, 8, 0 };
 
-        public static readonly UnsafeArray2D<ulong> PassedPawnMasks = new (Constants.MAX_COLORS, Constants.MAX_SQUARES)
+        public static readonly Array2D<ulong> PassedPawnMasks = new (Constants.MAX_COLORS, Constants.MAX_SQUARES)
         {
             #region PassedPawnMasks data
 
@@ -1140,9 +901,7 @@ namespace Pedantic.Chess
             #endregion PassedPawnMasks data
         };
 
-        public static readonly sbyte[] piecePhaseValues = { 0, 1, 2, 2, 4, 8, 0 };
-
-        public static readonly UnsafeArray<ulong> IsolatedPawnMasks = new (Constants.MAX_SQUARES)
+        public static readonly ulong[] IsolatedPawnMasks = 
         {
             #region IsolatedPawnMasks data
             0x0000000000000000ul, 0x0000000000000000ul, 0x0000000000000000ul, 0x0000000000000000ul,
@@ -1164,7 +923,7 @@ namespace Pedantic.Chess
             #endregion IsolatedPawnMasks data
         };
 
-        public static readonly UnsafeArray2D<ulong> KingProximity = new (3, Constants.MAX_SQUARES)
+        public static readonly Array2D<ulong> KingProximity = new (3, Constants.MAX_SQUARES)
         {
             #region KingProximity data
 
@@ -1225,7 +984,7 @@ namespace Pedantic.Chess
             #endregion KingProximity data
         };
 
-        public static readonly UnsafeArray2D<ulong> BackwardPawnMasks = new (Constants.MAX_COLORS, Constants.MAX_SQUARES)
+        public static readonly Array2D<ulong> BackwardPawnMasks = new (Constants.MAX_COLORS, Constants.MAX_SQUARES)
         {
             #region BackwardPawnMasks data
 
@@ -1268,7 +1027,7 @@ namespace Pedantic.Chess
             #endregion BackwardPawnMasks data
         };
 
-        public static readonly UnsafeArray<ulong> AdjacentPawnMasks = new (Constants.MAX_SQUARES)
+        public static readonly ulong[] AdjacentPawnMasks = 
         {
             #region AdjacentPawnMasks data
 
@@ -1336,7 +1095,7 @@ namespace Pedantic.Chess
             #endregion Antidiagonals data
         };
 
-        public static readonly short[] mopupMate =
+        private static readonly short[] egMopUpMate =
         {
             140, 120, 100,  80,  80, 100, 120, 140,
             120, 100,  60,  40,  40,  60, 100, 120,
@@ -1348,7 +1107,7 @@ namespace Pedantic.Chess
             140, 120, 100,  80,  80, 100, 120, 140
         };
 
-        public static readonly short[] mopupMateNBLight =
+        private static readonly short[] egMopUpMateNBLight =
         {
              40,  40,  60,  80,  80, 100, 120, 140,
              40,  20,  20,  40,  40,  60, 100, 120,
@@ -1360,7 +1119,7 @@ namespace Pedantic.Chess
             140, 120, 100,  80,  80,  60,  40,  40
         };
 
-        public static readonly short[] mopupMateNBDark =
+        private static readonly short[] egMopUpMateNBDark =
         {
             140, 120, 100,  80,  80,  60,  40,  40,
             120, 100,  60,  40,  40,  20,  20,  40,

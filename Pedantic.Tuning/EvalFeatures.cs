@@ -88,8 +88,8 @@ namespace Pedantic.Tuning
             sideToMove = bd.SideToMove;
             phase = bd.Phase;
 
-            Span<Evaluation2.EvalInfo> evalInfo = stackalloc Evaluation2.EvalInfo[2];
-            Evaluation2.InitializeEvalInfo(bd, evalInfo);
+            Span<Evaluation.EvalInfo> evalInfo = stackalloc Evaluation.EvalInfo[2];
+            Evaluation.InitializeEvalInfo(bd, evalInfo);
 
             for (Color color = Color.White; color <= Color.Black; color++)
             {
@@ -121,14 +121,14 @@ namespace Pedantic.Tuning
                     ulong sqMask = BitOps.GetMask(sq);
                     //bool canBeBackward = true;
 
-                    if ((otherPawns & Evaluation2.PassedPawnMasks[c, sq]) == 0 && (pawns & friendMask) == 0)
+                    if ((otherPawns & Evaluation.PassedPawnMasks[c, sq]) == 0 && (pawns & friendMask) == 0)
                     {
                         SetPassedPawns(v, normalSq);
                         evalInfo[c].PassedPawns |= sqMask;
                     //    canBeBackward = false;
                     }
 
-                    if ((pawns & Evaluation2.IsolatedPawnMasks[sq]) == 0)
+                    if ((pawns & Evaluation.IsolatedPawnMasks[sq]) == 0)
                     {
                         IncrementIsolatedPawns(v);
                     //    canBeBackward = false;
@@ -139,7 +139,7 @@ namespace Pedantic.Tuning
                     //    IncrementBackwardPawns(v);
                     //}
 
-                    if ((pawns & Evaluation2.AdjacentPawnMasks[sq]) != 0)
+                    if ((pawns & Evaluation.AdjacentPawnMasks[sq]) != 0)
                     {
                         SetAdjacentPawns(v, normalSq);
                     }
@@ -174,7 +174,7 @@ namespace Pedantic.Tuning
                         evalInfo[c].PieceAttacks |= moves;
                         IncrementMobility(v, pc, (short)BitOps.PopCount(moves & evalInfo[c].MobilityArea));
 
-                        if (evalInfo[c].AttackCount < Evaluation2.MAX_ATTACK_LEN)
+                        if (evalInfo[c].AttackCount < Evaluation.MAX_ATTACK_LEN)
                         {
                             evalInfo[c].Attacks[evalInfo[c].AttackCount++] = moves;
                         }
@@ -186,16 +186,16 @@ namespace Pedantic.Tuning
                 for (int n = 0; n < evalInfo[c].AttackCount; n++)
                 {
                     ulong attacks = evalInfo[c].Attacks[n] & ~evalInfo[o].PawnAttacks;
-                    IncrementKingAttack(v, 0, (short)BitOps.PopCount(attacks & Evaluation2.KingProximity[0, enemyKI]));
-                    IncrementKingAttack(v, 1, (short)BitOps.PopCount(attacks & Evaluation2.KingProximity[1, enemyKI]));
-                    IncrementKingAttack(v, 2, (short)BitOps.PopCount(attacks & Evaluation2.KingProximity[2, enemyKI]));
+                    IncrementKingAttack(v, 0, (short)BitOps.PopCount(attacks & Evaluation.KingProximity[0, enemyKI]));
+                    IncrementKingAttack(v, 1, (short)BitOps.PopCount(attacks & Evaluation.KingProximity[1, enemyKI]));
+                    IncrementKingAttack(v, 2, (short)BitOps.PopCount(attacks & Evaluation.KingProximity[2, enemyKI]));
                 }
 
                 // Pawn Shield
                 int ki = evalInfo[c].KI;
-                SetPawnShield(v, 0, (short)BitOps.PopCount(pawns & Evaluation2.KingProximity[0, ki]));
-                SetPawnShield(v, 1, (short)BitOps.PopCount(pawns & Evaluation2.KingProximity[1, ki]));
-                SetPawnShield(v, 2, (short)BitOps.PopCount(pawns & Evaluation2.KingProximity[2, ki]));
+                SetPawnShield(v, 0, (short)BitOps.PopCount(pawns & Evaluation.KingProximity[0, ki]));
+                SetPawnShield(v, 1, (short)BitOps.PopCount(pawns & Evaluation.KingProximity[1, ki]));
+                SetPawnShield(v, 2, (short)BitOps.PopCount(pawns & Evaluation.KingProximity[2, ki]));
 
                 // Castling
                 if (bd.HasCastled[c])
@@ -238,10 +238,10 @@ namespace Pedantic.Tuning
 
                     if ((bishops & sqMask) != 0)
                     {
-                        ulong badPawns = pawns & Evaluation2.DARK_SQUARES_MASK;
+                        ulong badPawns = pawns & Evaluation.DARK_SQUARES_MASK;
                         if (!Index.IsDark(sq))
                         {
-                            badPawns = pawns & Evaluation2.LITE_SQUARES_MASK;
+                            badPawns = pawns & Evaluation.LITE_SQUARES_MASK;
                         }
 
                         for (ulong bbBadPawn = badPawns; bbBadPawn != 0; bbBadPawn = BitOps.ResetLsb(bbBadPawn))
@@ -274,7 +274,7 @@ namespace Pedantic.Tuning
                     {
                         IncrementRookOnOpenFile(v);
 
-                        if (Evaluation2.IsDoubled(bd, sq))
+                        if (Evaluation.IsDoubled(bd, sq))
                         {
                             IncrementDoubledRook(v);
                         }
@@ -284,7 +284,7 @@ namespace Pedantic.Tuning
                     {
                         IncrementRookOnHalfOpenFile(v);
 
-                        if (Evaluation2.IsDoubled(bd, sq))
+                        if (Evaluation.IsDoubled(bd, sq))
                         {
                             IncrementDoubledRook(v);
                         }
@@ -322,13 +322,13 @@ namespace Pedantic.Tuning
                     SetKingOnHalfOpenFile(v);
                 }
 
-                ulong kingDiagonalMask = Evaluation2.Diagonals[evalInfo[c].KI];
+                ulong kingDiagonalMask = Evaluation.Diagonals[evalInfo[c].KI];
                 if (BitOps.PopCount(kingDiagonalMask) > 3 && (kingDiagonalMask & allPawns) == 0)
                 {
                     IncrementKingOnOpenDiagonal(v);
                 }
 
-                kingDiagonalMask = Evaluation2.Antidiagonals[evalInfo[c].KI];
+                kingDiagonalMask = Evaluation.Antidiagonals[evalInfo[c].KI];
                 if (BitOps.PopCount(kingDiagonalMask) > 3 && (kingDiagonalMask & allPawns) == 0)
                 {
                     IncrementKingOnOpenDiagonal(v);
@@ -425,16 +425,16 @@ namespace Pedantic.Tuning
                 {
                     int sq = BitOps.TzCount(bb);
                     ulong attacks = Board.PawnCaptures(color, sq);
-                    short d0Count = (short)BitOps.PopCount(attacks & Evaluation2.D0_CENTER_CONTROL_MASK);
-                    short d1Count = (short)BitOps.PopCount(attacks & Evaluation2.D1_CENTER_CONTROL_MASK);
+                    short d0Count = (short)BitOps.PopCount(attacks & Evaluation.D0_CENTER_CONTROL_MASK);
+                    short d1Count = (short)BitOps.PopCount(attacks & Evaluation.D1_CENTER_CONTROL_MASK);
                     IncrementCenterControl(v, 0, d0Count);
                     IncrementCenterControl(v, 1, d0Count);
                 }
 
                 for (int n = 0; n < evalInfo[c].AttackCount; n++)
                 {
-                    short d0Count = (short)BitOps.PopCount(evalInfo[c].Attacks[n] & Evaluation2.D0_CENTER_CONTROL_MASK);
-                    short d1Count = (short)BitOps.PopCount(evalInfo[c].Attacks[n] & Evaluation2.D1_CENTER_CONTROL_MASK);
+                    short d0Count = (short)BitOps.PopCount(evalInfo[c].Attacks[n] & Evaluation.D0_CENTER_CONTROL_MASK);
+                    short d1Count = (short)BitOps.PopCount(evalInfo[c].Attacks[n] & Evaluation.D1_CENTER_CONTROL_MASK);
                     IncrementCenterControl(v, 0, d0Count);
                     IncrementCenterControl(v, 1, d1Count);
                 }
@@ -513,7 +513,7 @@ namespace Pedantic.Tuning
                     }
                 }
                 int score = computeScore.NormalizeScore(phase);
-                return Evaluation2.StmScore(sideToMove, score);
+                return Evaluation.StmScore(sideToMove, score);
             }
             catch (Exception ex)
             {

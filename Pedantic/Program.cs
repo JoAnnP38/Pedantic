@@ -174,19 +174,13 @@ namespace Pedantic
 
             var weightsCommand = new Command("weights", "Manipulate the weight database.");
 
-            var convertCommand = new Command("convert", "Convert old style weights")
-            {
-                IsHidden = true
-            };
-
             var rootCommand = new RootCommand("The pedantic chess engine.")
             {
                 uciCommand,
                 perftCommand,
                 labelCommand,
                 learnCommand,
-                weightsCommand,
-                convertCommand
+                weightsCommand
             };
 
             uciCommand.SetHandler(RunUci, commandFileOption, errorFileOption, randomSearchOption, statsOption, magicOption);
@@ -194,7 +188,6 @@ namespace Pedantic
             labelCommand.SetHandler(RunLabel, pgnFileOption, dataFileOption, maxPositionsOption);
             learnCommand.SetHandler(RunLearn, dataFileOption, sampleOption, iterOption, saveOption, resetOption, maxTimeOption, errorOption, seedOption);
             weightsCommand.SetHandler(RunWeights);
-            convertCommand.SetHandler(RunConvert);
             rootCommand.SetHandler(async () => await RunUci(null, null, false, false, false));
             return rootCommand.InvokeAsync(args).Result;
         }
@@ -236,7 +229,7 @@ namespace Pedantic
             }
             catch (Exception e)
             {
-                Uci.Log(@$"Fatal error occurred in Pedantic: '{e.Message}'.");
+                Uci.Default.Log(@$"Fatal error occurred in Pedantic: '{e.Message}'.");
                 await Console.Error.WriteAsync(Environment.NewLine);
                 await Console.Error.WriteLineAsync($@"[{DateTime.Now}]");
                 await Console.Error.WriteLineAsync(e.ToString());
@@ -273,7 +266,7 @@ namespace Pedantic
                     Console.WriteLine(@"option name Clear Hash type button");
                     Console.WriteLine(@"option name CollectStats type check default false");
                     Console.WriteLine($@"option name Hash type spin default {TtTran.DEFAULT_SIZE_MB} min 1 max {TtTran.MAX_SIZE_MB}");
-                    //Console.WriteLine($@"option name Threads type spin default 1 min 1 max {Math.Max(Environment.ProcessorCount - 2, 1)}");
+                    Console.WriteLine($@"option name Threads type spin default 1 min 1 max {Math.Max(Environment.ProcessorCount - 2, 1)}");
                     Console.WriteLine(@"option name OwnBook type check default true");
                     Console.WriteLine(@"option name Ponder type check default true");
                     Console.WriteLine(@"option name RandomSearch type check default false");
@@ -289,8 +282,7 @@ namespace Pedantic
                     break;
 
                 case "isready":
-                    Engine.LoadBookEntries();
-                    Console.WriteLine(@"readyok");
+                    Console.WriteLine("readyok");
                     break;
 
                 case "position":
@@ -334,7 +326,7 @@ namespace Pedantic
                     break;
 
                 default:
-                    Uci.Log($@"Unexpected input: '{input}'");
+                    Uci.Default.Log($@"Unexpected input: '{input}'");
                     return;
             }
         }
@@ -361,7 +353,7 @@ namespace Pedantic
             }
             else
             {
-                Uci.Log("'position' parameters missing or not understood. Assuming 'startpos'.");
+                Uci.Default.Log("'position' parameters missing or not understood. Assuming 'startpos'.");
                 Engine.SetupPosition(Constants.FEN_START_POS);
             }
 
@@ -402,12 +394,13 @@ namespace Pedantic
                         }
                         break;
 
-                    /*case "MaxThreads":
+                    case "Threads":
                         if (tokens[3] == "value" && int.TryParse(tokens[4], out int searchThreads))
                         {
                             Engine.SearchThreads = searchThreads;
+                            UciOptions.Threads = Engine.SearchThreads;
                         }
-                        break;*/
+                        break;
 
                     case "Ponder":
                         if (tokens[3] == "value" && bool.TryParse(tokens[4], out bool canPonder))
@@ -451,14 +444,14 @@ namespace Pedantic
                             {
                                 if (!Path.Exists(path))
                                 {
-                                    Uci.Log($"Ignoring specified SyzygyPath: '{path}'. Path doesn't exist.");
+                                    Uci.Default.Log($"Ignoring specified SyzygyPath: '{path}'. Path doesn't exist.");
                                 }
                                 else
                                 {
                                     bool result = Syzygy.Initialize(path);
                                     if (!result)
                                     {
-                                        Uci.Log($"Could not locate valid Syzygy tablebase files at '{path}'.");
+                                        Uci.Default.Log($"Could not locate valid Syzygy tablebase files at '{path}'.");
                                     }
                                     else
                                     {
@@ -1002,215 +995,6 @@ namespace Pedantic
         {
             HceWeights weights = Engine.Weights;
             PrintSolution(weights);
-        }
-
-        private static void ConvertSolutionSection(short[] wts)
-        {
-            void WriteWt(int wtIndex)
-            {
-                string score = $"S({wts[wtIndex],3}, {wts[wtIndex + ChessWeights.ENDGAME_WEIGHTS],3}), ";
-                Console.Write($"{score,-15}");
-            }
-
-            void WriteWtLine(int wtIndex)
-            {
-                WriteIndent();
-                WriteWt(wtIndex);
-                Console.WriteLine();
-            }
-
-            void WriteWtsLine(int start, int length)
-            {
-                WriteIndent();
-                for (int n = start; n < start + length; n++)
-                {
-                    WriteWt(n);
-                }
-                Console.WriteLine();
-            }
-
-            void WriteWts2D(int start, int width, int length)
-            {
-                for (int n = 0; n < length; n++)
-                {
-                    if (n % width == 0)
-                    {
-                        if (n != 0)
-                        {
-                            Console.WriteLine();
-                        }
-                        WriteIndent();
-                    }
-                    WriteWt(start + n);
-                }
-                Console.WriteLine();
-            }
-
-            string[] pieceNames = { "pawns", "knights", "bishops", "rooks", "queens", "kings" };
-            string[] upperNames = { "Pawn", "Knight", "Bishop", "Rook", "Queen", "King" };
-            string[] kpNames = { "KK", "KQ", "QK", "QQ" };
-            WriteLine("/* piece values */");
-            WriteWtsLine(ChessWeights.PIECE_VALUES, Constants.MAX_PIECES);
-            WriteLine();
-            WriteLine("/* piece square values */");
-            WriteLine("#region piece square values");
-            WriteLine();
-            for (int pc = 0; pc < Constants.MAX_PIECES; pc++)
-            {
-                for (int kp = 0; kp < Constants.MAX_KING_PLACEMENTS; kp++)
-                {
-                    int index = (pc * Constants.MAX_KING_PLACEMENTS + kp) * Constants.MAX_SQUARES;
-                    WriteLine($"/* {pieceNames[pc]}: {kpNames[kp]} */");
-                    WriteWts2D(ChessWeights.PIECE_SQUARE_TABLE + index, 8, Constants.MAX_SQUARES);
-                    WriteLine();
-                }
-            }
-            WriteLine("#endregion");
-            WriteLine();
-            WriteLine("/* mobility weights */");
-            WriteIndent(); WriteWt(ChessWeights.PIECE_MOBILITY + 0); Console.WriteLine(" // knights");
-            WriteIndent(); WriteWt(ChessWeights.PIECE_MOBILITY + 1); Console.WriteLine(" // bishops");
-            WriteIndent(); WriteWt(ChessWeights.PIECE_MOBILITY + 2); Console.WriteLine(" // rooks");
-            WriteIndent(); WriteWt(ChessWeights.PIECE_MOBILITY + 3); Console.WriteLine(" // queens");
-            WriteLine();
-            WriteLine("/* center control */");
-            WriteIndent(); WriteWt(ChessWeights.CENTER_CONTROL + 0); Console.WriteLine(" // D0");
-            WriteIndent(); WriteWt(ChessWeights.CENTER_CONTROL + 1); Console.WriteLine(" // D1");
-            WriteLine();
-            WriteLine("/* squares attacked near enemy king */");
-            WriteIndent(); WriteWt(ChessWeights.KING_ATTACK + 0); Console.WriteLine(" // attacks to squares 1 from king");
-            WriteIndent(); WriteWt(ChessWeights.KING_ATTACK + 1); Console.WriteLine(" // attacks to squares 2 from king");
-            WriteIndent(); WriteWt(ChessWeights.KING_ATTACK + 2); Console.WriteLine(" // attacks to squares 3 from king");
-            WriteLine();
-            WriteLine("/* pawn shield/king safety */");
-            WriteIndent(); WriteWt(ChessWeights.PAWN_SHIELD + 0); Console.WriteLine(" // friendly pawns 1 from king");
-            WriteIndent(); WriteWt(ChessWeights.PAWN_SHIELD + 1); Console.WriteLine(" // friendly pawns 2 from king");
-            WriteIndent(); WriteWt(ChessWeights.PAWN_SHIELD + 2); Console.WriteLine(" // friendly pawns 3 from king");
-            WriteLine();
-            WriteLine("/* castling right available */");
-            WriteWtLine(ChessWeights.CASTLING_AVAILABLE);
-            WriteLine();
-            WriteLine("/* castling complete */");
-            WriteWtLine(ChessWeights.CASTLING_COMPLETE);
-            WriteLine();
-            WriteLine("/* king on open file */");
-            WriteWtLine(ChessWeights.KING_ON_OPEN_FILE);
-            WriteLine();
-            WriteLine("/* king on half-open file */");
-            WriteWtLine(ChessWeights.KING_ON_HALF_OPEN_FILE);
-            WriteLine();
-            WriteLine("/* king on open diagonal */");
-            WriteWtLine(ChessWeights.KING_ON_OPEN_DIAGONAL);
-            WriteLine();
-            WriteLine("/* isolated pawns */");
-            WriteWtLine(ChessWeights.ISOLATED_PAWN);
-            WriteLine();
-            WriteLine("/* doubled pawns */");
-            WriteWtLine(ChessWeights.DOUBLED_PAWN);
-            WriteLine();
-            WriteLine("/* backward pawns */");
-            WriteWtLine(ChessWeights.UNUSED_0);
-            WriteLine();
-            WriteLine("/* adjacent/phalanx pawns */");
-            WriteWts2D(ChessWeights.CONNECTED_PAWN, 8, Constants.MAX_SQUARES);
-            WriteLine();
-            WriteLine("/* passed pawn */");
-            WriteWts2D(ChessWeights.PASSED_PAWN, 8, Constants.MAX_SQUARES);
-            WriteLine();
-            WriteLine("/* pawn rams */");
-            WriteWts2D(ChessWeights.PAWN_RAM, 8, Constants.MAX_SQUARES);
-            WriteLine();
-            WriteLine("/* supported pawn chain */");
-            WriteWts2D(ChessWeights.SUPPORTED_PAWN, 8, Constants.MAX_SQUARES);
-            WriteLine();
-            WriteLine("/* passed pawn can advance */");
-            WriteWtsLine(ChessWeights.PP_CAN_ADVANCE, 4);
-            WriteLine();
-            WriteLine("/* enemy king outside passed pawn square */");
-            WriteWtLine(ChessWeights.KING_OUTSIDE_PP_SQUARE);
-            WriteLine();
-            WriteLine("/* passed pawn/friendly king distance penalty */");
-            WriteWtLine(ChessWeights.PP_FRIENDLY_KING_DISTANCE);
-            WriteLine();
-            WriteLine("/* passed pawn/enemy king distance bonus */");
-            WriteWtLine(ChessWeights.PP_ENEMY_KING_DISTANCE);
-            WriteLine();
-            WriteLine("/* blocked passed pawn */");
-            for (int pc = 0; pc < Constants.MAX_PIECES; pc++)
-            {
-                WriteIndent();
-                for (int n = 0; n < 8; n++)
-                {
-                    WriteWt(ChessWeights.BLOCK_PASSED_PAWN + pc * 8 + n);
-                }
-                Console.WriteLine($" // blocked by {pieceNames[pc]}");
-            }
-            WriteLine();
-            WriteLine("/* rook behind passed pawn */");
-            WriteWtLine(ChessWeights.ROOK_BEHIND_PASSED_PAWN);
-            WriteLine();
-            WriteLine("/* knight on outpost */");
-            WriteWtLine(ChessWeights.KNIGHT_OUTPOST);
-            WriteLine();
-            WriteLine("/* bishop on outpost */");
-            WriteWtLine(ChessWeights.BISHOP_OUTPOST);
-            WriteLine();
-            WriteLine("/* bishop pair */");
-            WriteWtLine(ChessWeights.BISHOP_PAIR);
-            WriteLine();
-            WriteLine("/* bad bishop pawns */");
-            WriteWts2D(ChessWeights.BAD_BISHOP_PAWN, 8, Constants.MAX_SQUARES);
-            WriteLine();
-            WriteLine("/* rook on open file */");
-            WriteWtLine(ChessWeights.ROOK_ON_OPEN_FILE);
-            WriteLine();
-            WriteLine("/* rook on half-open file */");
-            WriteWtLine(ChessWeights.ROOK_ON_HALF_OPEN_FILE);
-            WriteLine();
-            WriteLine("/* rook on seventh rank */");
-            WriteWtLine(ChessWeights.ROOK_ON_7TH_RANK);
-            WriteLine();
-            WriteLine("/* doubled rooks on file */");
-            WriteWtLine(ChessWeights.DOUBLED_ROOKS_ON_FILE);
-            WriteLine();
-            WriteLine("/* queen on open file */");
-            WriteWtLine(ChessWeights.QUEEN_ON_OPEN_FILE);
-            WriteLine();
-            WriteLine("/* queen on half-open file */");
-            WriteWtLine(ChessWeights.QUEEN_ON_HALF_OPEN_FILE);
-            WriteLine();
-            WriteLine("/* pawn push threats */");
-            WriteIndent();
-            for (int n = 0; n < Constants.MAX_PIECES; n++)
-            {
-                WriteWt(ChessWeights.PAWN_PUSH_THREAT + n);
-            }
-            Console.WriteLine(" // Pawn push threats");
-            WriteLine();
-            WriteLine("/* piece threats */");
-            WriteLine("/*  Pawn          Knight         Bishop          Rook          Queen           King */");
-            for (int pc1 = 0; pc1 < Constants.MAX_PIECES; pc1++)
-            {
-                WriteIndent();
-                for (int pc2 = 0; pc2 < Constants.MAX_PIECES; pc2++)
-                {
-                    int index = ChessWeights.PIECE_THREAT + pc1 * Constants.MAX_PIECES + pc2;
-                    WriteWt(index);
-                }
-                Console.WriteLine($" // {upperNames[pc1]} threats");
-            }
-        }
-
-        public static void RunConvert()
-        {
-            ChessWeights wts = Evaluation.LoadWeights();
-            indentLevel = 2;
-            WriteLine("private static readonly Score[] defaultWeights =");
-            WriteLine("{");
-            indentLevel++;
-            ConvertSolutionSection(wts.Weights);
-            indentLevel--;            
-            WriteLine("};");
         }
 
         private static int indentLevel = 0;

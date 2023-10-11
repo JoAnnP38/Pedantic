@@ -89,7 +89,8 @@ namespace Pedantic
             Board bd = new();
             SearchStack searchStack = new();
             EvalCache cache = new();
-            BasicSearch search = new(searchStack, bd, tc, cache, Constants.MAX_PLY);
+            History history = new();
+            BasicSearch search = new(searchStack, bd, tc, cache, history, Constants.MAX_PLY);
             /*
             {
                 Eval = new Evaluation2()
