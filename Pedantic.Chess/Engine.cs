@@ -15,6 +15,7 @@
 // ***********************************************************************
 
 using Pedantic.Genetics;
+using Pedantic.Tablebase;
 using Pedantic.Utilities;
 using System.Diagnostics;
 using System.Numerics;
@@ -24,14 +25,10 @@ namespace Pedantic.Chess
     public static class Engine
     {
         private static readonly GameClock time = new();
-        private static int searchThreads = 1;
-        private static Thread? searchThread;
         private static PolyglotEntry[]? bookEntries;
         private static HceWeights? weights;
         private static Color color = Color.White;
-        private static BasicSearch? search = null;
-        private static EvalCache cache = new();
-        private static readonly SearchStack searchStack = new();
+        private static SearchThreads threads = new();
         private static readonly string[] benchFens =
         {
             #region bench FENs
@@ -99,15 +96,7 @@ namespace Pedantic.Chess
         public static Color Color
         {
             get => color;
-            set
-            {
-                if (value != color)
-                {
-                    TtTran.Clear();
-                }
-
-                color = value;
-            }
+            set => color = value;
         }
         public static PolyglotEntry[] BookEntries
         {
@@ -137,9 +126,8 @@ namespace Pedantic.Chess
 
         public static int SearchThreads
         {
-            get => searchThreads;
-            // Version 0.1 of Pedantic only uses a single thread for search.
-            set => searchThreads = Math.Max(value, 1);
+            get => threads.ThreadCount;
+            set => threads.ThreadCount = value;
         }
         public static Color SideToMove => Board.SideToMove;
 
@@ -151,16 +139,9 @@ namespace Pedantic.Chess
 
         public static void Stop()
         {
-            if (searchThread == null)
-            {
-                return;
-            }
-
-            WriteStats();
-            time.Stop();
-            searchThread.Join();
-            searchThread = null;
-            search = null;
+            threads.WriteStats();
+            threads.Stop();
+            threads.Wait();
         }
 
         public static void Quit()
@@ -188,14 +169,15 @@ namespace Pedantic.Chess
         public static void ClearHashTable()
         {
             TtTran.Clear();
-            cache.Clear();
             GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, true);
+            threads.ClearEvalCache();
         }
 
         public static void SetupNewGame()
         {
             Stop();
             ClearHashTable();
+            LoadBookEntries();
             MovesOutOfBook = 0;
         }
 
@@ -209,7 +191,7 @@ namespace Pedantic.Chess
             }
 
             TtTran.Resize(sizeMb);
-            cache.Resize(sizeMb >> 2);
+            threads.ResizeEvalCache();
         }
 
         public static bool SetupPosition(string fen)
@@ -220,19 +202,19 @@ namespace Pedantic.Chess
                 bool loaded = Board.LoadFenPosition(fen);
                 if (loaded)
                 {
-                    Uci.Debug(@$"New position: {Board.ToFenString()}");
+                    Uci.Default.Debug(@$"New position: {Board.ToFenString()}");
                 }
 
                 if (!loaded)
                 {
-                    Uci.Log("Engine failed to load position.");
+                    Uci.Default.Log("Engine failed to load position.");
                 }
 
                 return loaded;
             }
             catch (Exception e)
             {
-                Uci.Log(@$"Engine faulted: {e.Message}");
+                Uci.Default.Log(@$"Engine faulted: {e.Message}");
                 return false;
             }
         }
@@ -254,42 +236,18 @@ namespace Pedantic.Chess
                 }
             }
 
-            Uci.Debug($@"New position: {Board.ToFenString()}");
+            Uci.Default.Debug($@"New position: {Board.ToFenString()}");
         }
 
         public static void Wait(bool preserveSearch = false)
         {
-            if (searchThread == null)
-            {
-                return;
-            }
-
-            WriteStats();
-            searchThread.Join();
-            searchThread = null;
-            if (!preserveSearch)
-            {
-                search = null;
-            }
+            threads.WriteStats();
+            threads.Wait();
         }
 
         private static void WriteStats()
         {
-
-            if (UciOptions.CollectStatistics && search != null)
-            {
-                using var mutex = new Mutex(false, "Pedantic::chess_stats.csv");
-                mutex.WaitOne();
-                using StreamWriter output = File.AppendText("chess_stats.csv");
-                foreach (var st in search.Stats)
-                {
-                    output.WriteLine($"{st.Phase},{st.Depth},{st.NodesVisited}");
-                }
-
-                output.Flush();
-                output.Close();
-                mutex.ReleaseMutex();
-            }
+            threads.WriteStats();
         }
 
         public static void PonderHit()
@@ -360,6 +318,17 @@ namespace Pedantic.Chess
         {
             try
             {
+                if (!UciOptions.OwnBook)
+                {
+                    bookEntries = null;
+                    return;
+                }
+
+                if (bookEntries != null)
+                {
+                    // the book has already been loaded
+                    return;
+                }
 
                 string? exeFullName = Environment.ProcessPath;
                 string? dirFullName = Path.GetDirectoryName(exeFullName);
@@ -409,7 +378,7 @@ namespace Pedantic.Chess
                 if (weightsPath != null && File.Exists(weightsPath))
                 {
                     weights = new HceWeights(weightsPath);
-                    Evaluation2.Weights = weights;
+                    Evaluation.Weights = weights;
                 }
                 else
                 {
@@ -487,6 +456,46 @@ namespace Pedantic.Chess
             return move;
         }
 
+        private static bool ProbeRootTb(out ulong move)
+        {
+            MoveList moveList = new();
+            Board.GenerateMoves(moveList);
+            move = 0;
+            if (UciOptions.SyzygyProbeRoot && Syzygy.IsInitialized && BitOps.PopCount(Board.All) <= Syzygy.TbLargest)
+            {
+                TbResult result = Syzygy.ProbeRoot(Board.Units(Color.White), Board.Units(Color.Black), 
+                    Board.Pieces(Color.White, Piece.King)   | Board.Pieces(Color.Black, Piece.King),
+                    Board.Pieces(Color.White, Piece.Queen)  | Board.Pieces(Color.Black, Piece.Queen),
+                    Board.Pieces(Color.White, Piece.Rook)   | Board.Pieces(Color.Black, Piece.Rook),
+                    Board.Pieces(Color.White, Piece.Bishop) | Board.Pieces(Color.Black, Piece.Bishop),
+                    Board.Pieces(Color.White, Piece.Knight) | Board.Pieces(Color.Black, Piece.Knight),
+                    Board.Pieces(Color.White, Piece.Pawn)   | Board.Pieces(Color.Black, Piece.Pawn),
+                    (uint)Board.HalfMoveClock, (uint)Board.Castling, 
+                    (uint)(Board.EnPassantValidated != Index.NONE ? Board.EnPassantValidated : 0), 
+                    Board.SideToMove == Color.White, null);
+
+                int from = (int)result.From;
+                int to = (int)result.To;
+                uint tbPromotes = result.Promotes;
+                Piece promote = (Piece)(5 - tbPromotes);
+                promote = promote == Piece.King ? Piece.None : promote;
+
+                for (int n = 0; n < moveList.Count; n++)
+                {
+                    move = moveList[n];
+                    if (Move.GetFrom(move) == from && Move.GetTo(move) == to && Move.GetPromote(move) == promote)
+                    {
+                        if (Board.MakeMove(move))
+                        {
+                            Board.UnmakeMove();
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
         public static void Bench(int depth)
         {
             long totalNodes = 0;
@@ -498,15 +507,11 @@ namespace Pedantic.Chess
                 SetupPosition(fen);
                 Go(depth, int.MaxValue, long.MaxValue, false);
                 Wait(true);
-                if (search == null)
-                {
-                    throw new InvalidOperationException("Search object is unexpectedly null.");
-                }
-                totalNodes += search.NodesVisited;
-                totalTime += search.Elapsed / 1000.0;
+                totalNodes += threads.TotalNodes;
+                totalTime += threads.TotalTime;
             }
             double nps = totalNodes / totalTime;
-            Uci.Log($"depth {depth} time {totalTime:F4} nodes {totalNodes} nps {nps:F4}");
+            Uci.Default.Log($"depth {depth} time {totalTime:F4} nodes {totalNodes} nps {nps:F4}");
         }
 
         private static void StartSearch(int maxDepth, long maxNodes)
@@ -516,9 +521,15 @@ namespace Pedantic.Chess
             {
                 if (Move.TryParseMove(Board, move, out ulong parsedMove))
                 {
-                    Uci.BestMove(move);
+                    Uci.Default.BestMove(move);
                     return;
                 }
+            }
+
+            if (ProbeRootTb(out ulong mv))
+            {
+                Uci.Default.BestMove(mv, null);
+                return;
             }
 
             if (UciOptions.AnalyseMode)
@@ -527,17 +538,7 @@ namespace Pedantic.Chess
             }
 
             ++MovesOutOfBook;
-            searchStack.Initialize(Board);
-            search = new(searchStack, Board, time, cache, maxDepth, maxNodes, UciOptions.RandomSearch)
-            {
-                CanPonder = UciOptions.Ponder,
-                CollectStats = UciOptions.CollectStatistics
-            };
-            searchThread = new Thread(() => search.Search())
-            {
-                Priority = ThreadPriority.Highest
-            };
-            searchThread.Start();
+            threads.Search(time, Board, maxDepth, maxNodes);
             IsRunning = true;
         }
     }

@@ -141,13 +141,13 @@ namespace Pedantic.Chess
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int Value(this Piece piece)
         {
-            return Evaluation2.CanonicalPieceValues(piece);
+            return Evaluation.CanonicalPieceValues(piece);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static short PhaseValue(this Piece piece)
         {
-            return Evaluation2.PiecePhaseValue(piece);
+            return Evaluation.PiecePhaseValue(piece);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

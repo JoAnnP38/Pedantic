@@ -30,7 +30,7 @@ namespace Pedantic.Chess
         private int enPassant = Index.NONE;
         private int halfMoveClock;
         private int fullMoveCounter;
-        private static readonly Regex validFenString = new Regex(Constants.REGEX_FEN, RegexOptions.Singleline | RegexOptions.Compiled);
+        private static readonly Regex validFenString = new(Constants.REGEX_FEN, RegexOptions.Singleline | RegexOptions.Compiled);
 
         public Fen(string fenString)
         {

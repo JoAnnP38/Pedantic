@@ -24,11 +24,9 @@ namespace Pedantic.Genetics
         {
             public PedanticDb()
             {
-                Weights = new();
                 Stats = new();
             }
 
-            public SortedList<Guid, ChessWeights> Weights { get; set; }
             public SortedList<Guid, ChessStats> Stats { get; set; }
         }
 
@@ -43,7 +41,6 @@ namespace Pedantic.Genetics
                 db = JsonSerializer.Deserialize<PedanticDb>(json) ??
                      new PedanticDb()
                      {
-                         Weights = new SortedList<Guid, ChessWeights>(),
                          Stats = new SortedList<Guid, ChessStats>()
                      };
             }
@@ -51,16 +48,13 @@ namespace Pedantic.Genetics
             {
                 db = new PedanticDb()
                 {
-                    Weights = new SortedList<Guid, ChessWeights>(),
                     Stats = new SortedList<Guid, ChessStats>()
                 };
             }
 
-            weights = new WeightsRepository(db.Weights);
             stats = new StatsRepository(db.Stats);
         }
 
-        public IRepository<ChessWeights> Weights => weights;
         public IRepository<ChessStats> Stats => stats;
 
         public void Save()
@@ -79,7 +73,6 @@ namespace Pedantic.Genetics
         }
 
         private readonly PedanticDb db;
-        private readonly WeightsRepository weights;
         private readonly StatsRepository stats;
     }
 }

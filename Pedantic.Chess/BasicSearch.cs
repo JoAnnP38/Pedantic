@@ -43,17 +43,18 @@ namespace Pedantic.Chess
         internal const int SEE_PRUNING_CAPTURE_INC = 90;
         internal const int LMP_PRUNING_DEPTH = 3;
 
-        public BasicSearch(SearchStack searchStack, Board board, GameClock time, EvalCache cache, int maxSearchDepth, long maxNodes = long.MaxValue - 100, bool randomSearch = false) 
+        public BasicSearch(SearchStack searchStack, Board board, GameClock time, EvalCache cache, History history, int maxSearchDepth, long maxNodes = long.MaxValue - 100, bool randomSearch = false) 
         {
             this.board = board;
             this.time = time;
             this.maxSearchDepth = maxSearchDepth;
             this.maxNodes = maxNodes;
+            this.history = history;
             Depth = 0;
             PV = Array.Empty<ulong>();
             Score = 0;
             NodesVisited = 0L;
-            evaluation = new Evaluation2(cache, randomSearch, true);
+            evaluation = new Evaluation(cache, randomSearch, true);
             startDateTime = DateTime.Now;
             this.searchStack = searchStack;
         }
@@ -70,15 +71,6 @@ namespace Pedantic.Chess
                 ulong? ponderMove = null;
                 MoveList moveList = new();
                 oneLegalMove = board.OneLegalMove(moveList, out ulong bestMove);
-                
-#if USE_TB                
-                if (ProbeRootTb(moveList, out ulong tbMove))
-                {
-                    Uci.BestMove(tbMove, null);
-                    return;
-                }
-#endif                
-
                 Score = Quiesce(-Constants.INFINITE_WINDOW, Constants.INFINITE_WINDOW, 0, searchStack[-1].IsCheckingMove);
                 location = "1";
                 while (++Depth <= maxSearchDepth && time.CanSearchDeeper())
@@ -746,44 +738,6 @@ namespace Pedantic.Chess
             }
             return false;
         }
-
-        private bool ProbeRootTb(MoveList moveList, out ulong move)
-        {
-            move = 0;
-            if (Syzygy.IsInitialized && UciOptions.SyzygyProbeRoot && BitOps.PopCount(board.All) <= Syzygy.TbLargest)
-            {
-                TbResult result = Syzygy.ProbeRoot(board.Units(Color.White), board.Units(Color.Black), 
-                    board.Pieces(Color.White, Piece.King)   | board.Pieces(Color.Black, Piece.King),
-                    board.Pieces(Color.White, Piece.Queen)  | board.Pieces(Color.Black, Piece.Queen),
-                    board.Pieces(Color.White, Piece.Rook)   | board.Pieces(Color.Black, Piece.Rook),
-                    board.Pieces(Color.White, Piece.Bishop) | board.Pieces(Color.Black, Piece.Bishop),
-                    board.Pieces(Color.White, Piece.Knight) | board.Pieces(Color.Black, Piece.Knight),
-                    board.Pieces(Color.White, Piece.Pawn)   | board.Pieces(Color.Black, Piece.Pawn),
-                    (uint)board.HalfMoveClock, (uint)board.Castling, 
-                    (uint)(board.EnPassantValidated != Index.NONE ? board.EnPassantValidated : 0), 
-                    board.SideToMove == Color.White, null);
-
-                int from = (int)result.From;
-                int to = (int)result.To;
-                uint tbPromotes = result.Promotes;
-                Piece promote = (Piece)(5 - tbPromotes);
-                promote = promote == Piece.King ? Piece.None : promote;
-
-                for (int n = 0; n < moveList.Count; n++)
-                {
-                    move = moveList[n];
-                    if (Move.GetFrom(move) == from && Move.GetTo(move) == to && Move.GetPromote(move) == promote)
-                    {
-                        if (board.MakeMove(move))
-                        {
-                            board.UnmakeMove();
-                            return true;
-                        }
-                    }
-                }
-            }
-            return false;
-        }
 #endif
 
         private void ReportSearchResults(int score, TtFlag flag, ref ulong bestMove, ref ulong? ponderMove)
@@ -1006,6 +960,7 @@ namespace Pedantic.Chess
                 if (!UciOptions.AnalyseMode)
                 {
                     int contempt = board.GamePhase < GamePhase.EndGame ? -50 : 0;
+                    // TODO: Change Engine.Color to Engine.SideToMove 
                     if (board.SideToMove == Engine.Color)
                     {
                         return contempt;
@@ -1056,9 +1011,15 @@ namespace Pedantic.Chess
         public bool Pondering { get; set; }
         public bool CanPonder { get; set; }
         public bool CollectStats { get; set; } = false;
+        public Uci Uci
+        {
+            get => uci;
+            set => uci = value;
+        }
+
         public IEnumerable<ChessStats> Stats => stats;
 
-        public Evaluation2 Eval
+        public Evaluation Eval
         {
             get => evaluation;
             set => evaluation = value;
@@ -1070,12 +1031,13 @@ namespace Pedantic.Chess
             return depth < 3 ? 0 : NMP_BASE_REDUCTION + Math.Max(depth - 3, 0) / NMP_INC_DIVISOR;
         }
 
+        private Uci uci = Uci.Default;
         private readonly Board board;
         private readonly GameClock time;
-        private Evaluation2 evaluation;
+        private Evaluation evaluation;
         private readonly int maxSearchDepth;
         private readonly long maxNodes;
-        private readonly History history = new();
+        private readonly History history;
         private readonly SearchStack searchStack;
         private bool wasAborted = false;
         private bool oneLegalMove = false;

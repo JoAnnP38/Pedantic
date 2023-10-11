@@ -19,18 +19,18 @@ namespace Pedantic.UnitTests
         [TestMethod]
         public void StaticCtorTest()
         {
-            Assert.IsNotNull(Evaluation2.Weights);
-            Assert.AreEqual(new Score(-57, -40), Evaluation2.MopUpMate[12]);
-            Assert.AreEqual(new Score(-51, -40), Evaluation2.MopUpMateNBLight[76]);
-            Assert.AreEqual(new Score(-97, -100), Evaluation2.MopUpMateNBDark[144]);
+            Assert.IsNotNull(Evaluation.Weights);
+            Assert.AreEqual(new Score(-57, -40), Evaluation.MopUpMate[12]);
+            Assert.AreEqual(new Score(-51, -40), Evaluation.MopUpMateNBLight[76]);
+            Assert.AreEqual(new Score(-97, -100), Evaluation.MopUpMateNBDark[144]);
         }
 
         [TestMethod]
         public void InitializeEvalInfoTest()
         {
-            Span<Evaluation2.EvalInfo> evalInfo = stackalloc Evaluation2.EvalInfo[Constants.MAX_COLORS];
+            Span<Evaluation.EvalInfo> evalInfo = stackalloc Evaluation.EvalInfo[Constants.MAX_COLORS];
             Board board = new(Constants.FEN_START_POS);
-            Evaluation2.InitializeEvalInfo(board, evalInfo);
+            Evaluation.InitializeEvalInfo(board, evalInfo);
 
             Assert.AreEqual(board.Pieces(Color.White, Piece.Pawn), evalInfo[0].Pawns);
             Assert.AreEqual(board.Pieces(Color.Black, Piece.Pawn), evalInfo[1].Pawns);
@@ -47,18 +47,18 @@ namespace Pedantic.UnitTests
         }
 
         [TestMethod]
-        [DataRow("8/8/8/2kb4/1n6/8/8/2K5 b - - 0 1", true, Evaluation2.EgKingPst.MopUpNBLight)]
-        [DataRow("8/8/8/2k5/1n1b4/8/8/2K5 b - - 0 1", true, Evaluation2.EgKingPst.MopUpNBDark)]
-        [DataRow("8/8/8/2k5/1nn5/8/8/2K5 b - - 0 1", false, Evaluation2.EgKingPst.Normal)]
-        [DataRow("8/8/8/2k5/1nn5/8/8/2K3n1 b - - 0 1", true, Evaluation2.EgKingPst.MopUp)]
-        public void SufficientMatingMaterialTest(string fen, bool sufficient, Evaluation2.EgKingPst kingPst)
+        [DataRow("8/8/8/2kb4/1n6/8/8/2K5 b - - 0 1", true, Evaluation.EgKingPst.MopUpNBLight)]
+        [DataRow("8/8/8/2k5/1n1b4/8/8/2K5 b - - 0 1", true, Evaluation.EgKingPst.MopUpNBDark)]
+        [DataRow("8/8/8/2k5/1nn5/8/8/2K5 b - - 0 1", false, Evaluation.EgKingPst.Normal)]
+        [DataRow("8/8/8/2k5/1nn5/8/8/2K3n1 b - - 0 1", true, Evaluation.EgKingPst.MopUp)]
+        public void SufficientMatingMaterialTest(string fen, bool sufficient, Evaluation.EgKingPst kingPst)
         {
-            Span<Evaluation2.EvalInfo> evalInfo = stackalloc Evaluation2.EvalInfo[Constants.MAX_COLORS];
+            Span<Evaluation.EvalInfo> evalInfo = stackalloc Evaluation.EvalInfo[Constants.MAX_COLORS];
             Board board = new(fen);
-            Evaluation2.InitializeEvalInfo(board, evalInfo);
+            Evaluation.InitializeEvalInfo(board, evalInfo);
             int c = (int)board.SideToMove;
             int o = (int)board.SideToMove.Other();
-            bool isSufficient = Evaluation2.SufficientMatingMaterial(board, evalInfo, board.SideToMove);
+            bool isSufficient = Evaluation.SufficientMatingMaterial(board, evalInfo, board.SideToMove);
             Assert.AreEqual(sufficient, isSufficient);
             Assert.AreEqual(kingPst, evalInfo[o].KingPst);
         }
@@ -70,10 +70,10 @@ namespace Pedantic.UnitTests
         [DataRow("8/8/8/2k5/1nn5/8/8/2K3n1 b - - 0 1", false, true)]
         public void CanWinTest(string fen, bool wCanWin, bool bCanWin)
         {
-            Span<Evaluation2.EvalInfo> evalInfo = stackalloc Evaluation2.EvalInfo[Constants.MAX_COLORS];
+            Span<Evaluation.EvalInfo> evalInfo = stackalloc Evaluation.EvalInfo[Constants.MAX_COLORS];
             Board board = new(fen);
-            Evaluation2.InitializeEvalInfo(board, evalInfo);
-            var (WhiteCanWin, BlackCanWin) = Evaluation2.CanWin(board, evalInfo);
+            Evaluation.InitializeEvalInfo(board, evalInfo);
+            var (WhiteCanWin, BlackCanWin) = Evaluation.CanWin(board, evalInfo);
 
             Assert.AreEqual(wCanWin, WhiteCanWin);
             Assert.AreEqual(bCanWin, BlackCanWin);
@@ -84,10 +84,10 @@ namespace Pedantic.UnitTests
         [DataRow("8/8/8/2k5/1nn5/8/8/2K3n1 b - - 0 1", GamePhase.EndGameMopup, 6)]
         public void GetGamePhaseTest(string fen, GamePhase gamePhase, int phase)
         {
-            Span<Evaluation2.EvalInfo> evalInfo = stackalloc Evaluation2.EvalInfo[Constants.MAX_COLORS];
+            Span<Evaluation.EvalInfo> evalInfo = stackalloc Evaluation.EvalInfo[Constants.MAX_COLORS];
             Board board = new(fen);
-            Evaluation2.InitializeEvalInfo(board, evalInfo);
-            Evaluation2 eval = new(cache);
+            Evaluation.InitializeEvalInfo(board, evalInfo);
+            Evaluation eval = new(cache);
             Assert.AreEqual(gamePhase, eval.GetGamePhase(board, evalInfo));
         }
 
@@ -95,13 +95,13 @@ namespace Pedantic.UnitTests
         [DataRow("rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 1", 2228239, 2228239)]
         public void EvalMiscTest(string fen, int whiteScore, int blackScore)
         {
-            Span<Evaluation2.EvalInfo> evalInfo = stackalloc Evaluation2.EvalInfo[Constants.MAX_COLORS];
+            Span<Evaluation.EvalInfo> evalInfo = stackalloc Evaluation.EvalInfo[Constants.MAX_COLORS];
             Board board = new(fen);
-            Evaluation2.InitializeEvalInfo(board, evalInfo);
-            Evaluation2 eval = new(cache);
+            Evaluation.InitializeEvalInfo(board, evalInfo);
+            Evaluation eval = new(cache);
 
-            Score wScore = Evaluation2.EvalMisc(board, evalInfo, Color.White);
-            Score bScore = Evaluation2.EvalMisc(board, evalInfo, Color.Black);
+            Score wScore = Evaluation.EvalMisc(board, evalInfo, Color.White);
+            Score bScore = Evaluation.EvalMisc(board, evalInfo, Color.Black);
 
             Assert.AreEqual(whiteScore, wScore);
             Assert.AreEqual(blackScore, bScore);
@@ -111,13 +111,13 @@ namespace Pedantic.UnitTests
         [DataRow("8/8/4K3/3N4/2b5/1k6/8/8 b - - 0 1", 0, 4063263)]
         public void EvalThreatsTest(string fen, int whiteScore, int blackScore)
         {
-            Span<Evaluation2.EvalInfo> evalInfo = stackalloc Evaluation2.EvalInfo[Constants.MAX_COLORS];
+            Span<Evaluation.EvalInfo> evalInfo = stackalloc Evaluation.EvalInfo[Constants.MAX_COLORS];
             Board board = new(fen);
-            Evaluation2.InitializeEvalInfo(board, evalInfo);
-            Evaluation2 eval = new(cache);
+            Evaluation.InitializeEvalInfo(board, evalInfo);
+            Evaluation eval = new(cache);
 
-            Score wScore = Evaluation2.EvalThreats(board, evalInfo, Color.White);
-            Score bScore = Evaluation2.EvalThreats(board, evalInfo, Color.Black);
+            Score wScore = Evaluation.EvalThreats(board, evalInfo, Color.White);
+            Score bScore = Evaluation.EvalThreats(board, evalInfo, Color.Black);
 
             Assert.AreEqual(whiteScore, wScore);
             Assert.AreEqual(blackScore, bScore);
@@ -127,13 +127,13 @@ namespace Pedantic.UnitTests
         [DataRow("8/8/4K3/3N4/2b5/1k6/8/8 b - - 0 1", 3670088, 1572894)]
         public void EvalMobilityTest(string fen, int whiteScore, int blackScore)
         {
-            Span<Evaluation2.EvalInfo> evalInfo = stackalloc Evaluation2.EvalInfo[Constants.MAX_COLORS];
+            Span<Evaluation.EvalInfo> evalInfo = stackalloc Evaluation.EvalInfo[Constants.MAX_COLORS];
             Board board = new(fen);
-            Evaluation2.InitializeEvalInfo(board, evalInfo);
-            Evaluation2 eval = new(cache);
+            Evaluation.InitializeEvalInfo(board, evalInfo);
+            Evaluation eval = new(cache);
 
-            Score wScore = Evaluation2.EvalMobility(board, evalInfo, Color.White);
-            Score bScore = Evaluation2.EvalMobility(board, evalInfo, Color.Black);
+            Score wScore = Evaluation.EvalMobility(board, evalInfo, Color.White);
+            Score bScore = Evaluation.EvalMobility(board, evalInfo, Color.Black);
 
             Console.WriteLine($"wScore: {wScore}, bScore: {bScore}");
 
@@ -145,17 +145,17 @@ namespace Pedantic.UnitTests
         [DataRow("1r5k/6np/2p3p1/8/8/P5P1/1P2RP2/5BK1 b - - 0 1", 2555961, 2293789)]
         public void EvalKingSafteyTest(string fen, int whiteScore, int blackScore)
         {
-            Span<Evaluation2.EvalInfo> evalInfo = stackalloc Evaluation2.EvalInfo[Constants.MAX_COLORS];
+            Span<Evaluation.EvalInfo> evalInfo = stackalloc Evaluation.EvalInfo[Constants.MAX_COLORS];
             Board board = new(fen);
-            Evaluation2.InitializeEvalInfo(board, evalInfo);
-            Evaluation2 eval = new(cache);
+            Evaluation.InitializeEvalInfo(board, evalInfo);
+            Evaluation eval = new(cache);
 
             // have to run EvalMobility first so that PieceAttacks are initialized in EvalInfo
-            Evaluation2.EvalMobility(board, evalInfo, Color.White);
-            Evaluation2.EvalMobility(board, evalInfo, Color.Black);
+            Evaluation.EvalMobility(board, evalInfo, Color.White);
+            Evaluation.EvalMobility(board, evalInfo, Color.Black);
 
-            Score wScore = Evaluation2.EvalKingSafety(board, evalInfo, Color.White);
-            Score bScore = Evaluation2.EvalKingSafety(board, evalInfo, Color.Black);
+            Score wScore = Evaluation.EvalKingSafety(board, evalInfo, Color.White);
+            Score bScore = Evaluation.EvalKingSafety(board, evalInfo, Color.Black);
 
             Console.WriteLine($"wScore: {wScore}, bScore: {bScore}");
 
@@ -167,17 +167,17 @@ namespace Pedantic.UnitTests
         [DataRow("1r5k/6n1/2p3p1/2p4p/7P/6P1/PP1R1P2/5BK1 b - - 0 1", 1638463, -3407886)]
         public void EvalPawnsTest(string fen, int whiteScore, int blackScore)
         {
-            Span<Evaluation2.EvalInfo> evalInfo = stackalloc Evaluation2.EvalInfo[Constants.MAX_COLORS];
+            Span<Evaluation.EvalInfo> evalInfo = stackalloc Evaluation.EvalInfo[Constants.MAX_COLORS];
             Board board = new(fen);
-            Evaluation2.InitializeEvalInfo(board, evalInfo);
-            Evaluation2 eval = new(cache);
+            Evaluation.InitializeEvalInfo(board, evalInfo);
+            Evaluation eval = new(cache);
 
             // have to run EvalMobility first so that PieceAttacks are initialized in EvalInfo
-            Evaluation2.EvalMobility(board, evalInfo, Color.White);
-            Evaluation2.EvalMobility(board, evalInfo, Color.Black);
+            Evaluation.EvalMobility(board, evalInfo, Color.White);
+            Evaluation.EvalMobility(board, evalInfo, Color.Black);
 
-            Score wScore = Evaluation2.EvalPawns(board, evalInfo, Color.White);
-            Score bScore = Evaluation2.EvalPawns(board, evalInfo, Color.Black);
+            Score wScore = Evaluation.EvalPawns(board, evalInfo, Color.White);
+            Score bScore = Evaluation.EvalPawns(board, evalInfo, Color.Black);
 
             Console.WriteLine($"wScore: {wScore}, bScore: {bScore}");
 
@@ -189,17 +189,17 @@ namespace Pedantic.UnitTests
         [DataRow("3r3k/6n1/6p1/7p/3p3P/3B2P1/PP1R1P2/6K1 w - - 0 1", 7143431, 4456449)]
         public void EvalPassedPawnsTest(string fen, int whiteScore, int blackScore)
         {
-            Span<Evaluation2.EvalInfo> evalInfo = stackalloc Evaluation2.EvalInfo[Constants.MAX_COLORS];
+            Span<Evaluation.EvalInfo> evalInfo = stackalloc Evaluation.EvalInfo[Constants.MAX_COLORS];
             Board board = new(fen);
-            Evaluation2.InitializeEvalInfo(board, evalInfo);
-            Evaluation2 eval = new(cache);
+            Evaluation.InitializeEvalInfo(board, evalInfo);
+            Evaluation eval = new(cache);
 
             // EvalPawns must be called first to set EvalInfo.PassedPawns
-            Evaluation2.EvalPawns(board, evalInfo, Color.White);
-            Evaluation2.EvalPawns(board, evalInfo, Color.Black);
+            Evaluation.EvalPawns(board, evalInfo, Color.White);
+            Evaluation.EvalPawns(board, evalInfo, Color.Black);
 
-            Score wScore = Evaluation2.EvalPassedPawns(board, evalInfo, Color.White);
-            Score bScore = Evaluation2.EvalPassedPawns(board, evalInfo, Color.Black);
+            Score wScore = Evaluation.EvalPassedPawns(board, evalInfo, Color.White);
+            Score bScore = Evaluation.EvalPassedPawns(board, evalInfo, Color.Black);
 
             Console.WriteLine($"wScore: {wScore}, bScore: {bScore}");
 
@@ -211,13 +211,13 @@ namespace Pedantic.UnitTests
         [DataRow("2r5/6k1/q3p3/3p1p2/3Nb3/2P1BB2/rR1P4/1R2KQ2 w - - 0 1", 4980756, 12058634)]
         public void EvalPiecesTest(string fen, int whiteScore, int blackScore)
         {
-            Span<Evaluation2.EvalInfo> evalInfo = stackalloc Evaluation2.EvalInfo[Constants.MAX_COLORS];
+            Span<Evaluation.EvalInfo> evalInfo = stackalloc Evaluation.EvalInfo[Constants.MAX_COLORS];
             Board board = new(fen);
-            Evaluation2.InitializeEvalInfo(board, evalInfo);
-            Evaluation2 eval = new(cache);
+            Evaluation.InitializeEvalInfo(board, evalInfo);
+            Evaluation eval = new(cache);
 
-            Score wScore = Evaluation2.EvalPieces(board, evalInfo, Color.White);
-            Score bScore = Evaluation2.EvalPieces(board, evalInfo, Color.Black);
+            Score wScore = Evaluation.EvalPieces(board, evalInfo, Color.White);
+            Score bScore = Evaluation.EvalPieces(board, evalInfo, Color.Black);
 
             Console.WriteLine($"wScore: {wScore}, bScore: {bScore}");
 
@@ -229,13 +229,13 @@ namespace Pedantic.UnitTests
         [DataRow(Constants.FEN_START_POS, 422188732, 422188732)]
         public void EvalMaterialAndPstTest(string fen, int whiteScore, int blackScore)
         {
-            Span<Evaluation2.EvalInfo> evalInfo = stackalloc Evaluation2.EvalInfo[Constants.MAX_COLORS];
+            Span<Evaluation.EvalInfo> evalInfo = stackalloc Evaluation.EvalInfo[Constants.MAX_COLORS];
             Board board = new(fen);
-            Evaluation2.InitializeEvalInfo(board, evalInfo);
-            Evaluation2 eval = new(cache);
+            Evaluation.InitializeEvalInfo(board, evalInfo);
+            Evaluation eval = new(cache);
 
-            Score wScore = Evaluation2.EvalMaterialAndPst(board, evalInfo, Color.White);
-            Score bScore = Evaluation2.EvalMaterialAndPst(board, evalInfo, Color.Black);
+            Score wScore = Evaluation.EvalMaterialAndPst(board, evalInfo, Color.White);
+            Score bScore = Evaluation.EvalMaterialAndPst(board, evalInfo, Color.Black);
 
             Console.WriteLine($"wScore: {wScore}, bScore: {bScore}");
 
@@ -249,10 +249,10 @@ namespace Pedantic.UnitTests
         [DataRow("8/8/8/3nk1b1/8/3K4/8/8 b - - 0 1", -1225)]
         public void ComputeMopUpTest(string fen, int score)
         {
-            Span<Evaluation2.EvalInfo> evalInfo = stackalloc Evaluation2.EvalInfo[Constants.MAX_COLORS];
+            Span<Evaluation.EvalInfo> evalInfo = stackalloc Evaluation.EvalInfo[Constants.MAX_COLORS];
             Board board = new(fen);
-            Evaluation2.InitializeEvalInfo(board, evalInfo);
-            Evaluation2 eval = new(cache);
+            Evaluation.InitializeEvalInfo(board, evalInfo);
+            Evaluation eval = new(cache);
             GamePhase gamePhase = eval.GetGamePhase(board, evalInfo);
             Assert.AreEqual(GamePhase.EndGameMopup, gamePhase);
 
@@ -264,10 +264,10 @@ namespace Pedantic.UnitTests
         [DataRow(Constants.FEN_START_POS, 0)]
         public void ComputeNormalTest(string fen, int score)
         {
-            Span<Evaluation2.EvalInfo> evalInfo = stackalloc Evaluation2.EvalInfo[Constants.MAX_COLORS];
+            Span<Evaluation.EvalInfo> evalInfo = stackalloc Evaluation.EvalInfo[Constants.MAX_COLORS];
             Board board = new(fen);
-            Evaluation2.InitializeEvalInfo(board, evalInfo);
-            Evaluation2 eval = new(cache);
+            Evaluation.InitializeEvalInfo(board, evalInfo);
+            Evaluation eval = new(cache);
             GamePhase gamePhase = eval.GetGamePhase(board, evalInfo);
             bool isLazy = false;
             int normalScore = eval.ComputeNormal(board, evalInfo, -Constants.INFINITE_WINDOW, Constants.INFINITE_WINDOW, ref isLazy);
@@ -280,7 +280,7 @@ namespace Pedantic.UnitTests
         public void ComputeTest(string fen, int score)
         {
             Board board = new(fen);
-            Evaluation2 eval = new(cache);
+            Evaluation eval = new(cache);
             int computeScore = eval.Compute(board);
             Assert.AreEqual(score, computeScore);
         }
@@ -297,14 +297,14 @@ namespace Pedantic.UnitTests
         public void IsDoubledTest(string fen, int sq, bool isDoubled)
         {
             Board board = new(fen);
-            Assert.AreEqual(isDoubled, Evaluation2.IsDoubled(board, sq));
+            Assert.AreEqual(isDoubled, Evaluation.IsDoubled(board, sq));
         }
 
         [TestMethod]
         public void StmScoreTest()
         {
-            Assert.AreEqual(-1, Evaluation2.StmScore(Color.Black, 1));
-            Assert.AreEqual(1, Evaluation2.StmScore(Color.White, 1));
+            Assert.AreEqual(-1, Evaluation.StmScore(Color.Black, 1));
+            Assert.AreEqual(1, Evaluation.StmScore(Color.White, 1));
         }
     }
 }

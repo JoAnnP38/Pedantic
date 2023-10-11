@@ -383,7 +383,7 @@ namespace Pedantic.UnitTests
             */
             Board board = new(fen);
             EvalCache cache = new();
-            Evaluation2 eval = new(cache, false, false);
+            Evaluation eval = new(cache, false, false);
             short evalScore1 = eval.Compute(board);
 
             Engine.ClearHashTable();
@@ -530,7 +530,7 @@ namespace Pedantic.UnitTests
         {
             //Syzygy.Initialize("e:/tablebases/syzygy/3-4-5");
             Program.ParseCommand("setoption name Hash value 128");
-            Program.ParseCommand("setoption name SyzygyPath value e:/tablebases/syzygy/3-4-5");
+            Program.ParseCommand("setoption name SyzygyPath value c:/tb/syzygy/3-4-5-6");
             Program.ParseCommand("position fen 7k/6p1/8/8/8/8/1K6/R7 w - - 0 18");
             Console.WriteLine(Engine.Board.ToString());
             Console.WriteLine(Engine.Board.ToFenString());
