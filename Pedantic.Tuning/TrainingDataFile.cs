@@ -14,7 +14,7 @@ namespace Pedantic.Tuning
         private readonly Random random;
         private static readonly float[] validResults = { PosRecord.WDL_LOSS, PosRecord.WDL_DRAW, PosRecord.WDL_WIN };
 
-        public TrainingDataFile(string path, Encoding encoding, int? seed = null) 
+        public TrainingDataFile(string path, Encoding encoding) 
         { 
             if (!File.Exists(path))
             {
@@ -28,11 +28,11 @@ namespace Pedantic.Tuning
 #if DEBUG
             random = new Random(1);
 #else
-            random = seed.HasValue ? new Random(seed.Value) : new Random();
+            random = new Random();
 #endif
         }
 
-        public TrainingDataFile(string path, int? seed = null) : this(path, Encoding.UTF8, seed)
+        public TrainingDataFile(string path) : this(path, Encoding.UTF8)
         { }
 
         // load all position in the file

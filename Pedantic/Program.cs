@@ -125,11 +125,7 @@ namespace Pedantic
                 getDefaultValue: () => false);
             var maxTimeOption = new Option<TimeSpan?>(
                 name: "--maxtime",
-                description: "Maximum time optimization will run.",
-                getDefaultValue: () => null);
-            var seedOption = new Option<int?>(
-                name: "--seed",
-                description: "Specify seed for random number generator.",
+                description: "Maximum duration the optimization will run before a solution is declared.",
                 getDefaultValue: () => null);
             var errorOption = new Option<double>(
                 name: "--error",
@@ -168,11 +164,10 @@ namespace Pedantic
                 saveOption,
                 resetOption,
                 maxTimeOption,
-                errorOption,
-                seedOption
+                errorOption
             };
 
-            var weightsCommand = new Command("weights", "Manipulate the weight database.");
+            var weightsCommand = new Command("weights", "Display the default weights used by evaluation.");
 
             var rootCommand = new RootCommand("The pedantic chess engine.")
             {
@@ -186,7 +181,7 @@ namespace Pedantic
             uciCommand.SetHandler(RunUci, commandFileOption, errorFileOption, randomSearchOption, statsOption, magicOption);
             perftCommand.SetHandler(RunPerft, typeOption, depthOption, fenOption, magicOption);
             labelCommand.SetHandler(RunLabel, pgnFileOption, dataFileOption, maxPositionsOption);
-            learnCommand.SetHandler(RunLearn, dataFileOption, sampleOption, iterOption, saveOption, resetOption, maxTimeOption, errorOption, seedOption);
+            learnCommand.SetHandler(RunLearn, dataFileOption, sampleOption, iterOption, saveOption, resetOption, maxTimeOption, errorOption);
             weightsCommand.SetHandler(RunWeights);
             rootCommand.SetHandler(async () => await RunUci(null, null, false, false, false));
             return rootCommand.InvokeAsync(args).Result;
@@ -737,25 +732,20 @@ namespace Pedantic
             }
         }
 
-        private static void RunLearn(string? dataPath, int sampleSize, int maxPass, bool save, bool reset, TimeSpan? maxTime, double minError, int? seed)
+        private static void RunLearn(string? dataPath, int sampleSize, int maxPass, bool save, bool reset, TimeSpan? maxTime, double minError)
         {
             if (dataPath == null)
             {
                 throw new ArgumentNullException(nameof(dataPath));
             }
 
-            if (!seed.HasValue)
-            {
-                seed = (int)DateTime.Now.Ticks;
-            }
-
-            using var dataFile = new TrainingDataFile(dataPath, seed);
+            using var dataFile = new TrainingDataFile(dataPath);
 
             IList<PosRecord> positions = sampleSize <= 0 ? dataFile.LoadFile() : dataFile.LoadSample(sampleSize, save);
 
             HceWeights weights = reset ? new(true) : Engine.Weights;
 
-            var tuner = weights.Length > 0 ? new GdTuner(weights, positions, seed) : new GdTuner(positions, seed);
+            var tuner = weights.Length > 0 ? new GdTuner(weights, positions) : new GdTuner(positions);
             var (Error, Accuracy, Weights) = tuner.Train(maxPass, maxTime, minError);
             PrintSolution(positions.Count, Error, Accuracy, Weights);
         }

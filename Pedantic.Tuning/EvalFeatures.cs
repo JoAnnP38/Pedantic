@@ -428,7 +428,7 @@ namespace Pedantic.Tuning
                     short d0Count = (short)BitOps.PopCount(attacks & Evaluation.D0_CENTER_CONTROL_MASK);
                     short d1Count = (short)BitOps.PopCount(attacks & Evaluation.D1_CENTER_CONTROL_MASK);
                     IncrementCenterControl(v, 0, d0Count);
-                    IncrementCenterControl(v, 1, d0Count);
+                    IncrementCenterControl(v, 1, d1Count);
                 }
 
                 for (int n = 0; n < evalInfo[c].AttackCount; n++)

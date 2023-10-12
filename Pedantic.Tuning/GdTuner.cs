@@ -34,8 +34,8 @@ namespace Pedantic.Tuning
             public double EG;
         }
 
-        public GdTuner(HceWeights weights, IList<PosRecord> positions, int? seed)
-            : base(positions, seed)
+        public GdTuner(HceWeights weights, IList<PosRecord> positions)
+            : base(positions)
         {
             this.weights = new WeightPair[HceWeights.MAX_WEIGHTS];
             CopyWeights(weights, this.weights);
@@ -47,8 +47,8 @@ namespace Pedantic.Tuning
             }
         }
 
-        public GdTuner(IList<PosRecord> positions, int? seed)
-            : base(positions, seed)
+        public GdTuner(IList<PosRecord> positions)
+            : base(positions)
         {
             weights = ZeroWeights();
             gradient = new WeightPair[HceWeights.MAX_WEIGHTS];

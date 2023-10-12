@@ -62,7 +62,7 @@ Pedantic is my first step in advancing my knowledge of computer chess to the poi
         perft    Run a standard Perft test.
         label    Pre-process and label PGN data.
         learn    Optimize evaluation function using training data.
-        weights  Manipulate the weight database.
+        weights  Display the default weights used by evaluation.
 
     Description:
         Start the pedantic application in UCI mode.
@@ -109,22 +109,20 @@ Pedantic is my first step in advancing my knowledge of computer chess to the poi
     Options:
         --data <data>       The name of the labeled data file.
         --sample <sample>   Specify the number of samples to use from the training data. [default: -1]
-        --iter <iter>       Specify the maximum number of iterations before a solution is declared. [default: 100]
-        --preserve          When specified intermediate versions of the solution will be saved.
+        --iter <iter>       Specify the maximum number of iterations before a solution is declared. [default: 5000]
         --save              If specified the sample will be saved in file. [default: false]
-        --full <full>       Specifies the number of full batch optimization iterations. [default: 0]
         --reset             Reset all starting weights (except for piece material and phase) to zero. [default: false]
+        --maxtime <maxtime> Maximum duration the optimization will run before a solution is declared. 
+        --error <error>     Error threshold for terminating optimization loop. [default: 0]
         -?, -h, --help      Show help and usage information
 
     Description:
-        Manipulate the weight database.
+        Display the evaluation weights.
 
     Usage:
         Pedantic weights [options]
 
     Options:
-        --immortal <immortal>   Specifies the OID of a new set of weights to be made the immortal.
-        --display <display>     Specifies the OID of a set of weights to be displayed.
         -?, -h, --help          Show help and usage information
 ### Labeling Training Data
 Creating training data involves reading in a specially prepared PGN file that contains 1 or more games. Typically, this could include millions of games. To prepare a PGN for labeling it must first be processed by command-line utility [pgn-extract](https://www.cs.kent.ac.uk/people/staff/djb/pgn-extract/) in such a manner as to clean up incorrect file formatting and to convert the PGN movetext from SAN format to the alebraic notation specified by UCI. And example of pgn-extract usage is shown below:
@@ -140,10 +138,6 @@ After processing the output created by pgn-extract with Pedantic's label command
     FE15BDCF4CDEC83B,11,135,rnbq1rk1/ppp1ppbp/3p1np1/8/3PPP2/2NB1N2/PPP3PP/R1BQK2R b KQ - 4 6,0.5
 
 This training data file can then be used to train Pedantic.
-### Learning (Processing Training Data)
-One you have a training data set with preferably millions of positions (i.e. data file lines/rows) you can use this file to optimize Pedantic's evaluation function by deriving new weights/coefficients for the evaluation function. The the learning (i.e. regression) completes the optimized data will be written to the weights database stored in the common application data folder (i.e. typically this would be C:\ProgramData\Pedantic\Pedantic.db). This file will be created when Pedantic is first run on a system and populated with the default set of weights. Additionally, the program will print the object ID (i.e. OID) of the new set of weights which in turn can be used to configure Pedantic to use the new set of weights. This can be accomplished using one of two methods:
-1. Use the Pedantic _weights_ command to replace the current _immortal_ (i.e. default weights) using the given OID .
-2. Specify the UCI option Evaluation_ID using the OID of the new weights. You can return to using the default by blanking out this option.
 ### History
 While my first attempt at developing a chess engine took place over 40 years ago in the early 1980s, it was never something I was proud of except as being the motivation to learn C and to sweeten my resume. It was buggy, slow, and only with a lot of luck and a bit of prayer could it successfully complete a game without crashing. It did, however, inspire my interest in computer chess, artificial intelligence and a bet made in 1968 by International Chess Master David Levy that no chess computer would be able to defeat him in a chess match over the next ten years. To make a long story short, Mr. Levy won his bet by defeating all challengers ending with his win over CHESS 4.7 in 1978. However, like with all machines the advancement of computer chess has been relentless. Computer chess programs started beating top level players by the end of of the 1980s and in 1997, a program by IBM named Deep Blue defeated the world champion and Grandmaster, Garry Kasparov. Today, computer chess programs are no longer measured against human competitors because they are simply too strong. Instead, software developers continue to advanced the science by competing, program against program to achieve the acclaim of strongest chess engine in the world. With Pedantic, I humbly endeavor to join this elite group of developers by learning all the algorithms, heuristics and minutia so that I can create my own strong chess engine. 
 ### Credits

@@ -80,6 +80,7 @@ namespace Pedantic.Chess
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void UpdateHistory(ref short hist, short bonus)
         {
+            // TODO: fix bug: hist += bonus - (hist * Math.Abs(bonus) / HISTORY_SCORE_MAX));
             hist += (short)(bonus - hist * Math.Abs(bonus) / Constants.HISTORY_SCORE_MAX);
         }
 

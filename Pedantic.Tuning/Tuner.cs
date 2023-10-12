@@ -9,14 +9,14 @@ namespace Pedantic.Tuning
         public const double DEFAULT_K = 0.00385;
         public const double TOLERENCE = 1.0e-7;
 
-        protected Tuner(IList<PosRecord> positions, int? seed)
+        protected Tuner(IList<PosRecord> positions)
         {
             this.positions = positions;
 
 #if DEBUG
             rand = new Random(1);
 #else
-            rand = seed.HasValue ? new Random(seed.Value) : new Random();
+            rand = new Random();
 #endif
         }
 

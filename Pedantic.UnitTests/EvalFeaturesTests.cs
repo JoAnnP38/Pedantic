@@ -88,7 +88,7 @@ namespace Pedantic.UnitTests
             // cached pawns
             score = eval.ProbePawnCache(bd, evalInfo);
             evalScore = Evaluation.StmScore(bd.SideToMove, score.NormalizeScore(bd.Phase));
-            featureScore = features.Compute(weights, HceWeights.ISOLATED_PAWN, HceWeights.KING_OUTSIDE_PP_SQUARE);
+            featureScore = features.Compute(weights, HceWeights.ISOLATED_PAWN, HceWeights.PP_CAN_ADVANCE);
             Assert.AreEqual(evalScore, featureScore);
 
             // mobility
@@ -116,7 +116,7 @@ namespace Pedantic.UnitTests
             score = Evaluation.EvalPassedPawns(bd, evalInfo, Color.White);
             score -= Evaluation.EvalPassedPawns(bd, evalInfo, Color.Black);
             evalScore = Evaluation.StmScore(bd.SideToMove, score.NormalizeScore(bd.Phase));
-            featureScore = features.Compute(weights, HceWeights.KING_OUTSIDE_PP_SQUARE, HceWeights.KNIGHT_OUTPOST);
+            featureScore = features.Compute(weights, HceWeights.PP_CAN_ADVANCE, HceWeights.KNIGHT_OUTPOST);
             Assert.AreEqual(evalScore, featureScore);
 
             // threats
