@@ -53,16 +53,6 @@ namespace Pedantic
 
         private static int Main(string[] args)
         {
-            Console.WriteLine($"{APP_NAME_VER} by {AUTHOR}");
-            Console.Write("Fast PEXT available: ");
-            if (Board.IsPextSupported)
-            {
-                Console.WriteLine("Yes");
-            }
-            else
-            {
-                Console.WriteLine("No");
-            }
             var typeOption = new Option<PerftRunType>(
                 name: "--type",
                 description: "Specifies the perft variant to execute.",
