@@ -34,14 +34,39 @@ namespace Pedantic.Chess
         }
 
         public static bool CollectStatistics { get; set; }
-        public static int Hash { get; set;}
+        public static int Hash 
+        { 
+            get => hash; 
+            set
+            {
+                hash = Math.Clamp(value, 16, 2048);
+            }
+        }
         public static bool OwnBook { get; set; }
         public static bool Ponder { get; set; }
         public static bool RandomSearch { get; set; }
         public static string SyzygyPath { get; set; }
         public static bool SyzygyProbeRoot { get; set; }
-        public static int SyzygyProbeDepth { get; set; }
+        public static int SyzygyProbeDepth 
+        { 
+            get => syzygyProbeDepth;
+            set
+            {
+                syzygyProbeDepth = Math.Clamp(value, 0, Constants.MAX_PLY - 1);
+            }
+        }
         public static bool AnalyseMode { get; set; }
-        public static int Threads { get; set; }
+        public static int Threads 
+        { 
+            get => threads;
+            set
+            {
+                threads = Math.Clamp(value, 1, Environment.ProcessorCount);
+            }
+        }
+
+        private static int hash;
+        private static int syzygyProbeDepth;
+        private static int threads;
     }
 }

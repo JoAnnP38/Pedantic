@@ -23,7 +23,7 @@ namespace Pedantic.Tuning
                 return result;
             }
 
-            public override string ToString()
+            public override readonly string ToString()
             {
                 return $"({MG:F6}, {EG:F6})";
             }

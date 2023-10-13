@@ -10,10 +10,14 @@ namespace Pedantic.Chess
 {
     public class SearchThreads
     {
+        static SearchThreads()
+        {
+            ThreadPool.GetMaxThreads(out maxWorkerThreads, out _);
+        }
+
         public SearchThreads()
         {
             threads = new SearchThread[1] { new SearchThread(true) };
-            ThreadPool.GetMaxThreads(out maxWorkerThreads, out _);
             done = new CountdownEvent(0);
         }
 
@@ -146,8 +150,10 @@ namespace Pedantic.Chess
             }
         }
 
-        private CountdownEvent done;
+        public static int MaxWorkerThreads => maxWorkerThreads;
+
+        private readonly CountdownEvent done;
         private SearchThread[] threads;
-        private int maxWorkerThreads;
+        private static readonly int maxWorkerThreads;
     }
 }

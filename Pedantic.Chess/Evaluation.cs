@@ -292,7 +292,7 @@ namespace Pedantic.Chess
             return evalPst;
         }
 
-        public static Score EvalPawns(Board board, Span<EvalInfo> evalInfo, Color color)
+        public static Score EvalPawns(Board _, Span<EvalInfo> evalInfo, Color color)
         {
             Color other = color.Other();
             int c = (int)color;

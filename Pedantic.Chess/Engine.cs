@@ -28,7 +28,7 @@ namespace Pedantic.Chess
         private static PolyglotEntry[]? bookEntries;
         private static HceWeights? weights;
         private static Color color = Color.White;
-        private static SearchThreads threads = new();
+        private static readonly SearchThreads threads = new();
         private static readonly string[] benchFens =
         {
             #region bench FENs
@@ -519,7 +519,7 @@ namespace Pedantic.Chess
             string move = GetBookMove();
             if (move != "0000")
             {
-                if (Move.TryParseMove(Board, move, out ulong parsedMove))
+                if (Move.TryParseMove(Board, move, out ulong _))
                 {
                     Uci.Default.BestMove(move);
                     return;
