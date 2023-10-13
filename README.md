@@ -1,4 +1,4 @@
-## <p style="text-align: center">The Pedantic Chess Engine</p>
+<h1 style="text-align: center">The Pedantic Chess Engine</h1>
 <p style="text-align: center;">
 /pɪ'dæntɪk/ - [pe·dan·tic]<br />
 <span style="font-weight: bold">pedantic</span>
@@ -12,9 +12,9 @@ Pedantic is my first step in advancing my knowledge of computer chess to the poi
 * Windows 11
 * Microsoft Visual Studio Community 2022
 * C# / .NET 7.0
-* JSON files for Storing Trained Weights
 #### Structure
-* Multi-threaded, command-line, console application (single-threaded search)
+* Multi-threaded, command-line, console application
+* Handcrafted evaluation with nearly 2000 tapered weights
 * UCI protocol for interoperability with chess clients
 * Opening book library in Polyglot binary format
 #### Functionality
@@ -22,7 +22,7 @@ Pedantic is my first step in advancing my knowledge of computer chess to the poi
 * Perft Testing
 * Label Training Data
 * Learning (Logistical Regression)
-* Maintain Eval Weights Database 
+* Multi-threaded search
 ### Chess/AI Algorithms
 #### Search
 * Principal Variation/Negamax Search
@@ -41,14 +41,14 @@ Pedantic is my first step in advancing my knowledge of computer chess to the poi
 * Static Exchange Evaluation (SEE)
 #### Machine Learning
 * Transform PGN Files into Labeled Training Data
-* Random Sample Selection from Training Data (currently 50 million positions and growing)
+* Random Sample Selection from Training Data (currently 75 million positions and growing)
 * Evaluation weight tuning using Texel inspired local search
 * Logistic Regression using Local Search 
 * Performance Enhanced Regression (16X faster than simple Texel)
 * Tuned weights automatically written to weights file (pedantic.json)
 ### Command-Line Description
-    Description:
-        The pedantic chess engine.
+	Description:
+		The pedantic chess engine.
 
     Usage: 
         Pedantic [command] [options]
@@ -153,23 +153,15 @@ Inspired implementatin of search, razoring and quiesence.
 Inspired late move reduction and null move pruning technique.
 #### Books and Articles
 Caplinger, Noah. _Chess Algorithms_. USA: Lulu Press, 2021.
-
 Jordan, Bill. _Advanced Chess Programming_. Orlando: Independently Published, 2022.
-
 Jordan, Bill. _How to Write a Bitboard Chess Engine_. Orlando: Independently Published: 2020.
-
 Jordan, Bill. _Teach a Chess Program Strategy_. Orlando: Independently Published: 2022.
-
 Rustad-Elliotr, Rhys. [_Fast Chess Move Generation With Magic Bitboards_](https://rhysre.net/fast-chess-move-generation-with-magic-bitboards.html). 2017.
-
 Levy, David. _Computer Gamesmanship_. London: Century Publishing, 1983.
-
 Levy, David. _The Joy of Computer Chess_. Englewood Cliffs: Prentice-Hall, 1984.
-
 Levy, David and Monty NewBorn. _How Computers Play Chess_. New York and Tokyo: Ishi Press International, 2009.
-
 Slate, David and Larry Atkin. "Chess 4.5: The Northwestern University Chess Program." _Computer Chess Compendium_. London: B. T. Batsford, 1988.
-    
+  
 [![MIT License](https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/MIT_logo.svg/100px-MIT_logo.svg.png)](https://en.wikipedia.org/wiki/MIT_License)
 
 [![Open Source Initiative](https://149753425.v2.pressablecdn.com/wp-content/uploads/2009/06/OSI_Standard_Logo_100X130.png)](https://opensource.org/license/mit-0/)
