@@ -5,6 +5,11 @@ using Pedantic.Utilities;
 
 namespace Pedantic.Chess
 {
+    // TODO: Penalize friendly knight the further it is away from own king if friendly King Safety < enemy King Safety
+    // TODO: Penalize trapped pieces (i.e. zero mobility)
+    // TODO: Reward pieces defending other pieces
+    // TODO: Reduce material or pawn material advantage for winning side if OCB
+    // TODO: Penalize each potential square that is open for a slider to attack king
     public sealed class Evaluation
     {
         public const ulong D0_CENTER_CONTROL_MASK = 0x0000001818000000ul;

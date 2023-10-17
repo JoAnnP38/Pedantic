@@ -23,6 +23,7 @@ using Pedantic.Utilities;
 
 namespace Pedantic.Chess
 {
+    // TODO: Reduce (or eliminate) pruning if mate has been found
     public sealed class BasicSearch
     {
         public const int CHECK_TC_NODES_MASK = 1023;

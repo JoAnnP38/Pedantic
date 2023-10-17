@@ -99,7 +99,7 @@ namespace Pedantic.Chess
 
         public static void Add(ulong hash, int depth, int ply, int alpha, int beta, int score, ulong move)
         {
-            int index = GetStoreIndex(hash, depth);
+            int index = GetStoreIndex(hash);
 
             ref TtTranItem item = ref table[index];
             ulong bestMove = move;
@@ -246,7 +246,7 @@ namespace Pedantic.Chess
             return false;
         }
 
-        private static int GetStoreIndex(ulong hash, int depth)
+        private static int GetStoreIndex(ulong hash)
         {
             int index0 = (int)(hash & mask);
             int index1 = index0 ^ 1;
@@ -263,26 +263,11 @@ namespace Pedantic.Chess
                 return index1;
             }
 
-            if (item0.Age <= item1.Age && item0.Age < generation)
+            if (item0.Age != item1.Age )
             {
-                return index0;
+                return item0.Age < item1.Age ? index0 : index1;
             }
-            else if (item1.Age <= item0.Age && item1.Age < generation)
-            {
-                return index1;
-            }
-
-            if (item0.Depth <= item1.Depth && item0.Depth < depth)
-            {
-                return index0;
-            }
-
-            if (item1.Depth <= item0.Depth && item1.Depth < depth)
-            {
-                return index1;
-            }
-
-            return index0;
+            return item0.Depth <= item1.Depth ? index0 : index1;
         }
 
         private static bool GetLoadIndex(ulong hash, out int index)

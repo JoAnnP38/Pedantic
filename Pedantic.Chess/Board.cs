@@ -25,6 +25,10 @@ using Index = Pedantic.Chess.Index;
 
 namespace Pedantic.Chess
 {
+    // TODO: Refactor board to eliminate parallel mailbox board
+    // TODO: Refactor board remove unused methods / data
+    // TODO: Combine AddPiece/RemovePiece into MovePiece
+    // TODO: Replace MoveList & MoveListPool with stackallocated MoveList.
     public sealed partial class Board : ICloneable
     {
         public const ulong WHITE_KS_CLEAR_MASK = (1ul << Index.F1) | (1ul << Index.G1);
@@ -304,6 +308,7 @@ namespace Pedantic.Chess
             {
                 if (type == MoveType.EnPassant)
                 {
+                    // TODO: Add check to make sure to square is appropriate
                     return board[from].Piece == Piece.Pawn && enPassant == to && board[to].IsEmpty && board[to + EpOffset(stm)].Piece == Piece.Pawn;
                 }
                 else if (type == MoveType.Castle)
@@ -317,6 +322,7 @@ namespace Pedantic.Chess
                 {
                     captureSquare = Square.Create(stm.Other(), capture);
                 }
+                // TODO: May want to add check for piece that blocks sliding move to achieve ~100% correctness
                 return board[from].Piece == piece && board[from].Color == stm && board[to] == captureSquare;
             }
             return false;
