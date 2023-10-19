@@ -8,7 +8,7 @@ namespace Pedantic.Chess
 {
     public ref struct MoveBag
     {
-        private Span<ulong> _moves;
+        private readonly Span<ulong> _moves;
         private int _count;
 
         public MoveBag(Span<ulong> moves)
@@ -17,10 +17,10 @@ namespace Pedantic.Chess
             _count = 0;
         }
 
-        public int Capacity => _moves.Length;
-        public int Count => _count;
+        public readonly int Capacity => _moves.Length;
+        public readonly int Count => _count;
 
-        public bool IsFull => _count >= _moves.Length;
+        public readonly bool IsFull => _count >= _moves.Length;
 
         public void Add(ulong move)
         {
@@ -38,7 +38,7 @@ namespace Pedantic.Chess
             return true;
         }
 
-        public ulong this[int n]
+        public readonly ulong this[int n]
         {
             get
             {

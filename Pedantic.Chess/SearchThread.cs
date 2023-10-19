@@ -1,4 +1,6 @@
-﻿namespace Pedantic.Chess
+﻿using Pedantic.Utilities;
+
+namespace Pedantic.Chess
 {
     public class SearchThread
     {
@@ -13,12 +15,12 @@
         public void Search(GameClock clock, Board board, int maxDepth, long maxNodes, CountdownEvent done, bool prioritize)
         {
             stack.Initialize(board);
-            Uci uci = new Uci(isPrimary, false);
+            Uci uci = new(isPrimary, false);
             clock.Uci = uci;
             this.clock = clock;
             history.Rescale();
 
-            search = new(stack, board, clock, cache, history, maxDepth, maxNodes, UciOptions.RandomSearch)
+            search = new(stack, board, clock, cache, history, listPool, maxDepth, maxNodes, UciOptions.RandomSearch)
             {
                 CanPonder = Engine.IsPondering,
                 CollectStats = isPrimary && UciOptions.CollectStatistics,
@@ -69,13 +71,15 @@
         public EvalCache Cache => cache;
         public History History => history;
         public SearchStack Stack => stack;
+        public ObjectPool<MoveList> MoveListPool => listPool;
 
-        private bool isPrimary;
+        private readonly bool isPrimary;
         private BasicSearch? search;
         private GameClock? clock;
         private Thread? thread;
         private readonly EvalCache cache = new();
         private readonly History history = new();
         private readonly SearchStack stack = new();
+        private readonly ObjectPool<MoveList> listPool = new(Constants.MAX_PLY);
     }
 }

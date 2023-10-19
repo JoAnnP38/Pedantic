@@ -259,7 +259,7 @@ namespace Pedantic.Chess
                 return false;
             }
 
-            MoveList moveList = moveListPool.Get();
+            MoveList moveList = moveListPool.Rent();
 
             switch (piece, type)
             {

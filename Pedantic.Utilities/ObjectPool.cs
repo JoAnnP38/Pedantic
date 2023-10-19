@@ -33,7 +33,7 @@ namespace Pedantic.Utilities
             }
         }
 
-        public T Get()
+        public T Rent()
         {
             if (objects.TryTake(out T? item))
             {

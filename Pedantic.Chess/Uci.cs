@@ -143,8 +143,8 @@ namespace Pedantic.Chess
 
         public static Uci Default => defaultUci;
 
-        private bool enable;
-        private bool debug;
-        private static Uci defaultUci;
+        private readonly bool enable;
+        private readonly bool debug;
+        private readonly static Uci defaultUci;
     }
 }

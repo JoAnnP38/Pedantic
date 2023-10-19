@@ -44,12 +44,14 @@ namespace Pedantic.Chess
         internal const int SEE_PRUNING_CAPTURE_INC = 90;
         internal const int LMP_PRUNING_DEPTH = 3;
 
-        public BasicSearch(SearchStack searchStack, Board board, GameClock time, EvalCache cache, History history, int maxSearchDepth, long maxNodes = long.MaxValue - 100, bool randomSearch = false) 
+        public BasicSearch(SearchStack searchStack, Board board, GameClock time, EvalCache cache, History history, 
+            ObjectPool<MoveList> listPool, int maxSearchDepth, long maxNodes = long.MaxValue - 100, bool randomSearch = false) 
         {
             this.board = board;
             this.time = time;
             this.maxSearchDepth = maxSearchDepth;
             this.maxNodes = maxNodes;
+            moveListPool = listPool;
             this.history = history;
             Depth = 0;
             PV = Array.Empty<ulong>();
@@ -825,7 +827,7 @@ namespace Pedantic.Chess
 
         private ulong[] ExtractPv(ulong[] pv)
         {
-            MoveList result = moveListPool.Get();
+            MoveList result = moveListPool.Rent();
             Board bd = board.Clone();
             int d = 0;
             positions.Clear();
@@ -945,7 +947,7 @@ namespace Pedantic.Chess
         public MoveList GetMoveList()
         {
             board.PushBoardState();
-            return moveListPool.Get();
+            return moveListPool.Rent();
         }
 
         public void ReturnMoveList(MoveList moveList)
@@ -1044,7 +1046,7 @@ namespace Pedantic.Chess
         private bool oneLegalMove = false;
         private int rootChanges = 0;
         private readonly HashSet<ulong> positions = new(Constants.MAX_PLY);
-        private readonly ObjectPool<MoveList> moveListPool = new(Constants.MAX_PLY);
+        private readonly ObjectPool<MoveList> moveListPool;
         private readonly List<ChessStats> stats = new();
         private readonly CpuStats cpuStats = new();
         private readonly DateTime startDateTime;
@@ -1056,7 +1058,7 @@ namespace Pedantic.Chess
 
         internal static readonly ulong[] EmptyPv = Array.Empty<ulong>();
         // Optimized 8/1/2023: 33, 100, 300, INF
-        internal static readonly int[] Window = { 33, 100, 300, Constants.INFINITE_WINDOW };
+        internal static readonly int[] Window = { 33, 100, 300, 900, Constants.INFINITE_WINDOW };
         internal static readonly int[] FutilityMargin = { 0, 200, 400, 600, 800 };
 
         internal static readonly sbyte[][] LMR =

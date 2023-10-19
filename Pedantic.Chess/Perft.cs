@@ -103,7 +103,7 @@ namespace Pedantic.Chess
             ValueList<DivideCount> divCounts = new(64);
 
             ulong nodes = 0;
-            MoveList moveList = moveListPool.Get();
+            MoveList moveList = moveListPool.Rent();
             board.PushBoardState();
             board.GenerateMoves(moveList);
             ReadOnlySpan<ulong> moves = moveList.ToSpan();
@@ -147,7 +147,7 @@ namespace Pedantic.Chess
             }
 
             ulong nodes = 0;
-            MoveList moveList = moveListPool.Get();
+            MoveList moveList = moveListPool.Rent();
             board.PushBoardState();
             board.GenerateMoves(moveList);
 
@@ -185,7 +185,7 @@ namespace Pedantic.Chess
                 return GetCounts();
             }
 
-            MoveList moveList = moveListPool.Get();
+            MoveList moveList = moveListPool.Rent();
             board.PushBoardState();
             board.GenerateMoves(moveList);
             var moves = moveList.ToSpan();
@@ -216,7 +216,7 @@ namespace Pedantic.Chess
             {
                 counts.Checks = 1;
                 mate = true;
-                MoveList moveList = moveListPool.Get();
+                MoveList moveList = moveListPool.Rent();
                 board.PushBoardState();
                 board.GenerateMoves(moveList);
                 var moves = moveList.ToSpan();

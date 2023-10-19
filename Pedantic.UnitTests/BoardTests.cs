@@ -177,7 +177,7 @@ namespace Pedantic.UnitTests
         {
             Board bd = new(fen);
             ObjectPool<MoveList> moveListPool = new (Constants.MAX_PLY);
-            MoveList moveList = moveListPool.Get();
+            MoveList moveList = moveListPool.Rent();
             bd.GenerateMoves(moveList);
 
             for (int i = 0; i < moveList.Count; ++i)
@@ -186,7 +186,7 @@ namespace Pedantic.UnitTests
                 {
                     bd.UnmakeMove();
                 }
-                MoveList mvList = moveListPool.Get();
+                MoveList mvList = moveListPool.Rent();
                 bd.GenerateMoves(mvList);
                 Assert.AreEqual(moveList.Count, mvList.Count, $"BestMove arrays differ after move: {Move.ToString(mvList[i])}");
                 for (int n = 0; n < mvList.Count; ++n)

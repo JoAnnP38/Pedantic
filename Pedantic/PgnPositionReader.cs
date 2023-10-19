@@ -90,7 +90,8 @@ namespace Pedantic
             SearchStack searchStack = new();
             EvalCache cache = new();
             History history = new();
-            BasicSearch search = new(searchStack, bd, tc, cache, history, Constants.MAX_PLY);
+            ObjectPool<MoveList> listPool = new(Constants.MAX_PLY);
+            BasicSearch search = new(searchStack, bd, tc, cache, history, listPool, Constants.MAX_PLY);
             /*
             {
                 Eval = new Evaluation2()

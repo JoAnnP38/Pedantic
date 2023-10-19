@@ -17,8 +17,8 @@ namespace Pedantic.Chess
             move2 = 0;
         }
 
-        public ulong Move1 => move1;
-        public ulong Move2 => move2;
+        public readonly ulong Move1 => move1;
+        public readonly ulong Move2 => move2;
 
         public void Add(ulong move)
         {
