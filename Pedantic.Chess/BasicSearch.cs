@@ -45,7 +45,7 @@ namespace Pedantic.Chess
         internal const int LMP_PRUNING_DEPTH = 3;
 
         public BasicSearch(SearchStack searchStack, Board board, GameClock time, EvalCache cache, History history, 
-            ObjectPool<MoveList> listPool, int maxSearchDepth, long maxNodes = long.MaxValue - 100, bool randomSearch = false) 
+            ObjectPool<MoveList> listPool, TtTran ttTran, int maxSearchDepth, long maxNodes = long.MaxValue - 100, bool randomSearch = false) 
         {
             this.board = board;
             this.time = time;
@@ -53,6 +53,7 @@ namespace Pedantic.Chess
             this.maxNodes = maxNodes;
             moveListPool = listPool;
             this.history = history;
+            tt = ttTran;
             Depth = 0;
             PV = Array.Empty<ulong>();
             Score = 0;
@@ -178,7 +179,7 @@ namespace Pedantic.Chess
 
                 location = "12";
                 Uci.Debug("Incrementing hash table version.");
-                TtTran.IncrementVersion();
+                tt.IncrementVersion();
                 searchStack.Clear();
                 location = "13";
                 Uci.BestMove(bestMove, CanPonder ? ponderMove : null);
@@ -222,7 +223,8 @@ namespace Pedantic.Chess
             int score;
             ulong move;
             MoveGenPhase phase;
-            IEnumerable<(ulong Move, MoveGenPhase Phase)> moves = board.Moves(0, history, searchStack, moveList);
+            tt.TryGetBestMove(board.Hash, out ulong ttMove);
+            IEnumerable<(ulong Move, MoveGenPhase Phase)> moves = board.Moves(0, history, searchStack, moveList, ttMove);
 
             foreach (var mvItem in moves)
             {
@@ -237,7 +239,7 @@ namespace Pedantic.Chess
                 if (startReporting || (DateTime.Now - startDateTime).TotalMilliseconds >= 1000)
                 {
                     startReporting = true;
-                    Uci.CurrentMove(depth, move, expandedNodes, NodesVisited, TtTran.Usage);
+                    Uci.CurrentMove(depth, move, expandedNodes, NodesVisited, tt.Usage);
                 }
 
                 bool checkingMove = board.IsChecked();
@@ -323,7 +325,7 @@ namespace Pedantic.Chess
                 return inCheck ? -Constants.CHECKMATE_SCORE : 0;
             }
 
-            TtTran.Add(board.Hash, depth, 0, originalAlpha, beta, alpha, bestMove);
+            tt.Add(board.Hash, depth, 0, originalAlpha, beta, alpha, bestMove);
             return alpha;
         }
 
@@ -359,7 +361,7 @@ namespace Pedantic.Chess
                 return alpha;
             }
 
-            if (TtTran.TryGetScore(board.Hash, depth, ply, alpha, beta, out bool avoidNmp, out int score, out ulong bestMove))
+            if (tt.TryGetScore(board.Hash, depth, ply, alpha, beta, out bool avoidNmp, out int score, out ulong ttMove))
             { 
                 return score;
             }
@@ -414,7 +416,7 @@ namespace Pedantic.Chess
 
                         if (score >= beta)
                         {
-                            TtTran.Add(board.Hash, depth, ply, originalAlpha, beta, score, 0ul);
+                            tt.Add(board.Hash, depth, ply, originalAlpha, beta, score, 0ul);
                             return beta;
                         }
                     }
@@ -439,7 +441,7 @@ namespace Pedantic.Chess
                 }
             }
 
-            if (depth >= IID_MIN_DEPTH && bestMove == 0)
+            if (depth >= IID_MIN_DEPTH && ttMove == 0)
             {
                 depth--;
             }
@@ -448,10 +450,10 @@ namespace Pedantic.Chess
             Color stm = board.SideToMove;
             StackList<uint> quiets = new(stackalloc uint[128]);
             MoveList moveList = GetMoveList();
-            bestMove = 0ul;
             ulong move;
+            ulong bestMove = 0;
             MoveGenPhase phase;
-            var moves = board.Moves(ply, history, searchStack, moveList);
+            var moves = board.Moves(ply, history, searchStack, moveList, ttMove);
 
 #if DEBUG
             if (ply == 0)
@@ -591,7 +593,7 @@ namespace Pedantic.Chess
                 return inCheck ? -Constants.CHECKMATE_SCORE + ply : Contempt;
             }
 
-            TtTran.Add(board.Hash, depth, ply, originalAlpha, beta, alpha, bestMove);
+            tt.Add(board.Hash, depth, ply, originalAlpha, beta, alpha, bestMove);
             return alpha;
         }
 
@@ -620,7 +622,7 @@ namespace Pedantic.Chess
                 return Contempt;
             }
 
-            if (TtTran.TryGetScore(board.Hash, -qsPly, ply, alpha, beta, out bool _, out int score, move: out ulong _))
+            if (tt.TryGetScore(board.Hash, -qsPly, ply, alpha, beta, out bool _, out int score, move: out ulong ttMove))
             { 
                 return score;
             }
@@ -643,8 +645,8 @@ namespace Pedantic.Chess
             int expandedNodes = 0;
             MoveList moveList = GetMoveList();
             IEnumerable<ulong> moves = inCheck ? 
-                board.EvasionMoves(moveList) : 
-                board.QMoves(ply, qsPly, moveList);
+                board.EvasionMoves(moveList, ttMove) : 
+                board.QMoves(ply, qsPly, moveList, ttMove);
 
             foreach (ulong move in moves)
             {
@@ -687,7 +689,7 @@ namespace Pedantic.Chess
                 return 0;
             }
 
-            TtTran.Add(board.Hash, -qsPly, ply, originalAlpha, beta, alpha, 0ul);
+            tt.Add(board.Hash, -qsPly, ply, originalAlpha, beta, alpha, 0ul);
             return alpha;
         }
 
@@ -735,7 +737,7 @@ namespace Pedantic.Chess
                     (flag == TtFlag.UpperBound && score <= alpha) ||
                     (flag == TtFlag.LowerBound && score >= beta))
                 {
-                    TtTran.Add(board.Hash, Constants.MAX_PLY, ply, alpha, beta, score, 0ul);
+                    tt.Add(board.Hash, Constants.MAX_PLY, ply, alpha, beta, score, 0ul);
                     return true;
                 }
             }
@@ -747,7 +749,7 @@ namespace Pedantic.Chess
         {
             if (Depth > Constants.WINDOW_MIN_DEPTH)
             {
-                Uci.Info(Depth, seldepth, score, NodesVisited, time.Elapsed, PV, TtTran.Usage, tbHits, flag);
+                Uci.Info(Depth, seldepth, score, NodesVisited, time.Elapsed, PV, tt.Usage, tbHits, flag);
             }
             if (flag == TtFlag.LowerBound)
             {
@@ -817,11 +819,11 @@ namespace Pedantic.Chess
 
             if (IsCheckmate(Score, out int mateIn))
             {
-                Uci.InfoMate(Depth, seldepth, mateIn, NodesVisited, Elapsed, PV, TtTran.Usage, tbHits);
+                Uci.InfoMate(Depth, seldepth, mateIn, NodesVisited, Elapsed, PV, tt.Usage, tbHits);
             }
             else
             {
-                Uci.Info(Depth, seldepth, Score, NodesVisited, Elapsed, PV, TtTran.Usage, tbHits);
+                Uci.Info(Depth, seldepth, Score, NodesVisited, Elapsed, PV, tt.Usage, tbHits);
             }
         }
 
@@ -843,7 +845,7 @@ namespace Pedantic.Chess
                 d++;
             }
 
-            while (d++ < Constants.MAX_PLY && TtTran.TryGetBestMoveWithFlags(bd.Hash, out TtFlag flag, out ulong bestMove))
+            while (d++ < Constants.MAX_PLY && tt.TryGetBestMoveWithFlags(bd.Hash, out TtFlag flag, out ulong bestMove))
             {
                 if (flag != TtFlag.Exact || !bd.IsLegalMove(bestMove))
                 {
@@ -884,7 +886,7 @@ namespace Pedantic.Chess
                 {
                     break;
                 }
-                TtTran.Add(bd.Hash, (short)--depth, n, -short.MaxValue, short.MaxValue, Score, move);
+                tt.Add(bd.Hash, (short)--depth, n, -short.MaxValue, short.MaxValue, Score, move);
                 bd.MakeMove(move);
             }
         }
@@ -1047,6 +1049,7 @@ namespace Pedantic.Chess
         private int rootChanges = 0;
         private readonly HashSet<ulong> positions = new(Constants.MAX_PLY);
         private readonly ObjectPool<MoveList> moveListPool;
+        private readonly TtTran tt;
         private readonly List<ChessStats> stats = new();
         private readonly CpuStats cpuStats = new();
         private readonly DateTime startDateTime;

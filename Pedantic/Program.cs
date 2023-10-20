@@ -98,7 +98,7 @@ namespace Pedantic
             var maxPositionsOption = new Option<int>(
                 name: "--maxpos",
                 description: "Specify the maximum positions to output.",
-                getDefaultValue: () => 8000000);
+                getDefaultValue: () => int.MaxValue);
             var sampleOption = new Option<int>(
                 name: "--sample",
                 description: "Specify the number of samples to use from learning data.",
@@ -676,7 +676,7 @@ namespace Pedantic
 
                 long count = 0;
                 HashSet<ulong> hashes = new();
-                Console.WriteLine(@"Hash,Ply,GamePly,FEN,HasCastled,Result");
+                Console.WriteLine(@"Hash,Ply,GamePly,FEN,HasCastled,Eval,Result");
                 foreach (var p in posReader.Positions(Console.In))
                 {
                     if (!hashes.Contains(p.Hash))
@@ -700,7 +700,7 @@ namespace Pedantic
                         }
                         Console.Error.Write($"{++count}\r");
                         hashes.Add(p.Hash);
-                        Console.WriteLine($@"{p.Hash:X16},{p.Ply},{p.GamePly},{p.Fen},{p.HasCastled},{p.Result:F1}");
+                        Console.WriteLine($@"{p.Hash:X16},{p.Ply},{p.GamePly},{p.Fen},{p.HasCastled},{p.Eval},{p.Result:F1}");
                         Console.Out.Flush();
                         if (++total >= maxPositions)
                         {

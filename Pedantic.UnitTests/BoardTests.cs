@@ -215,7 +215,7 @@ namespace Pedantic.UnitTests
         public void MoveCapturesTest()
         {
             Board bd = new("7r/P7/1K2k3/8/8/8/7p/1R6 b - - 0 1");
-            foreach (ulong move in bd.QMoves(0, 0, new MoveList()))
+            foreach (ulong move in bd.QMoves(0, 0, new MoveList(), 0))
             {
                 Console.WriteLine(Move.ToString(move));
             }
@@ -227,7 +227,7 @@ namespace Pedantic.UnitTests
         public void MovesTest(string fen)
         {
             Board bd = new(fen);
-            foreach (var mvItem in bd.Moves(0, new History(), new SearchStack(bd), new MoveList()))
+            foreach (var mvItem in bd.Moves(0, new History(), new SearchStack(bd), new MoveList(), 0))
             {
                 Console.WriteLine(Move.ToLongString(mvItem.Move));
             }

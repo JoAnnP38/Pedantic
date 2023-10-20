@@ -952,12 +952,12 @@ namespace Pedantic.Chess
 
         #region Move Generation
 
-        public IEnumerable<(ulong Move, MoveGenPhase Phase)> Moves(int ply, History history, SearchStack searchStack, MoveList moveList)
+        public IEnumerable<(ulong Move, MoveGenPhase Phase)> Moves(int ply, History history, SearchStack searchStack, MoveList moveList, ulong bestMove)
         {
             ulong[] bc = badCaptures[ply];
             int bcIndex = 0;
 
-            if (TtTran.TryGetBestMove(hash, out ulong bestMove) && IsPseudoLegal(bestMove))
+            if (bestMove != 0 && IsPseudoLegal(bestMove))
             {
                 yield return (bestMove, MoveGenPhase.HashMove);
             }
@@ -1023,12 +1023,12 @@ namespace Pedantic.Chess
             }
         }
 
-        public IEnumerable<ulong> QMoves(int ply, int qsPly, MoveList moveList)
+        public IEnumerable<ulong> QMoves(int ply, int qsPly, MoveList moveList, ulong bestMove)
         {
             ulong[] bc = badCaptures[ply];
             int bcIndex = 0;
 
-            if (TtTran.TryGetBestMove(hash, out ulong bestMove))
+            if (bestMove != 0 && IsPseudoLegal(bestMove))
             {
                 yield return bestMove;
             }
@@ -1077,9 +1077,9 @@ namespace Pedantic.Chess
             }
         }
 
-        public IEnumerable<ulong> EvasionMoves(MoveList moveList)
+        public IEnumerable<ulong> EvasionMoves(MoveList moveList, ulong bestMove)
         {
-            if (TtTran.TryGetBestMove(hash, out ulong bestMove))
+            if (bestMove != 0 && IsPseudoLegal(bestMove))
             {
                 yield return bestMove;
             }
@@ -1094,9 +1094,9 @@ namespace Pedantic.Chess
             }
         }
 
-        public IEnumerable<ulong> EvasionMoves2(int ply, History history, SearchStack searchStack, MoveList moveList)
+        public IEnumerable<ulong> EvasionMoves2(int ply, History history, SearchStack searchStack, MoveList moveList, ulong bestMove)
         {
-            if (TtTran.TryGetBestMove(hash, out ulong bestMove))
+            if (bestMove != 0 && IsPseudoLegal(bestMove))
             {
                 yield return bestMove;
             }

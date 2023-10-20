@@ -18,7 +18,7 @@ using Pedantic.Utilities;
 
 namespace Pedantic.Chess
 {
-    public static class TtTran
+    public sealed class TtTran
     {
         public const int DEFAULT_SIZE_MB = 64;
         public const int MAX_SIZE_MB = 2048;
@@ -30,17 +30,6 @@ namespace Pedantic.Chess
         {
             private ulong hash;
             private ulong data;
-
-            public TtTranItem(ulong hash, short score, sbyte depth, TtFlag ttFlag, ulong bestMove)
-            {
-                data = Move.ClearScore(bestMove) |
-                       (((ulong)score & 0x0fffful) << 27) |
-                       (((ulong)ttFlag & 0x03ul) << 43) |
-                       (((byte)depth & 0x0fful) << 45) |
-                       (((ulong)generation & 0x07fful) << 53); 
-
-                this.hash = hash ^ data;
-            }
 
             public readonly ulong Hash => hash ^ data;
             public readonly ulong Data => data;
@@ -56,7 +45,7 @@ namespace Pedantic.Chess
 #pragma warning restore IDE0251 // Make member 'readonly'
             }
 
-            public bool InUse => Age == generation;
+            public bool InUse(TtTran ttTran) => Age == ttTran.Generation;
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public readonly bool IsValid(ulong hash)
@@ -65,25 +54,25 @@ namespace Pedantic.Chess
             }
 
             public static void SetValue(ref TtTranItem item, ulong hash, short score, sbyte depth, 
-                TtFlag flag, ulong bestMove)
+                TtFlag flag, ulong bestMove, TtTran ttTran)
             {
                 item.data = Move.ClearScore(bestMove) |
                             (((ulong)score & 0x0fffful) << 27) |
                             (((ulong)flag & 0x03ul) << 43) |
                             (((byte)depth & 0x0fful) << 45) |
-                            (((ulong)generation & 0x07fful) << 53);
+                            (((ulong)ttTran.Generation & 0x07fful) << 53);
                 item.hash = hash ^ item.data;
             }
         }
 
 
-        private static TtTranItem[] table;
-        private static int capacity;
-        private static int used;
-        private static uint mask;
-        private static ushort generation;
+        private TtTranItem[] table;
+        private int capacity;
+        private int used;
+        private uint mask;
+        private ushort generation;
 
-        static TtTran()
+        public TtTran()
         {
             capacity = DEFAULT_SIZE_MB * CAPACITY_MULTIPLIER;
             used = 0;
@@ -92,12 +81,12 @@ namespace Pedantic.Chess
             generation = 1;
         }
 
-        public static void IncrementVersion() 
+        public void IncrementVersion() 
         { 
             generation++;
         }
 
-        public static void Add(ulong hash, int depth, int ply, int alpha, int beta, int score, ulong move)
+        public void Add(ulong hash, int depth, int ply, int alpha, int beta, int score, ulong move)
         {
             int index = GetStoreIndex(hash);
 
@@ -135,10 +124,10 @@ namespace Pedantic.Chess
             }
 
             sbyte itemDepth = (sbyte)depth;
-            TtTranItem.SetValue(ref item, hash, (short)score, itemDepth, flag, bestMove);
+            TtTranItem.SetValue(ref item, hash, (short)score, itemDepth, flag, bestMove, this);
         }
 
-        public static void Clear()
+        public void Clear()
         {
             Span<TtTranItem> spn = new(table);
             spn.Clear();
@@ -146,7 +135,7 @@ namespace Pedantic.Chess
             generation = 1;
         }
 
-        public static void Resize(int sizeMb)
+        public void Resize(int sizeMb)
         {
             sizeMb = Math.Max(Math.Min(sizeMb, 2048), 2);
             if (!BitOps.IsPow2(sizeMb))
@@ -161,11 +150,12 @@ namespace Pedantic.Chess
             generation = 1;
         }
 
-        public static int Capacity => capacity;
+        public int Capacity => capacity;
 
-        public static int Usage => (int)((used * 1000L) / capacity);
+        public int Usage => (int)((used * 1000L) / capacity);
+        public ushort Generation => generation;
 
-        public static bool TryGetBestMove(ulong hash, out ulong bestMove)
+        public bool TryGetBestMove(ulong hash, out ulong bestMove)
         {
             bestMove = 0ul;
             if (GetLoadIndex(hash, out int index))
@@ -177,7 +167,7 @@ namespace Pedantic.Chess
             
         }
 
-        public static bool TryGetBestMoveWithFlags(ulong hash, out TtFlag flag, out ulong bestMove)
+        public bool TryGetBestMoveWithFlags(ulong hash, out TtFlag flag, out ulong bestMove)
         {
             bestMove = 0ul;
             flag = TtFlag.UpperBound;
@@ -192,7 +182,7 @@ namespace Pedantic.Chess
             return bestMove != 0;
         }
 
-        public static bool TryGetScore(ulong hash, int depth, int ply, int alpha, int beta, 
+        public bool TryGetScore(ulong hash, int depth, int ply, int alpha, int beta, 
             out bool avoidNmp, out int score, out ulong move)
         {
             score = 0;
@@ -246,7 +236,7 @@ namespace Pedantic.Chess
             return false;
         }
 
-        private static int GetStoreIndex(ulong hash)
+        private int GetStoreIndex(ulong hash)
         {
             int index0 = (int)(hash & mask);
             int index1 = index0 ^ 1;
@@ -270,7 +260,7 @@ namespace Pedantic.Chess
             return item0.Depth <= item1.Depth ? index0 : index1;
         }
 
-        private static bool GetLoadIndex(ulong hash, out int index)
+        private bool GetLoadIndex(ulong hash, out int index)
         {
             index = (int)(hash & mask);
             if (!table[index].IsValid(hash))
@@ -284,5 +274,7 @@ namespace Pedantic.Chess
             }
             return true;
         }
+
+        public static readonly TtTran Default = new ();
     }
 }

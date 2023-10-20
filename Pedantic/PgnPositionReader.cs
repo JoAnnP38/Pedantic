@@ -22,6 +22,7 @@ namespace Pedantic
     {
         private readonly bool skipOpening;
         private readonly int openingCount;
+        public const int SEARCH_DEPTH = 6;
 
         enum PositionState
         {
@@ -43,19 +44,21 @@ namespace Pedantic
             public readonly int GamePly;
             public readonly string Fen;
             public readonly byte HasCastled;
+            public readonly short Eval;
             public readonly float Result;
 
             public Position()
             {
-                Hash = 0ul;
+                Hash = 0;
                 Ply = 0;
                 GamePly = 0;
                 Fen = string.Empty;
                 HasCastled = 0;
+                Eval = 0;
                 Result = 0;
             }
 
-            public Position(ulong hash, int ply, int gamePly, string fen, bool[] hasCastled, float result)
+            public Position(ulong hash, int ply, int gamePly, string fen, bool[] hasCastled, short eval, float result)
             {
                 Hash = hash;
                 Ply = ply;
@@ -70,6 +73,7 @@ namespace Pedantic
                 {
                     HasCastled |= 0x02;
                 }
+                Eval = eval;
                 Result = result;
             }
         }
@@ -91,12 +95,10 @@ namespace Pedantic
             EvalCache cache = new();
             History history = new();
             ObjectPool<MoveList> listPool = new(Constants.MAX_PLY);
-            BasicSearch search = new(searchStack, bd, tc, cache, history, listPool, Constants.MAX_PLY);
-            /*
+            BasicSearch search = new(searchStack, bd, tc, cache, history, listPool, TtTran.Default, Constants.MAX_PLY - 1)
             {
-                Eval = new Evaluation2()
+                Uci = new Uci(false, false)
             };
-            */
             PositionState state = PositionState.SeekHeader;
             List<string> moves = new();
             float result = 0;
@@ -174,19 +176,27 @@ namespace Pedantic
                                     throw new Exception($"Illegal move encountered: {Move.ToString(move)}");
                                 }
 
-                                if (skipOpening && ply < openingCount)
+                                if (bd.IsChecked())
                                 {
                                     continue;
                                 }
 
-                                bool inCheck = bd.IsChecked();
-                                int eval = search.Eval.Compute(bd);
-                                int delta = Math.Abs(search.Quiesce(-Constants.INFINITE_WINDOW,
-                                    Constants.INFINITE_WINDOW, 0, inCheck) - eval);
-                                if (!inCheck && delta == 0)
+                                if (skipOpening && ply < openingCount)
                                 {
-                                    yield return new Position(bd.Hash, ply, gamePly, bd.ToFenString(),
-                                        bd.HasCastled, result);
+                                    continue;
+                                }
+                                history.Clear();
+                                searchStack.Initialize(bd);
+                                int score = search.SearchRoot(-Constants.INFINITE_WINDOW, Constants.INFINITE_WINDOW, SEARCH_DEPTH);
+                                ulong[] pv = search.GetPv();
+                                if (Math.Abs(score) < Constants.TABLEBASE_WIN && pv.Length > 0)
+                                {
+                                    ulong bestmove = pv[0];
+                                    if (!Move.IsCapture(bestmove))
+                                    {
+                                        yield return new Position(bd.Hash, ply, gamePly, bd.ToFenString(), bd.HasCastled, 
+                                            (short)score, result);
+                                    }
                                 }
                             }
                             else

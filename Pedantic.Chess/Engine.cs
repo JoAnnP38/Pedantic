@@ -14,11 +14,8 @@
 // </summary>
 // ***********************************************************************
 
-using Pedantic.Genetics;
 using Pedantic.Tablebase;
 using Pedantic.Utilities;
-using System.Diagnostics;
-using System.Numerics;
 
 namespace Pedantic.Chess
 {
@@ -168,7 +165,7 @@ namespace Pedantic.Chess
 
         public static void ClearHashTable()
         {
-            TtTran.Clear();
+            TtTran.Default.Clear();
             GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, true);
             threads.ClearEvalCache();
         }
@@ -190,7 +187,7 @@ namespace Pedantic.Chess
                 UciOptions.Hash = sizeMb;
             }
 
-            TtTran.Resize(sizeMb);
+            TtTran.Default.Resize(sizeMb);
             threads.ResizeEvalCache();
         }
 
