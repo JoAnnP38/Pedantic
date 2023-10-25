@@ -10,6 +10,7 @@ namespace Pedantic.Chess
     // TODO: Reward pieces defending other pieces
     // TODO: Reduce material or pawn material advantage for winning side if OCB
     // TODO: Penalize each potential square that is open for a slider to attack king
+    // TODO: Piece Type bonus for King Zone Attack eval
     public sealed class Evaluation
     {
         public const ulong D0_CENTER_CONTROL_MASK = 0x0000001818000000ul;

@@ -24,10 +24,14 @@ namespace Pedantic.Tuning
         public const float WDL_DRAW  = 0.5f;
         public const float WDL_LOSS = 0.0f;
 
+        public readonly float Progress;
+        public readonly short Eval;
         public readonly float Result;
 
-        public PosRecord(string fen, byte hasCastled, float result)
+        public PosRecord(int ply, int gamePly, string fen, byte hasCastled, short eval, float result)
         {
+            Progress = (float)ply / gamePly;
+            Eval = eval;
             Result = result;
             Board bd = new (fen);
             bd.HasCastled[0] = (hasCastled & 1) != 0;

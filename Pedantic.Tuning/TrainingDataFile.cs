@@ -8,6 +8,7 @@ namespace Pedantic.Tuning
 {
     public class TrainingDataFile : IDisposable
     {
+        public const int BUFFER_LENGTH = 4096;
         private readonly string dataPath;
         private readonly StreamReader sr;
         private bool disposedValue;
@@ -22,7 +23,7 @@ namespace Pedantic.Tuning
             }
 
             dataPath = path;
-            sr = new StreamReader(path, encoding);
+            sr = new StreamReader(path, encoding, false, BUFFER_LENGTH);
             disposedValue = false;
 
 #if DEBUG
@@ -108,7 +109,7 @@ namespace Pedantic.Tuning
             Queue<string> draws = new();
             Queue<string> losses = new();
             int[] selections = SampleSelections(sampleSize + sampleSize / 7, lineCount);
-            StreamWriter? sw = save ? new StreamWriter(OutputName(), false, Encoding.UTF8) : null;
+            StreamWriter? sw = save ? new StreamWriter(OutputName(), false, new UTF8Encoding(false), BUFFER_LENGTH) : null;
             Stopwatch clock = new();
             clock.Start();
             long currMs = clock.ElapsedMilliseconds;
@@ -314,12 +315,29 @@ namespace Pedantic.Tuning
 
         private static int AddPosRecord(List<PosRecord> records, string line, StreamWriter? sw = null)
         {
-            int commaAt = 0;
-            for (int n = 0; n < 3; n++)
-            {
-                commaAt = line.IndexOf(',', commaAt) + 1;
-            }
+            ReadOnlySpan<char> lSpan = line.AsSpan();
+
+            // skip over Hash
+            int commaAt = line.IndexOf(',', 0) + 1;
+
+            // read ply
             int nextCommaAt = line.IndexOf(',', commaAt);
+            if (!int.TryParse(lSpan[commaAt..nextCommaAt], out int ply))
+            {
+                return records.Count;
+            }
+
+            // read gamePly
+            commaAt = nextCommaAt + 1;
+            nextCommaAt = line.IndexOf(',', commaAt);
+            if (!int.TryParse(lSpan[commaAt..nextCommaAt], out int gamePly))
+            {
+                return records.Count;
+            }
+
+            // read fen
+            commaAt = nextCommaAt + 1;
+            nextCommaAt = line.IndexOf(',', commaAt);
             string fen = line[commaAt..nextCommaAt];
 
             if (!Fen.IsValidFen(fen))
@@ -327,11 +345,19 @@ namespace Pedantic.Tuning
                 return records.Count;
             }
 
-            ReadOnlySpan<char> lSpan = line.AsSpan();
+            // read hasCastled
             commaAt = nextCommaAt + 1;
             nextCommaAt = line.IndexOf(',', commaAt);
 
             if (!byte.TryParse(lSpan[commaAt..nextCommaAt], out byte hasCastled) || (hasCastled & ~3) != 0)
+            {
+                return records.Count;
+            }
+
+            // read eval
+            commaAt = nextCommaAt + 1;
+            nextCommaAt = line.IndexOf(',', commaAt);
+            if (!short.TryParse(lSpan[commaAt..nextCommaAt], out short eval))
             {
                 return records.Count;
             }
@@ -343,7 +369,7 @@ namespace Pedantic.Tuning
             }
 
             sw?.WriteLine(line);
-            records.Add(new PosRecord(fen, hasCastled, result));
+            records.Add(new PosRecord(ply, gamePly, fen, hasCastled, eval, result));
             return records.Count;
         }
     }

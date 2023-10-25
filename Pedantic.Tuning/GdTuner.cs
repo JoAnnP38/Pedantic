@@ -55,7 +55,7 @@ namespace Pedantic.Tuning
             k = DEFAULT_K;
         }
 
-        public override (double Error, double Accuracy, HceWeights Weights) Train(int maxEpoch, TimeSpan? maxTime, 
+        public override (double Error, double Accuracy, HceWeights Weights, double K) Train(int maxEpoch, TimeSpan? maxTime, 
             double minError, double precision = TOLERENCE)
         {
             WeightPair[] momentum = new WeightPair[weights.Length];
@@ -101,11 +101,18 @@ namespace Pedantic.Tuning
                 }
             }
 
+            Console.Write("Recalculating optimum K: ");
+            k = SolveK();
+            if ((k > -TOLERENCE && k < TOLERENCE) || (k > 1.0 - TOLERENCE && k < 1.0 + TOLERENCE))
+            {
+                k = DEFAULT_K;
+            }
+            Console.WriteLine($"{k:F6}");
             currError = MeanSquaredError(k);
             accuracy = Accuracy();
             HceWeights nWeights = new(true);
             CopyWeights(weights, nWeights);
-            return (currError, accuracy, nWeights);
+            return (currError, accuracy, nWeights, k);
         }
 
         public override double SolveK(double a = 0.0, double b = 1.0)

@@ -15,14 +15,15 @@
 // ***********************************************************************
 using Pedantic.Chess;
 using Pedantic.Utilities;
+using System.Collections.Concurrent;
 
 namespace Pedantic
 {
     public sealed class PgnPositionReader
     {
+        public const int MOVE_OFFSET = 10;
         private readonly bool skipOpening;
         private readonly int openingCount;
-        public const int SEARCH_DEPTH = 6;
 
         enum PositionState
         {
@@ -76,29 +77,33 @@ namespace Pedantic
                 Eval = eval;
                 Result = result;
             }
+
+            public Position(Position other, short eval)
+            {
+                Hash = other.Hash;
+                Ply = other.Ply;
+                GamePly = other.GamePly;
+                Fen = other.Fen;
+                HasCastled = other.HasCastled;
+                Eval = eval;
+                Result = other.Result;
+            }
         }
-        public PgnPositionReader(bool skipOpening = true, int openingCount = 8)
+        public PgnPositionReader(bool skipOpening = true, int openingCount = MOVE_OFFSET)
         {
             this.skipOpening = skipOpening;
             this.openingCount = openingCount;
+            labelers = new Labeler[MAX_PARALLELISM];
+            for (int n = 0; n < MAX_PARALLELISM; n++)
+            {
+                labelers[n] = new Labeler();
+            }
         }
-
 
         public IEnumerable<Position> Positions(TextReader reader)
         {
-            GameClock tc = new()
-            {
-                Infinite = true
-            };
+            Labeler labeler = new();
             Board bd = new();
-            SearchStack searchStack = new();
-            EvalCache cache = new();
-            History history = new();
-            ObjectPool<MoveList> listPool = new(Constants.MAX_PLY);
-            BasicSearch search = new(searchStack, bd, tc, cache, history, listPool, TtTran.Default, Constants.MAX_PLY - 1)
-            {
-                Uci = new Uci(false, false)
-            };
             PositionState state = PositionState.SeekHeader;
             List<string> moves = new();
             float result = 0;
@@ -163,55 +168,86 @@ namespace Pedantic
 
                     case PositionState.ReturnMoves:
                     {
-                        int ply = 0;
-                        bd.LoadFenPosition(Constants.FEN_START_POS);
-                        int gamePly = moves.Count;
-                        foreach (string mv in moves)
+                        IEnumerable<Position>? labeledPositions = null;
+                        try
                         {
-                            if (Move.TryParseMove(bd, mv, out ulong move))
-                            {
-                                ply++;
-                                if (!bd.MakeMove(move))
-                                {
-                                    throw new Exception($"Illegal move encountered: {Move.ToString(move)}");
-                                }
-
-                                if (bd.IsChecked())
-                                {
-                                    continue;
-                                }
-
-                                if (skipOpening && ply < openingCount)
-                                {
-                                    continue;
-                                }
-                                history.Clear();
-                                searchStack.Initialize(bd);
-                                int score = search.SearchRoot(-Constants.INFINITE_WINDOW, Constants.INFINITE_WINDOW, SEARCH_DEPTH);
-                                ulong[] pv = search.GetPv();
-                                if (Math.Abs(score) < Constants.TABLEBASE_WIN && pv.Length > 0)
-                                {
-                                    ulong bestmove = pv[0];
-                                    if (!Move.IsCapture(bestmove))
-                                    {
-                                        yield return new Position(bd.Hash, ply, gamePly, bd.ToFenString(), bd.HasCastled, 
-                                            (short)score, result);
-                                    }
-                                }
-                            }
-                            else
-                            {
-                                Util.WriteLine($"Illegal token encountered: {mv}... skipping to next game.");
-                                Console.Error.WriteLine($@"{lineNumber}: Illegal token encountered - '{line}'");
-                                break;
-                            }
+                            IList<Position> positions = CollectPositions(moves, result);
+                            labeledPositions = EvaluatePositions(positions);
+                        }
+                        catch (Exception ex)
+                        {
+                            Util.TraceError($"Unexpected exception: '{ex.Message}'.");
                         }
 
+                        if (labeledPositions != null)
+                        {
+                            foreach (var p in labeledPositions)
+                            {
+                                yield return p;
+                            }
+                        }
                         state = PositionState.SeekHeader;
                         break;
                     }
                 }
             }
         }
+
+        private IList<Position> CollectPositions(IList<string> moves, float result)
+        {
+            int ply = 0;
+            int gamePly = moves.Count;
+            List<Position> output = new(moves.Count);
+            Board bd = new(Constants.FEN_START_POS);
+
+            foreach (string mv in moves)
+            {
+                if (Move.TryParseMove(bd, mv, out ulong move))
+                {
+                    ply++;
+                    if (!bd.MakeMove(move))
+                    {
+                        throw new Exception($"Illegal move encountered: {Move.ToString(move)}");
+                    }
+
+                    if (bd.IsChecked())
+                    {
+                        continue;
+                    }
+
+                    if ((skipOpening && ply <= openingCount) || (ply + MOVE_OFFSET >= gamePly))
+                    {
+                        continue;
+                    }
+
+                    output.Add(new Position(bd.Hash, ply, gamePly, bd.ToFenString(), bd.HasCastled, 0, result));
+                }
+                else
+                {
+                    throw new FormatException($"Illegal move or format: '{mv}'.");
+                }
+            }
+
+            return output;
+        }
+
+        private IEnumerable<Position> EvaluatePositions(IList<Position> positions)
+        {
+            BlockingCollection<Labeler> labelerPool = new(new ConcurrentQueue<Labeler>(labelers));
+            ConcurrentQueue<Position> queue = new();
+            Parallel.ForEach(positions, new ParallelOptions { MaxDegreeOfParallelism = MAX_PARALLELISM }, p =>
+            {
+                Labeler labeler = labelerPool.Take();
+                if (labeler.Label(p, out Position labeled))
+                {
+                    queue.Enqueue(labeled);
+                }
+                labelerPool.Add(labeler);
+            });
+            return queue;
+        }
+
+        private Labeler[] labelers;
+        public static readonly int MAX_PARALLELISM = Math.Max(Environment.ProcessorCount - 2, 1);
     }
 }

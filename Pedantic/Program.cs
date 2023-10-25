@@ -746,8 +746,8 @@ namespace Pedantic
             HceWeights weights = reset ? new(true) : Engine.Weights;
 
             var tuner = weights.Length > 0 ? new GdTuner(weights, positions) : new GdTuner(positions);
-            var (Error, Accuracy, Weights) = tuner.Train(maxPass, maxTime, minError);
-            PrintSolution(positions.Count, Error, Accuracy, Weights);
+            var (Error, Accuracy, Weights, K) = tuner.Train(maxPass, maxTime, minError);
+            PrintSolution(positions.Count, Error, Accuracy, Weights, K);
         }
 
         private static void PrintSolution(HceWeights weights)
@@ -762,11 +762,11 @@ namespace Pedantic
             WriteLine("};");
         }
 
-        private static void PrintSolution(int sampleSize, double error, double accuracy, HceWeights weights)
+        private static void PrintSolution(int sampleSize, double error, double accuracy, HceWeights weights, double K)
         {
             indentLevel = 2;
             WriteLine($"// Solution sample size: {sampleSize}, generated on {DateTime.Now:R}");
-            WriteLine($"// Solution error: {error:F6}, accuracy: {accuracy:F4}");
+            WriteLine($"// Solution K: {K:F6}, error: {error:F6}, accuracy: {accuracy:F4}");
             WriteLine("private static readonly Score[] defaultWeights =");
             WriteLine("{");
             indentLevel++;

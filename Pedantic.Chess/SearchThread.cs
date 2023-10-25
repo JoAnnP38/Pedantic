@@ -10,7 +10,6 @@ namespace Pedantic.Chess
             search = null;
             clock = null;
             thread = null;
-            ttTran = TtTran.Default;
         }
 
         public void Search(GameClock clock, Board board, int maxDepth, long maxNodes, CountdownEvent done, bool prioritize)
@@ -21,7 +20,7 @@ namespace Pedantic.Chess
             this.clock = clock;
             history.Rescale();
 
-            search = new(stack, board, clock, cache, history, listPool, ttTran, maxDepth, maxNodes, 
+            search = new(stack, board, clock, cache, history, listPool, TtTran.Default, maxDepth, maxNodes, 
                 UciOptions.RandomSearch)
             {
                 CanPonder = Engine.IsPondering,
@@ -49,12 +48,6 @@ namespace Pedantic.Chess
                     done.Signal();
                 });
             }
-        }
-
-        public TtTran Tt
-        {
-            get => ttTran;
-            set => ttTran = value;
         }
 
         public void WriteStats(StreamWriter writer)
@@ -85,7 +78,6 @@ namespace Pedantic.Chess
         private BasicSearch? search;
         private GameClock? clock;
         private Thread? thread;
-        private TtTran ttTran;
         private readonly EvalCache cache = new();
         private readonly History history = new();
         private readonly SearchStack stack = new();

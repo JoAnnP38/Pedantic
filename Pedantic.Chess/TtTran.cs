@@ -81,6 +81,12 @@ namespace Pedantic.Chess
             generation = 1;
         }
 
+        public TtTran(int sizeMb)
+        {
+            table = Array.Empty<TtTranItem>();
+            Resize(sizeMb);
+        }
+
         public void IncrementVersion() 
         { 
             generation++;
