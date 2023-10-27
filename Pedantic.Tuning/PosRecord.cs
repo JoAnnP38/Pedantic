@@ -20,6 +20,7 @@ namespace Pedantic.Tuning
 {
     public readonly struct PosRecord
     {
+        public const double EVAL_PCT = 0.25;
         public const float WDL_WIN = 1.0f;
         public const float WDL_DRAW  = 0.5f;
         public const float WDL_LOSS = 0.0f;
@@ -38,6 +39,14 @@ namespace Pedantic.Tuning
             bd.HasCastled[1] = (hasCastled & 2) != 0;
             Features = new EvalFeatures(bd);
         }
+
+        public double CombinedResult(double k)
+        {
+            double ratio = EvalRatio();
+            return ratio * Tuner.Sigmoid(k, Eval) + (1.0 - ratio) * Result;
+        }
+
+        public double EvalRatio() => (1.0 - Progress * Progress) * EVAL_PCT;
 
         public EvalFeatures Features { get; init; }
     }

@@ -743,9 +743,7 @@ namespace Pedantic
 
             IList<PosRecord> positions = sampleSize <= 0 ? dataFile.LoadFile() : dataFile.LoadSample(sampleSize, save);
 
-            HceWeights weights = reset ? new(true) : Engine.Weights;
-
-            var tuner = weights.Length > 0 ? new GdTuner(weights, positions) : new GdTuner(positions);
+            var tuner = reset ? new GdTuner(positions) : new GdTuner(Engine.Weights, positions);
             var (Error, Accuracy, Weights, K) = tuner.Train(maxPass, maxTime, minError);
             PrintSolution(positions.Count, Error, Accuracy, Weights, K);
         }

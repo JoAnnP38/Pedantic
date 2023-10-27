@@ -101,6 +101,8 @@ namespace Pedantic.Tuning
                 }
             }
 
+            currError = MeanSquaredError(k);
+            accuracy = Accuracy();
             Console.Write("Recalculating optimum K: ");
             k = SolveK();
             if ((k > -TOLERENCE && k < TOLERENCE) || (k > 1.0 - TOLERENCE && k < 1.0 + TOLERENCE))
@@ -108,8 +110,6 @@ namespace Pedantic.Tuning
                 k = DEFAULT_K;
             }
             Console.WriteLine($"{k:F6}");
-            currError = MeanSquaredError(k);
-            accuracy = Accuracy();
             HceWeights nWeights = new(true);
             CopyWeights(weights, nWeights);
             return (currError, accuracy, nWeights, k);
@@ -166,7 +166,7 @@ namespace Pedantic.Tuning
         public void UpdateSingleGradient(WeightPair[] grad, PosRecord pos)
         {
             double sig = Sigmoid(k, ComputeEval(pos));
-            double res = (pos.Result - sig) * sig * (1.0 - sig);
+            double res = (pos.CombinedResult(k) - sig) * sig * (1.0 - sig);
             double mgBase = res * pos.Features.Phase / Constants.MAX_PHASE;
             double egBase = res - mgBase;
 
@@ -183,7 +183,7 @@ namespace Pedantic.Tuning
 
             Parallel.For(0, positions.Count, () => 0.0, (j, loop, subtotal) =>
             {
-                double result = positions[j].Result - Sigmoid(k, ComputeEval(positions[j]));
+                double result = positions[j].CombinedResult(k) - Sigmoid(k, ComputeEval(positions[j]));
                 subtotal += result * result;
                 return subtotal;
             },
