@@ -103,13 +103,6 @@ namespace Pedantic.Tuning
 
             currError = MeanSquaredError(k);
             accuracy = Accuracy();
-            Console.Write("Recalculating optimum K: ");
-            k = SolveK();
-            if ((k > -TOLERENCE && k < TOLERENCE) || (k > 1.0 - TOLERENCE && k < 1.0 + TOLERENCE))
-            {
-                k = DEFAULT_K;
-            }
-            Console.WriteLine($"{k:F6}");
             HceWeights nWeights = new(true);
             CopyWeights(weights, nWeights);
             return (currError, accuracy, nWeights, k);

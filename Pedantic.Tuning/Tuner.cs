@@ -6,7 +6,7 @@ namespace Pedantic.Tuning
     public abstract class Tuner
     {
         public const double GOLDEN_RATIO = 1.618033988749894;
-        public const double DEFAULT_K = 0.003179;
+        public const double DEFAULT_K = 0.00385;
         public const double TOLERENCE = 1.0e-7;
 
         protected Tuner(IList<PosRecord> positions)
