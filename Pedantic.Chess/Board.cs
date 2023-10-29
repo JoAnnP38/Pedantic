@@ -735,6 +735,20 @@ namespace Pedantic.Chess
 
         #region Attacks & Checks
 
+        public bool CanBishopAttack(Color color, int square)
+        {
+            bool isDark = Index.IsDark(square);
+            for (ulong bb = Pieces(color, Piece.Bishop); bb != 0; bb = BitOps.ResetLsb(bb))
+            {
+                int sq = BitOps.TzCount(bb);
+                if (Index.IsDark(sq) == isDark)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         // SEE where move hasn't been made on the board yet
         public int PreMoveStaticExchangeEval(Color stm, ulong move)
         {

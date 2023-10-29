@@ -871,6 +871,9 @@ namespace Pedantic
             WriteLine("/* king on open diagonal */");
             WriteWtLine(wts[HceWeights.KING_ON_OPEN_DIAGONAL]);
             WriteLine();
+            WriteLine("/* king attack square open */");
+            WriteWtLine(wts[HceWeights.KING_ATTACK_SQUARE_OPEN]);
+            WriteLine();
             WriteLine("/* isolated pawns */");
             WriteWtLine(wts[HceWeights.ISOLATED_PAWN]);
             WriteLine();

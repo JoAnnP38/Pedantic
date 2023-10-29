@@ -46,6 +46,7 @@ namespace Pedantic.Tuning
         public const int KING_ON_OPEN_FILE = HceWeights.KING_ON_OPEN_FILE;
         public const int KING_ON_HALF_OPEN_FILE = HceWeights.KING_ON_HALF_OPEN_FILE;
         public const int KING_ON_OPEN_DIAGONAL = HceWeights.KING_ON_OPEN_DIAGONAL;
+        public const int KING_ATTACK_SQUARE_OPEN = HceWeights.KING_ATTACK_SQUARE_OPEN;
 
         public const int ISOLATED_PAWNS = HceWeights.ISOLATED_PAWN;
         public const int DOUBLED_PAWNS = HceWeights.DOUBLED_PAWN;
@@ -332,6 +333,18 @@ namespace Pedantic.Tuning
                 if (BitOps.PopCount(kingDiagonalMask) > 3 && (kingDiagonalMask & allPawns) == 0)
                 {
                     IncrementKingOnOpenDiagonal(v);
+                }
+
+                if (bd.Pieces(other, Piece.Queen) != 0 || bd.CanBishopAttack(other, evalInfo[c].KI))
+                {
+                    ulong bbAttacks = bd.GetPieceMoves(Piece.Bishop, evalInfo[c].KI) & evalInfo[o].MobilityArea;
+                    IncrementKingAttackSquareOpen(v, BitOps.PopCount(bbAttacks));
+                }
+
+                if (bd.OrthogonalSliders(other) != 0)
+                {
+                    ulong bbAttacks = bd.GetPieceMoves(Piece.Rook, evalInfo[c].KI) & evalInfo[o].MobilityArea;
+                    IncrementKingAttackSquareOpen(v, BitOps.PopCount(bbAttacks));
                 }
 
                 // Passed Pawns
@@ -938,6 +951,18 @@ namespace Pedantic.Tuning
             else
             {
                 v[key] = 1;
+            }
+        }
+
+        public static void IncrementKingAttackSquareOpen(IDictionary<int, short> v, int count)
+        {
+            if (v.ContainsKey(KING_ATTACK_SQUARE_OPEN))
+            {
+                v[KING_ATTACK_SQUARE_OPEN] += (short)count;
+            }
+            else
+            {
+                v[KING_ATTACK_SQUARE_OPEN] = (short)count;
             }
         }
 

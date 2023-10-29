@@ -612,6 +612,18 @@ namespace Pedantic.Chess
                 kingSafety += wts.KingOnOpenDiagonal;
             }
 
+            if (board.Pieces(other, Piece.Queen) != 0 || board.CanBishopAttack(other, evalInfo[c].KI))
+            {
+                ulong bbAttacks = board.GetPieceMoves(Piece.Bishop, evalInfo[c].KI) & evalInfo[o].MobilityArea;
+                kingSafety += BitOps.PopCount(bbAttacks) * wts.KingAttackSquareOpen;
+            }
+
+            if (board.OrthogonalSliders(other) != 0)
+            {
+                ulong bbAttacks = board.GetPieceMoves(Piece.Rook, evalInfo[c].KI) & evalInfo[o].MobilityArea;
+                kingSafety += BitOps.PopCount(bbAttacks) * wts.KingAttackSquareOpen;
+            }
+
             // TODO: Add evaluation term for distance of knight to friendly king and 
             // opponent king
 
