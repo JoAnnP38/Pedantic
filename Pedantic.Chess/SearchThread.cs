@@ -12,7 +12,7 @@ namespace Pedantic.Chess
             thread = null;
         }
 
-        public void Search(GameClock clock, Board board, int maxDepth, long maxNodes, CountdownEvent done, bool prioritize)
+        public void Search(GameClock clock, Board board, int maxDepth, long maxNodes, CountdownEvent done)
         {
             stack.Initialize(board);
             Uci uci = new(isPrimary, false);
@@ -28,26 +28,11 @@ namespace Pedantic.Chess
                 Uci = uci
             };
 
-            if (prioritize)
+            ThreadPool.QueueUserWorkItem((state) =>
             {
-                thread = new Thread(() =>
-                {
-                    search.Search();
-                    done.Signal();
-                })
-                {
-                    Priority = ThreadPriority.Highest
-                };
-                thread.Start();
-            }
-            else
-            {
-                ThreadPool.QueueUserWorkItem((state) =>
-                {
-                    search.Search();
-                    done.Signal();
-                });
-            }
+                search.Search();
+                done.Signal();
+            });
         }
 
         public void WriteStats(StreamWriter writer)

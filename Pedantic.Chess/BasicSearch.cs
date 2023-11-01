@@ -353,8 +353,8 @@ namespace Pedantic.Chess
             }
 
             // mate distance pruning
-            alpha = Math.Max(alpha, -Constants.CHECKMATE_SCORE + ply - 1);
-            beta = Math.Min(beta, Constants.CHECKMATE_SCORE - ply);
+            alpha = Math.Max(alpha, -Constants.CHECKMATE_SCORE + ply);
+            beta = Math.Min(beta, Constants.CHECKMATE_SCORE - ply - 1);
 
             if (alpha >= beta)
             {
@@ -362,10 +362,10 @@ namespace Pedantic.Chess
             }
 
             if (tt.TryGetScore(board.Hash, depth, ply, alpha, beta, out bool avoidNmp, out int score, out ulong ttMove))
-            { 
+            {
                 return score;
             }
-            
+
 #if USE_TB
             if (ProbeTb(depth, ply, alpha, beta, out score))
             {
