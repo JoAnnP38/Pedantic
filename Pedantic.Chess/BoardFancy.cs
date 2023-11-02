@@ -259,14 +259,14 @@ namespace Pedantic.Chess
         private static int FancyRookIndex(int square, ulong blockers)
         {
             FancyHash m = fancyRookMagics[square];
-            return m.Offset + (int)(((blockers | m.Mask) * m.Hash) >> (64 - 12));
+            return m.Offset + (int)(((blockers | m.Mask) * m.Hash) >> (Constants.MAX_SQUARES - 12));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static int FancyBishopIndex(int square, ulong blockers)
         {
             FancyHash m = fancyBishopMagics[square];
-            return m.Offset + (int)(((blockers | m.Mask) * m.Hash) >> (64 - 9));
+            return m.Offset + (int)(((blockers | m.Mask) * m.Hash) >> (Constants.MAX_SQUARES - 9));
         }
     }
 }

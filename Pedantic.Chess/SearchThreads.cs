@@ -88,9 +88,9 @@ namespace Pedantic.Chess
                 done.Reset(threads.Length);
                 for (int n = 1; n < threads.Length; n++)
                 {
-                    threads[n].Search(clock.Clone(), board.Clone(), maxDepth, maxNodes, done);
+                    threads[n].Search(clock.Clone(), board.Clone(), maxDepth, maxNodes, done, false);
                 }
-                threads[0].Search(clock, board, maxDepth, maxNodes, done);
+                threads[0].Search(clock, board, maxDepth, maxNodes, done, threads.Length == 1);
             }
         }
 

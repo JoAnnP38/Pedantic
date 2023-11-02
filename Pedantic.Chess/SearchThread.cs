@@ -1,4 +1,5 @@
 ﻿using Pedantic.Utilities;
+using System.Runtime.CompilerServices;
 
 namespace Pedantic.Chess
 {
@@ -12,13 +13,11 @@ namespace Pedantic.Chess
             thread = null;
         }
 
-        public void Search(GameClock clock, Board board, int maxDepth, long maxNodes, CountdownEvent done)
+        public void Search(GameClock clock, Board board, int maxDepth, long maxNodes, CountdownEvent done, bool prioritize)
         {
-            stack.Initialize(board);
             Uci uci = new(isPrimary, false);
             clock.Uci = uci;
             this.clock = clock;
-            history.Rescale();
 
             search = new(stack, board, clock, cache, history, listPool, TtTran.Default, maxDepth, maxNodes, 
                 UciOptions.RandomSearch)
@@ -28,11 +27,24 @@ namespace Pedantic.Chess
                 Uci = uci
             };
 
-            ThreadPool.QueueUserWorkItem((state) =>
+            if (prioritize)
             {
-                search.Search();
-                done.Signal();
-            });
+                thread = new Thread(() =>
+                {
+                    SearchProc(board, done);
+                })
+                {
+                    Priority = ThreadPriority.Highest
+                };
+                thread.Start();
+            }
+            else
+            {
+                ThreadPool.QueueUserWorkItem((state) =>
+                {
+                    SearchProc(board, done);
+                });
+            }
         }
 
         public void WriteStats(StreamWriter writer)
@@ -49,6 +61,15 @@ namespace Pedantic.Chess
         public void Stop()
         {
             clock?.Stop();
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void SearchProc(Board board, CountdownEvent done)
+        {
+            stack.Initialize(board);
+            history.Rescale();
+            search?.Search();
+            done.Signal();
         }
 
         public long TotalNodes => search?.NodesVisited ?? 0;

@@ -151,7 +151,7 @@ namespace Pedantic.Chess
                     Piece piece = board.PieceBoard[sq].Piece;
                     if (piece == Piece.King)
                     {
-                        int index = (int)evalInfo[c].KP * 64 + normalSq;
+                        int index = (int)evalInfo[c].KP * Constants.MAX_SQUARES + normalSq;
                         eval[c] += kingTable[index];
                     }
                     else

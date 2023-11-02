@@ -86,13 +86,13 @@ namespace Pedantic.Chess
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int GetIndex(Color color, Piece piece, int to)
         {
-            return ((int)color * 384) + ((int)piece * 64) + to;
+            return ((int)color * 384) + ((int)piece * Constants.MAX_SQUARES) + to;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int GetIndex(ulong move)
         {
-            return ((int)Move.GetStm(move) * 384) + ((int)Move.GetPiece(move) * 64) + Move.GetTo(move);
+            return ((int)Move.GetStm(move) * 384) + ((int)Move.GetPiece(move) * Constants.MAX_SQUARES) + Move.GetTo(move);
         }
 
         public unsafe void Rescale()

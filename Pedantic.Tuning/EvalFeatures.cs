@@ -574,7 +574,7 @@ namespace Pedantic.Tuning
         {
             
             //int index = PIECE_SQUARE_TABLES + ((((int)piece << 2) + (int)kp) << 6) + square;
-            int index = PIECE_SQUARE_TABLES + (int)piece * 256 + (int)kp * 64 + square;
+            int index = PIECE_SQUARE_TABLES + (int)piece * 256 + (int)kp * Constants.MAX_SQUARES + square;
             v[index] = 1;
         }
 

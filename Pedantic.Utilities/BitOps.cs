@@ -13,6 +13,7 @@
 //     Bit twiddling utility ops using instrinsics if possible.
 // </summary>
 // ***********************************************************************
+using Microsoft.VisualBasic;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.Intrinsics.X86;
@@ -21,31 +22,33 @@ namespace Pedantic.Utilities
 {
     public static class BitOps
     {
+        public const int ULONG_BITS = 64;
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong GetMask(int index)
         {
-            Util.Assert(index is >= 0 and < 64);
+            Util.Assert(index is >= 0 and < ULONG_BITS);
             return 1ul << index;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong SetBit(ulong bitBoard, int bitIndex)
         {
-            Util.Assert(bitIndex is >= 0 and < 64);
+            Util.Assert(bitIndex is >= 0 and < ULONG_BITS);
             return bitBoard | (1ul << bitIndex);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong ResetBit(ulong bitBoard, int bitIndex)
         {
-            Util.Assert(bitIndex is >= 0 and < 64);
+            Util.Assert(bitIndex is >= 0 and < ULONG_BITS);
             return bitBoard & ~(1ul << bitIndex);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int GetBit(ulong bitBoard, int bitIndex)
         {
-            Util.Assert(bitIndex is >= 0 and < 64);
+            Util.Assert(bitIndex is >= 0 and < ULONG_BITS);
             return (int)((bitBoard >> bitIndex) & 1);
         }
 
@@ -104,8 +107,8 @@ namespace Pedantic.Utilities
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int BitFieldExtract(ulong bits, byte start, byte length)
         {
-            Util.Assert(start < 64);
-            Util.Assert(length <= 64 - start);
+            Util.Assert(start < ULONG_BITS);
+            Util.Assert(length <= ULONG_BITS - start);
             if (Bmi1.X64.IsSupported)
             {
                 return (int)Bmi1.X64.BitFieldExtract(bits, start, length);
@@ -116,8 +119,8 @@ namespace Pedantic.Utilities
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ulong BitFieldSet(ulong bits, int value, byte start, byte length)
         {
-            Util.Assert(start < 64);
-            Util.Assert(length < 64 - start);
+            Util.Assert(start < ULONG_BITS);
+            Util.Assert(length < ULONG_BITS - start);
             ulong mask = ((1ul << length) - 1) << start;
             return AndNot(bits, mask) | (((ulong)value << start) & mask);
         }

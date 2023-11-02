@@ -100,7 +100,7 @@ namespace Pedantic.Chess
                 return 1;
             }
 
-            ValueList<DivideCount> divCounts = new(64);
+            ValueList<DivideCount> divCounts = new(Constants.MAX_PLY);
 
             ulong nodes = 0;
             MoveList moveList = moveListPool.Rent();

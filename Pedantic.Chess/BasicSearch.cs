@@ -349,7 +349,7 @@ namespace Pedantic.Chess
             (bool repeated, _) = board.PositionRepeated();
             if (repeated)
             {
-                return Contempt;
+                return DrawScore;
             }
 
             // mate distance pruning
@@ -590,7 +590,7 @@ namespace Pedantic.Chess
 
             if (expandedNodes == 0)
             {
-                return inCheck ? -Constants.CHECKMATE_SCORE + ply : Contempt;
+                return inCheck ? -Constants.CHECKMATE_SCORE + ply : DrawScore;
             }
 
             tt.Add(board.Hash, depth, ply, originalAlpha, beta, alpha, bestMove);
@@ -619,7 +619,7 @@ namespace Pedantic.Chess
             (bool repeated, _) = board.PositionRepeated();
             if (repeated)
             {
-                return Contempt;
+                return DrawScore;
             }
 
             if (tt.TryGetScore(board.Hash, -qsPly, ply, alpha, beta, out bool _, out int score, move: out ulong ttMove))
@@ -976,6 +976,8 @@ namespace Pedantic.Chess
                 return 0;
             }
         }
+
+        public int DrawScore => (int)(8 - (NodesVisited & 0x7));
 
         public void InitPv(int ply)
         {
