@@ -566,7 +566,7 @@ namespace Pedantic.Chess
                         if (isQuiet)
                         {
                             searchItem.KillerMoves.Add(move);
-                            history.UpdateCutoff(move, 0, ref quiets, searchStack, depth);
+                            history.UpdateCutoff(move, ply, ref quiets, searchStack, depth);
                         }
 
                         break;
