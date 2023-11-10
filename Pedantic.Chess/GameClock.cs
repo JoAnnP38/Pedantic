@@ -94,6 +94,13 @@ namespace Pedantic.Chess
                 timeImbalance = (timeBudget * 2) / 10;
             }
 
+            // if opponent is using significantly more time (more than 50%) than we are then increase time budget
+            if ((time - opponentTime) * 10 / time >= 5)
+            {
+                // increase time budget by 20%
+                timeImbalance = -(timeBudget * 2) / 10;
+            }
+
             // give a bonus to move time for the first few moves following the conclusion of book moves
             int factor = 10;
             if (movesOutOfBook < 10)
@@ -203,10 +210,10 @@ namespace Pedantic.Chess
         private const int branch_factor_multiplier = 30; /* A: 28, B: 30, C: 32 */
         private const int branch_factor_divisor = 16;
         private const int max_time_remaining = int.MaxValue / 3;
-        private const int default_movestogo = 35;
-        private const int default_movestogo_ponder = 40;
+        private const int default_movestogo = 30;
+        private const int default_movestogo_ponder = 35;
         private const int default_movestogo_sudden_death = 40;
-        private const int absolute_limit_factor = 4;
+        private const int absolute_limit_factor = 5;
         private const int difficulty_max_limit = 200;
         private const int difficulty_min_limit = 60;
 
