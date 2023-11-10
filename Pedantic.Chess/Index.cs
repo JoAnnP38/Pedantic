@@ -152,6 +152,38 @@ namespace Pedantic.Chess
 
         }
 
+        public static bool GetDirection(int from, int to, out Direction direction)
+        {
+            direction = Direction.None;
+            if (from == to)
+            {
+                return false;
+            }
+
+            var fromCoords = ToCoords(from);
+            var toCoords = ToCoords(to);
+            int fileDiff = toCoords.File - fromCoords.File;
+            int rankDiff = toCoords.Rank - fromCoords.Rank;
+
+            if (fileDiff == 0)
+            {
+                direction = rankDiff > 0 ? Direction.North : Direction.South;
+            }
+            else if (rankDiff == 0)
+            {
+                direction = fileDiff > 0 ? Direction.East : Direction.West;
+            }
+            else if (fileDiff + rankDiff == 0)
+            {
+                direction = rankDiff > 0 ? Direction.NorthWest : Direction.SouthEast;
+            }
+            else if (fileDiff - rankDiff == 0)
+            {
+                direction = rankDiff > 0 ? Direction.NorthEast : Direction.SouthWest;
+            }
+            return direction != Direction.None;
+        }
+
         private static readonly string[] algebraicIndices =
         {
             "a1", "b1", "c1", "d1", "e1", "f1", "g1", "h1",

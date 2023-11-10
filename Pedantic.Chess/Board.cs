@@ -69,6 +69,7 @@ namespace Pedantic.Chess
             public int HalfMoveClock;
             public int FullMoveCounter;
             public ulong Hash;
+            public ulong PawnHash;
 
             public readonly void Restore(Board board)
             {
@@ -79,6 +80,7 @@ namespace Pedantic.Chess
                 board.halfMoveClock = HalfMoveClock;
                 board.fullMoveCounter = FullMoveCounter;
                 board.hash = Hash;
+                board.pawnHash = PawnHash;
             }
         }
 
@@ -717,6 +719,7 @@ namespace Pedantic.Chess
                 state.Hash = hash;
                 state.SideToMove = sideToMove;
                 state.Move = Move.NullMove;
+                state.PawnHash = pawnHash;
                 gameStack.Push(ref state);
             }
             else
@@ -1295,6 +1298,41 @@ namespace Pedantic.Chess
                     kingAttacks[2] += (short)BitOps.PopCount(atkMoves & d2);
                     centerControl[0] += (short)BitOps.PopCount(moves & Evaluation.D0_CENTER_CONTROL_MASK);
                     centerControl[1] += (short)BitOps.PopCount(moves & Evaluation.D1_CENTER_CONTROL_MASK);
+                }
+            }
+        }
+
+        public IEnumerable<(bool IsOrthogonal, Piece Pinner, Piece Pinned)> PinnedPieces(int kingIndex)
+        {
+            Color kingColor = PieceBoard[kingIndex].Color;
+            Color pinnerColor = kingColor.Other();
+            ulong pinned = GetQueenAttacks(kingIndex, all) & Units(kingColor);
+
+            for (; pinned != 0; pinned = BitOps.ResetLsb(pinned))
+            {
+                int pinnedIndex = BitOps.TzCount(pinned);
+                Piece pinnedPiece = PieceBoard[pinnedIndex].Piece;
+                Index.GetDirection(kingIndex, pinnedIndex, out Direction rayDirection);
+                ulong sliders = rayDirection.IsOrthogonal() ? OrthogonalSliders(pinnerColor) : DiagonalSliders(pinnerColor);
+                Ray ray = Vectors[pinnedIndex];
+                ulong attacks = rayDirection switch
+                {
+                    Direction.North     => ray.North & ~Vectors[BitOps.TzCount(ray.North & all)].North,
+                    Direction.NorthEast => ray.NorthEast & ~Vectors[BitOps.TzCount(ray.NorthEast & all)].NorthEast,
+                    Direction.East      => ray.East & ~Vectors[BitOps.TzCount(ray.East & all)].East,
+                    Direction.SouthEast => ray.SouthEast & ~RevVectors[BitOps.LzCount(ray.SouthEast & all)].SouthEast,
+                    Direction.South     => ray.South & ~RevVectors[BitOps.LzCount(ray.South & all)].South,
+                    Direction.SouthWest => ray.SouthWest & ~RevVectors[BitOps.LzCount(ray.SouthWest & all)].SouthWest,
+                    Direction.West      => ray.West & ~RevVectors[BitOps.LzCount(ray.West & all)].West,
+                    Direction.NorthWest => ray.NorthWest & ~Vectors[BitOps.TzCount(ray.NorthWest & all)].NorthWest,
+                    _ => 0
+                };
+                ulong pinners = attacks & sliders;
+                if (pinners != 0)
+                {
+                    int pinnerIndex = BitOps.TzCount(pinners);
+                    Piece pinnerPiece = PieceBoard[pinnerIndex].Piece;
+                    yield return (rayDirection.IsOrthogonal(), pinnerPiece, pinnedPiece);
                 }
             }
         }

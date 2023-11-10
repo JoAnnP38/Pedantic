@@ -120,25 +120,25 @@ namespace Pedantic.Tuning
                     Ray ray = Board.Vectors[sq];
                     ulong friendMask = color == Color.White ? ray.North : ray.South;
                     ulong sqMask = BitOps.GetMask(sq);
-                    //bool canBeBackward = true;
+                    bool canBeBackward = true;
 
                     if ((otherPawns & Evaluation.PassedPawnMasks[c, sq]) == 0 && (pawns & friendMask) == 0)
                     {
                         SetPassedPawns(v, normalSq);
                         evalInfo[c].PassedPawns |= sqMask;
-                    //    canBeBackward = false;
+                        canBeBackward = false;
                     }
 
                     if ((pawns & Evaluation.IsolatedPawnMasks[sq]) == 0)
                     {
                         IncrementIsolatedPawns(v);
-                    //    canBeBackward = false;
+                        canBeBackward = false;
                     }
 
-                    //if (canBeBackward & (pawns & Evaluation2.BackwardPawnMasks[c, sq]) == 0)
-                    //{
-                    //    IncrementBackwardPawns(v);
-                    //}
+                    if (canBeBackward & (pawns & Evaluation.BackwardPawnMasks[c, sq]) == 0)
+                    {
+                        IncrementBackwardPawns(v);
+                    }
 
                     if ((pawns & Evaluation.AdjacentPawnMasks[sq]) != 0)
                     {

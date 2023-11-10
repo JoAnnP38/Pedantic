@@ -321,25 +321,25 @@ namespace Pedantic.Chess
                 Ray ray = Board.Vectors[sq];
                 ulong friendMask = color == Color.White ? ray.North : ray.South;
                 ulong sqMask = BitOps.GetMask(sq);
-                //bool canBeBackward = true;
+                bool canBeBackward = true;
 
                 if ((otherPawns & PassedPawnMasks[c, sq]) == 0 && (pawns & friendMask) == 0)
                 {
                     pawnScore += wts.PassedPawn(normalSq);
                     evalInfo[c].PassedPawns |= sqMask;
-                    //canBeBackward = false;
+                    canBeBackward = false;
                 }
 
                 if ((pawns & IsolatedPawnMasks[sq]) == 0)
                 {
                     pawnScore += wts.IsolatedPawn;
-                    //canBeBackward = false;
+                    canBeBackward = false;
                 }
 
-                //if (canBeBackward && (pawns & BackwardPawnMasks[c, sq]) == 0)
-                //{
-                //    pawnScore += wts.BackwardPawn;
-                //}
+                if (canBeBackward && (pawns & BackwardPawnMasks[c, sq]) == 0)
+                {
+                    pawnScore += wts.BackwardPawn;
+                }
 
                 if ((pawns & AdjacentPawnMasks[sq]) != 0)
                 {

@@ -13,6 +13,7 @@
 //     Global enumerations used by the Pedantic app.
 // </summary>
 // ***********************************************************************
+using System.Diagnostics.Contracts;
 using System.Runtime.CompilerServices;
 
 namespace Pedantic.Chess
@@ -118,6 +119,19 @@ namespace Pedantic.Chess
         MaxMoveGenPhases
     }
 
+    public enum Direction
+    {
+        None = -1,
+        North,
+        NorthEast,
+        East,
+        SouthEast,
+        South,
+        SouthWest,
+        West,
+        NorthWest
+    }
+
     public static class ChessExtensions
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -154,6 +168,12 @@ namespace Pedantic.Chess
         public static char ToChar(this Piece piece)
         {
             return piece == Piece.None ? '-' : pieceChar[(int)piece];
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool IsOrthogonal(this Direction direction)
+        {
+            return ((int)direction & 0x01) == 0;
         }
 
         private static readonly char[] pieceChar = { 'P', 'N', 'B', 'R', 'Q', 'K' };

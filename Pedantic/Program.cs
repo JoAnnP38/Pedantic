@@ -689,7 +689,7 @@ namespace Pedantic
                         {
                             losses++;
                         }
-                        else if (draws + 1 <= Math.Max(wins, losses) || Random.Shared.NextDouble() > 0.5)
+                        else if (draws + 1 <= Math.Max(wins, losses) || Random.Shared.NextDouble() > 0.75)
                         {
                             draws++;
                         }

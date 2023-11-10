@@ -6,7 +6,7 @@ namespace Pedantic
 {
     public class Labeler
     {
-        public const int SEARCH_DEPTH = 6;
+        public const int SEARCH_DEPTH = 7;
 
         public bool Label(PgnPositionReader.Position pos, out PgnPositionReader.Position labeled)
         {
