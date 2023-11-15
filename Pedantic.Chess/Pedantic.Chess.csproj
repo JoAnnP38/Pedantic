@@ -1,7 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
-    <TargetFramework>net7.0-windows8.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <SupportedOSPlatformVersion>8.0</SupportedOSPlatformVersion>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
@@ -10,33 +9,28 @@
     <Configurations>Debug;Release</Configurations>
     <TieredPGO>true</TieredPGO>
   </PropertyGroup>
-
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <DebugType>portable</DebugType>
     <DefineConstants>$(DefineConstants);USE_TB</DefineConstants>
     <NoWarn>1701;1702</NoWarn>
   </PropertyGroup>
-
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <DebugType>portable</DebugType>
     <DefineConstants>$(DefineConstants);USE_TB</DefineConstants>
     <NoWarn>1701;1702</NoWarn>
   </PropertyGroup>
-
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <Optimize>True</Optimize>
     <DebugType>embedded</DebugType>
     <DefineConstants>$(DefineConstants);USE_TB</DefineConstants>
     <NoWarn>1701;1702</NoWarn>
   </PropertyGroup>
-
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Optimize>True</Optimize>
     <DebugType>embedded</DebugType>
     <DefineConstants>$(DefineConstants);USE_TB</DefineConstants>
     <NoWarn>1701;1702</NoWarn>
   </PropertyGroup>
-
   <ItemGroup>
     <Compile Remove="MinimalSearch.cs" />
     <Compile Remove="MtdSearch.cs" />
@@ -45,29 +39,21 @@
     <Compile Remove="SearchBase.cs" />
     <Compile Remove="SearchResult.cs" />
   </ItemGroup>
-
   <ItemGroup>
     <None Remove="Old Book.bin" />
     <None Remove="Pedantic.bin" />
   </ItemGroup>
-
   <ItemGroup>
     <Content Include="Pedantic.bin">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="System.IO.Hashing" Version="7.0.0" />
-  </ItemGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\Pedantic.Collections\Pedantic.Collections.csproj" />
     <ProjectReference Include="..\Pedantic.Genetics\Pedantic.Genetics.csproj" />
     <ProjectReference Include="..\Pedantic.Tablebase\Pedantic.Tablebase.vcxproj" />
     <ProjectReference Include="..\Pedantic.Utilities\Pedantic.Utilities.csproj" />
   </ItemGroup>
-
   <ItemGroup>
     <Compile Update="Resources.Designer.cs">
       <DesignTime>True</DesignTime>
@@ -75,12 +61,13 @@
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
   </ItemGroup>
-
   <ItemGroup>
     <EmbeddedResource Update="Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
   </ItemGroup>
-
+  <ItemGroup>
+    <PackageReference Include="System.IO.Hashing" Version="8.0.0" />
+  </ItemGroup>
 </Project>

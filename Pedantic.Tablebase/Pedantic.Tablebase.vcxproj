@@ -17,9 +17,10 @@
     <Keyword>NetCoreCProj</Keyword>
     <RootNamespace>PedanticTablebase</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
-    <TargetFramework>net7.0-windows8.0</TargetFramework>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
     <SupportedOSPlatformVersion>8.0</SupportedOSPlatformVersion>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <WindowsTargetPlatformMinVersion>7.0</WindowsTargetPlatformMinVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
