@@ -31,7 +31,7 @@ namespace Pedantic.Chess
         internal const int ONE_MOVE_MAX_DEPTH = 5;
         internal const int LMR_DEPTH_LIMIT = 63;
         internal const int LMR_MOVE_LIMIT = 63;
-        internal const int STATIC_NULL_MOVE_MAX_DEPTH = 6;
+        internal const int STATIC_NULL_MOVE_MAX_DEPTH = 7;
         internal const int STATIC_NULL_MOVE_MARGIN = 75; 
         internal const int NMP_MIN_DEPTH = 3;
         internal const int NMP_BASE_REDUCTION = 3;
