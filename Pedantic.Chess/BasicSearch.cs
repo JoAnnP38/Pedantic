@@ -35,7 +35,7 @@ namespace Pedantic.Chess
         internal const int STATIC_NULL_MOVE_MARGIN = 75; 
         internal const int NMP_MIN_DEPTH = 3;
         internal const int NMP_BASE_REDUCTION = 3;
-        internal const int NMP_INC_DIVISOR = 5; 
+        internal const int NMP_INC_DIVISOR = 4; 
         internal const int RAZOR_MAX_DEPTH = 3;
         internal const int IID_MIN_DEPTH = 5;
         internal const int LMP_MAX_HISTORY = 32;
@@ -400,8 +400,8 @@ namespace Pedantic.Chess
                 // null move pruning
                 if (!avoidNmp && canNull && depth >= NMP_MIN_DEPTH && eval >= beta && board.PieceCount(board.SideToMove) > 1)
                 {
-                    int R = NMP[depth];
-                    //int R = NmpReduction(depth);
+                    //int R = NMP[depth];
+                    int R = NmpReduction(depth);
                     if (board.MakeMove(Move.NullMove))
                     {
                         searchItem.Move = (uint)Move.NullMove;
