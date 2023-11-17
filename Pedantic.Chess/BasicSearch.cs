@@ -38,11 +38,10 @@ namespace Pedantic.Chess
         internal const int NMP_INC_DIVISOR = 4; 
         internal const int RAZOR_MAX_DEPTH = 3;
         internal const int IID_MIN_DEPTH = 5;
-        internal const int LMP_MAX_HISTORY = 32;
         internal const int SEE_PRUNING_DEPTH = 7;
         internal const int SEE_PRUNING_QUIET_INC = 50;
         internal const int SEE_PRUNING_CAPTURE_INC = 90;
-        internal const int LMP_PRUNING_DEPTH = 3;
+        internal const int LMP_PRUNING_DEPTH = 5;
 
         public BasicSearch(SearchStack searchStack, Board board, GameClock time, EvalCache cache, History history, 
             ObjectPool<MoveList> listPool, TtTran ttTran, int maxSearchDepth, long maxNodes = long.MaxValue - 100, bool randomSearch = false) 
@@ -75,7 +74,9 @@ namespace Pedantic.Chess
                 ulong? ponderMove = null;
                 MoveList moveList = new();
                 oneLegalMove = board.OneLegalMove(moveList, out ulong bestMove);
-                Score = Quiesce(-Constants.INFINITE_WINDOW, Constants.INFINITE_WINDOW, 0, searchStack[-1].IsCheckingMove);
+                bool inCheck = searchStack[-1].IsCheckingMove;
+                Score = Quiesce(-Constants.INFINITE_WINDOW, Constants.INFINITE_WINDOW, 0, inCheck);
+                searchStack[0].Eval = (short)(inCheck ? Constants.NO_SCORE : (short)Score);
                 location = "1";
                 while (++Depth <= maxSearchDepth && time.CanSearchDeeper())
                 {
@@ -386,8 +387,23 @@ namespace Pedantic.Chess
                 return 0;
             }
 
-            int eval = evaluation.Compute(board, alpha, beta);
+            int eval = searchItem.Eval = Constants.NO_SCORE;
+            searchItem.Eval = (short)eval;
             bool canPrune = false;
+            bool improving = false;
+
+            if (!inCheck)
+            {
+                eval = searchItem.Eval = evaluation.Compute(board, alpha, beta);
+                if (ply >= 4 && searchStack[ply - 4].Eval != Constants.NO_SCORE)
+                {
+                    improving = eval > searchStack[ply - 4].Eval;
+                }
+                else if (ply >= 2 && searchStack[ply - 2].Eval != Constants.NO_SCORE)
+                {
+                    improving = eval > searchStack[ply - 2].Eval;
+                }
+            }
 
             if (!inCheck && !isPv)
             {

@@ -12,12 +12,14 @@ namespace Pedantic.Chess
         public bool IsCheckingMove;
         public bool IsPromotionThreat;
         public MovePair KillerMoves;
+        public short Eval;
 
         public SearchItem()
         {
             Move = 0;
             IsCheckingMove = false;
             IsPromotionThreat = false;
+            Eval = Constants.NO_SCORE;
         }
     }
 }

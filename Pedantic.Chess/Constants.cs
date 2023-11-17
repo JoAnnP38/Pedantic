@@ -41,6 +41,7 @@ namespace Pedantic.Chess
         public const int BAD_CAPTURE = 66000;
         public const int HISTORY_SCORE_MIN = -16384;
         public const int HISTORY_SCORE_MAX = 16384;
+        public const int NO_SCORE = short.MinValue;
         public const short INFINITE_WINDOW = short.MaxValue;
         public const int WINDOW_MIN_DEPTH = 6;
         public const int LAZY_EVAL_MARGIN = 500;
