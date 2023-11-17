@@ -416,8 +416,13 @@ namespace Pedantic.Chess
                 // null move pruning
                 if (!avoidNmp && canNull && depth >= NMP_MIN_DEPTH && eval >= beta && board.PieceCount(board.SideToMove) > 1)
                 {
-                    //int R = NMP[depth];
-                    int R = NmpReduction(depth);
+                    int R = NMP[depth];
+                    if (improving)
+                    {
+                        R++;
+                    }
+
+                    //int R = NmpReduction(depth);
                     if (board.MakeMove(Move.NullMove))
                     {
                         searchItem.Move = (uint)Move.NullMove;
@@ -1541,9 +1546,9 @@ namespace Pedantic.Chess
         internal static readonly sbyte[] NMP =
         {
             #region nmp data
-            0, 0, 0, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 8, 8, 8, 8, 
-            8, 9, 9, 9, 9, 9, 10, 10, 10, 10, 10, 11, 11, 11, 11, 11, 12, 12, 12, 12, 12, 13, 13, 13, 13, 13, 
-            14, 14, 14, 14, 14, 15
+            0, 0, 0, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 7, 7, 7, 7, 8, 8, 8, 8, 9, 9, 9, 9, 10, 
+            10, 10, 10, 11, 11, 11, 11, 12, 12, 12, 12, 13, 13, 13, 13, 14, 14, 14, 14, 15, 15, 15, 15, 16, 16, 16, 
+            16, 17, 17, 17, 17, 18
             #endregion nmp data
         };
 
