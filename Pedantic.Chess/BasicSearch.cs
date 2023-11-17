@@ -41,7 +41,7 @@ namespace Pedantic.Chess
         internal const int SEE_PRUNING_DEPTH = 7;
         internal const int SEE_PRUNING_QUIET_INC = 50;
         internal const int SEE_PRUNING_CAPTURE_INC = 90;
-        internal const int LMP_PRUNING_DEPTH = 5;
+        internal const int LMP_PRUNING_DEPTH = 7;
 
         public BasicSearch(SearchStack searchStack, Board board, GameClock time, EvalCache cache, History history, 
             ObjectPool<MoveList> listPool, TtTran ttTran, int maxSearchDepth, long maxNodes = long.MaxValue - 100, bool randomSearch = false) 
@@ -502,7 +502,7 @@ namespace Pedantic.Chess
                 if (canPrune && !interesting && !searchItem.IsPromotionThreat)
                 {
                     // late move pruning
-                    if (depth <= LMP_PRUNING_DEPTH && expandedNodes > LMP[depth])
+                    if (depth <= LMP_PRUNING_DEPTH && expandedNodes > LMP[depth] / (improving ? 1 : 2))
                     {
                         board.UnmakeMoveNs();
                         continue;
@@ -1536,7 +1536,7 @@ namespace Pedantic.Chess
             #endregion LMR data
         };
 
-        internal static readonly sbyte[] LMP = { 0, 6, 12, 18, 24, 30 };
+        internal static readonly sbyte[] LMP = { 0, 6, 12, 18, 24, 36, 49, 64 };
                                                
         internal static readonly sbyte[] NMP =
         {
