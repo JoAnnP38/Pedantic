@@ -77,6 +77,8 @@ namespace Pedantic.Tuning
         public const int PIECE_THREAT = HceWeights.PIECE_THREAT;
         public const int PAWN_PUSH_THREAT = HceWeights.PAWN_PUSH_THREAT;
 
+        public const int TEMPO_BONUS = HceWeights.TEMPO_BONUS;
+
         private readonly Dictionary<int, short> coefficients;
         private readonly SparseArray<short>[] sparse = { new(), new() };
 
@@ -450,6 +452,11 @@ namespace Pedantic.Tuning
                     short d1Count = (short)BitOps.PopCount(evalInfo[c].Attacks[n] & Evaluation.D1_CENTER_CONTROL_MASK);
                     IncrementCenterControl(v, 0, d0Count);
                     IncrementCenterControl(v, 1, d1Count);
+                }
+
+                if (color == bd.SideToMove)
+                {
+                    SetTempoBonus(v);
                 }
             }
 
@@ -964,6 +971,11 @@ namespace Pedantic.Tuning
             {
                 v[KING_ATTACK_SQUARE_OPEN] = (short)count;
             }
+        }
+
+        public static void SetTempoBonus(IDictionary<int, short> v)
+        {
+            v[TEMPO_BONUS] = 1;
         }
 
 #pragma warning restore CA1854

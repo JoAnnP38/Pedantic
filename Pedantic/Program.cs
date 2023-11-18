@@ -971,6 +971,9 @@ namespace Pedantic
                 }
                 Console.WriteLine($" // {upperNames[pc1]} threats");
             }
+            WriteLine();
+            WriteLine("/* tempo bonus for side to move */");
+            WriteWtLine(wts[HceWeights.TEMPO_BONUS]);
         }
 
         private static void WriteIndent()

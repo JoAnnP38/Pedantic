@@ -746,7 +746,11 @@ namespace Pedantic.Chess
                 evalMisc += BitOps.PopCount(evalInfo[c].Attacks[n] & D1_CENTER_CONTROL_MASK) * wts.CenterControl(1);
             }
 
-            // TODO: add tempo
+            if (color == board.SideToMove)
+            {
+                evalMisc += wts.TempoBonus;
+            }
+
             // TODO: add knight distance to enemy/friendly king
 
             return evalMisc;
