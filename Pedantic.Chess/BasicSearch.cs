@@ -362,7 +362,8 @@ namespace Pedantic.Chess
                 return alpha;
             }
 
-            if (tt.TryGetScore(board.Hash, depth, ply, alpha, beta, out bool avoidNmp, out int score, out ulong ttMove))
+            if (tt.TryGetScore(board.Hash, depth, ply, alpha, beta, out bool avoidNmp, out int score, out ulong ttMove) &&
+                (!isPv || !IsCheckmate(score)))
             {
                 return score;
             }
@@ -923,6 +924,12 @@ namespace Pedantic.Chess
             }
 
             return checkMate;
+        }
+
+        private static bool IsCheckmate(int score)
+        {
+            int absScore = Math.Abs(score);
+            return absScore is >= Constants.CHECKMATE_SCORE - Constants.MAX_PLY * 2 and <=Constants.CHECKMATE_SCORE;
         }
 
         public bool TryGetCpuLoad(DateTime start, out int cpuLoad)
