@@ -18,6 +18,7 @@ namespace Pedantic.Chess
         public const int DEFAULT_SYZYGY_PROBE_DEPTH = 2;
         public const bool DEFAULT_ANALYSE_MODE = false;
         public const int DEFAULT_THREADS = 1;
+        public const int DEFAULT_CONTEMPT = 0;
 
         static UciOptions()
         {
@@ -31,6 +32,7 @@ namespace Pedantic.Chess
             SyzygyProbeDepth = DEFAULT_SYZYGY_PROBE_DEPTH;
             AnalyseMode = DEFAULT_ANALYSE_MODE;
             Threads = DEFAULT_THREADS;
+            Contempt = DEFAULT_CONTEMPT;
         }
 
         public static bool CollectStatistics { get; set; }
@@ -64,6 +66,8 @@ namespace Pedantic.Chess
                 threads = Math.Clamp(value, 1, Environment.ProcessorCount);
             }
         }
+
+        public static int Contempt { get; set; }
 
         private static int hash;
         private static int syzygyProbeDepth;

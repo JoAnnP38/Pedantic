@@ -21,7 +21,6 @@ using System.CommandLine.Parsing;
 using Pedantic.Chess;
 using Pedantic.Tablebase;
 using Pedantic.Tuning;
-using Pedantic.Genetics;
 
 using Score = Pedantic.Chess.Score;
 
@@ -260,6 +259,7 @@ namespace Pedantic
                     Console.WriteLine($@"id author {AUTHOR}");
                     Console.WriteLine(@"option name Clear Hash type button");
                     Console.WriteLine(@"option name CollectStats type check default false");
+                    Console.WriteLine($"option name Contempt type spin default 0 min -50 max 50");
                     Console.WriteLine($@"option name Hash type spin default {TtTran.DEFAULT_SIZE_MB} min 16 max {TtTran.MAX_SIZE_MB}");
                     Console.WriteLine($@"option name Threads type spin default 1 min 1 max {Math.Max(Environment.ProcessorCount, 1)}");
                     Console.WriteLine(@"option name OwnBook type check default true");
@@ -387,6 +387,13 @@ namespace Pedantic
                         if (tokens[3] == "Hash")
                         {
                             Engine.ClearHashTable();
+                        }
+                        break;
+
+                    case "Contempt":
+                        if (tokens[3] == "value" && int.TryParse(tokens[4], out int contempt))
+                        {
+                            UciOptions.Contempt = contempt;
                         }
                         break;
 

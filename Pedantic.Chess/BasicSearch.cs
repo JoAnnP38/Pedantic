@@ -992,7 +992,7 @@ namespace Pedantic.Chess
             {
                 if (!UciOptions.AnalyseMode)
                 {
-                    int contempt = board.GamePhase < GamePhase.EndGame ? -50 : 0;
+                    int contempt = board.GamePhase < GamePhase.EndGame ? UciOptions.Contempt : 0;
                     // TODO: Change Engine.Color to Engine.SideToMove 
                     if (board.SideToMove == Engine.Color)
                     {
@@ -1005,7 +1005,7 @@ namespace Pedantic.Chess
             }
         }
 
-        public int DrawScore => (int)(8 - (NodesVisited & 0x7));
+        public int DrawScore => (int)(8 - (NodesVisited & 0x7) + Contempt);
 
         public void InitPv(int ply)
         {
