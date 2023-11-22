@@ -37,6 +37,7 @@ namespace Pedantic.Tuning
         public const int MATERIAL = HceWeights.PIECE_VALUES;
         public const int PIECE_SQUARE_TABLES = HceWeights.PIECE_SQUARE_TABLE;
         public const int MOBILITY = HceWeights.PIECE_MOBILITY;
+        public const int TRAPPED_PIECE = HceWeights.TRAPPED_PIECE;
         public const int CENTER_CONTROL = HceWeights.CENTER_CONTROL;
 
         public const int KING_ATTACK = HceWeights.KING_ATTACK;
@@ -175,7 +176,15 @@ namespace Pedantic.Tuning
                         int from = BitOps.TzCount(bb);
                         ulong moves = bd.GetPieceMoves(pc, from);
                         evalInfo[c].PieceAttacks |= moves;
-                        IncrementMobility(v, pc, (short)BitOps.PopCount(moves & evalInfo[c].MobilityArea));
+                        int moveCount = BitOps.PopCount(moves & evalInfo[c].MobilityArea);
+                        if (moveCount > 0)
+                        {
+                            IncrementMobility(v, pc, (short)moveCount);
+                        }
+                        else
+                        {
+                            IncrementTrappedPiece(v, pc);
+                        }
 
                         if (evalInfo[c].AttackCount < Evaluation.MAX_ATTACK_LEN)
                         {
@@ -976,6 +985,19 @@ namespace Pedantic.Tuning
         public static void SetTempoBonus(IDictionary<int, short> v)
         {
             v[TEMPO_BONUS] = 1;
+        }
+
+        public static void IncrementTrappedPiece(IDictionary<int, short> v, Piece piece)
+        {
+            int key = TRAPPED_PIECE + (int)piece - 1;
+            if (v.ContainsKey(key))
+            {
+                v[key]++;
+            }
+            else
+            {
+                v[key] = 1;
+            }
         }
 
 #pragma warning restore CA1854

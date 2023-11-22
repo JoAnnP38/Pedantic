@@ -646,7 +646,15 @@ namespace Pedantic.Chess
                     {
                         evalInfo[c].Attacks[evalInfo[c].AttackCount++] = moves;
                     }
-                    mobility += BitOps.PopCount(moves & evalInfo[c].MobilityArea) * wts.PieceMobility(piece);
+                    int moveCount = BitOps.PopCount(moves & evalInfo[c].MobilityArea);
+                    if (moveCount > 0)
+                    {
+                        mobility += moveCount * wts.PieceMobility(piece);
+                    }
+                    else
+                    {
+                        mobility += wts.TrappedPiece(piece);
+                    }
                 }
             }
 

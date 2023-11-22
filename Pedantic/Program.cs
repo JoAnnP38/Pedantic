@@ -849,6 +849,12 @@ namespace Pedantic
             WriteIndent(); WriteWt(wts[HceWeights.PIECE_MOBILITY + 2]); Console.WriteLine(" // rooks");
             WriteIndent(); WriteWt(wts[HceWeights.PIECE_MOBILITY + 3]); Console.WriteLine(" // queens");
             WriteLine();
+            WriteLine("/* trapped pieces */");
+            WriteIndent(); WriteWt(wts[HceWeights.TRAPPED_PIECE + 0]); Console.WriteLine(" // knights");
+            WriteIndent(); WriteWt(wts[HceWeights.TRAPPED_PIECE + 1]); Console.WriteLine(" // bishops");
+            WriteIndent(); WriteWt(wts[HceWeights.TRAPPED_PIECE + 2]); Console.WriteLine(" // rooks");
+            WriteIndent(); WriteWt(wts[HceWeights.TRAPPED_PIECE + 3]); Console.WriteLine(" // queens");
+            WriteLine();
             WriteLine("/* center control */");
             WriteIndent(); WriteWt(wts[HceWeights.CENTER_CONTROL + 0]); Console.WriteLine(" // D0");
             WriteIndent(); WriteWt(wts[HceWeights.CENTER_CONTROL + 1]); Console.WriteLine(" // D1");
