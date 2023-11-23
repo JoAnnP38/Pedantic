@@ -2,37 +2,35 @@
 {
     public class SearchStack
     {
-        private readonly SearchItem[] searchStack = new SearchItem[Constants.MAX_PLY + 2];
+        public const int OFFSET = 4;
+        private readonly SearchItem[] searchStack = new SearchItem[Constants.MAX_PLY + OFFSET];
 
-        public SearchStack(Board board)
+        public SearchStack()
         {
-            for (int n = 0; n < Constants.MAX_PLY + 2; n++)
+            for (int n = 0; n < Constants.MAX_PLY + OFFSET; n++)
             {
                 searchStack[n] = new SearchItem();
             }
-            searchStack[0].Move = (uint)board.PrevLastMove;
-            searchStack[1].Move = (uint)board.LastMove;
-            searchStack[1].IsCheckingMove = board.IsChecked();
-            searchStack[1].IsPromotionThreat = board.IsPromotionThreat(board.LastMove);
         }
-
-        public SearchStack()
-        { }
 
         public ref SearchItem this[int index]
         {
             get
             {
-                return ref searchStack[index + 2];
+                return ref searchStack[index + OFFSET];
             }
         }
 
-        public void Initialize(Board board)
+        public void Initialize(Board board, History history)
         {
-            searchStack[0].Move = (uint)board.PrevLastMove;
-            searchStack[1].Move = (uint)board.LastMove;
-            searchStack[1].IsCheckingMove = board.IsChecked();
-            searchStack[1].IsPromotionThreat = board.IsPromotionThreat(board.LastMove);
+            searchStack[0].Continuation = history.NullMoveContinuation;
+            searchStack[1].Continuation = history.NullMoveContinuation;
+            searchStack[2].Move = (uint)board.PrevLastMove;
+            searchStack[2].Continuation = history.GetContinuation(board.PrevLastMove);
+            searchStack[3].Move = (uint)board.LastMove;
+            searchStack[3].Continuation = history.GetContinuation(board.LastMove);
+            searchStack[3].IsCheckingMove = board.IsChecked();
+            searchStack[3].IsPromotionThreat = board.IsPromotionThreat(board.LastMove);
         }
 
         public void Clear()

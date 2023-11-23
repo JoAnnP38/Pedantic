@@ -10,7 +10,7 @@ namespace Pedantic.Chess
             this.isPrimary = isPrimary;
             search = null;
             clock = null;
-            thread = null;
+            history = new(stack);
         }
 
         public void Search(GameClock clock, Board board, int maxDepth, long maxNodes, CountdownEvent done)
@@ -52,7 +52,7 @@ namespace Pedantic.Chess
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void SearchProc(Board board, CountdownEvent done)
         {
-            stack.Initialize(board);
+            stack.Initialize(board, history);
             history.Rescale();
             search?.Search();
             done.Signal();
@@ -69,9 +69,8 @@ namespace Pedantic.Chess
         private readonly bool isPrimary;
         private BasicSearch? search;
         private GameClock? clock;
-        private Thread? thread;
         private readonly EvalCache cache = new();
-        private readonly History history = new();
+        private readonly History history;
         private readonly SearchStack stack = new();
         private readonly ObjectPool<MoveList> listPool = new(Constants.MAX_PLY);
     }

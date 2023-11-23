@@ -8,9 +8,15 @@ namespace Pedantic
     {
         public const int SEARCH_DEPTH = 7;
 
+        public Labeler()
+        {
+            history = new(stack);
+        }
+
         public bool Label(PgnPositionReader.Position pos, out PgnPositionReader.Position labeled)
         {
             Board bd = new(pos.Fen);
+            stack.Initialize(bd, history);
             history.Clear();
             cache.Clear();
             clock.Go(int.MaxValue, false);
@@ -41,7 +47,7 @@ namespace Pedantic
         private readonly GameClock clock = new() { Infinite = true };
         private readonly Uci uci = new(false, false);
         private readonly EvalCache cache = new(4);
-        private readonly History history = new();
+        private readonly History history;
         private readonly SearchStack stack = new();
         private readonly ObjectPool<MoveList> listPool = new(18);
         private readonly TtTran tt = new(16);

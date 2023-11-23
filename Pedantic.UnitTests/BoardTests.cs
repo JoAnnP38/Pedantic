@@ -227,7 +227,10 @@ namespace Pedantic.UnitTests
         public void MovesTest(string fen)
         {
             Board bd = new(fen);
-            foreach (var mvItem in bd.Moves(0, new History(), new SearchStack(bd), new MoveList(), 0))
+            SearchStack ss = new();
+            History hist = new(ss);
+            ss.Initialize(bd, hist);
+            foreach (var mvItem in bd.Moves(0, hist, ss, new MoveList(), 0))
             {
                 Console.WriteLine(Move.ToLongString(mvItem.Move));
             }

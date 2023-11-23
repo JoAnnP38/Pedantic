@@ -250,6 +250,7 @@ namespace Pedantic.Chess
                 searchItem.Move = (uint)move;
                 searchItem.IsCheckingMove = checkingMove;
                 searchItem.IsPromotionThreat = board.IsPromotionThreat(move);
+                searchItem.Continuation = history.GetContinuation(move);
 
                 int R = 0;
                 if (!interesting)
@@ -299,7 +300,7 @@ namespace Pedantic.Chess
                         if (isQuiet)
                         {
                             searchItem.KillerMoves.Add(move);
-                            history.UpdateCutoff(move, 0, ref quiets, searchStack, depth);
+                            history.UpdateCutoff(move, 0, ref quiets, depth);
                         }
 
                         break;
@@ -428,6 +429,7 @@ namespace Pedantic.Chess
                     {
                         searchItem.Move = (uint)Move.NullMove;
                         searchItem.IsCheckingMove = false;
+                        searchItem.Continuation = history.NullMoveContinuation;
 
                         score = -Search(-beta, -beta + 1, Math.Max(depth - R - 1, 0), ply + 1, false, false);
                         board.UnmakeMove();
@@ -504,6 +506,7 @@ namespace Pedantic.Chess
                 searchItem.Move = (uint)move;
                 searchItem.IsCheckingMove = checkingMove;
                 searchItem.IsPromotionThreat = board.IsPromotionThreat(move);
+                searchItem.Continuation = history.GetContinuation(move);
 
                 if (canPrune && !interesting && !searchItem.IsPromotionThreat)
                 {
@@ -588,7 +591,7 @@ namespace Pedantic.Chess
                         if (isQuiet)
                         {
                             searchItem.KillerMoves.Add(move);
-                            history.UpdateCutoff(move, ply, ref quiets, searchStack, depth);
+                            history.UpdateCutoff(move, ply, ref quiets, depth);
                         }
 
                         break;

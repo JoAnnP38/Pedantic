@@ -973,6 +973,7 @@ namespace Pedantic.Chess
         {
             ulong[] bc = badCaptures[ply];
             int bcIndex = 0;
+            history.SetContext(ply);
 
             if (bestMove != 0 && IsPseudoLegal(bestMove))
             {
@@ -1113,6 +1114,8 @@ namespace Pedantic.Chess
 
         public IEnumerable<ulong> EvasionMoves2(int ply, History history, SearchStack searchStack, MoveList moveList, ulong bestMove)
         {
+            history.SetContext(ply);
+
             if (bestMove != 0 && IsPseudoLegal(bestMove))
             {
                 yield return bestMove;

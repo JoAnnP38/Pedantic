@@ -13,8 +13,13 @@ namespace Pedantic.UnitTests
     [TestClass]
     public class HistoryTests
     {
-        private History history = new();
+        private History history;
         private SearchStack searchStack = new();
+
+        public HistoryTests()
+        {
+            history = new(searchStack);
+        }
 
         [TestInitialize]
         public void InitTest()
@@ -28,12 +33,13 @@ namespace Pedantic.UnitTests
         {
             // set the previous move on the search stack
             searchStack[-1].Move = (uint)Move.Pack(Color.White, Piece.Pawn, Index.D2, Index.D4, MoveType.DblPawnMove);
+            searchStack[-1].Continuation = history.GetContinuation(searchStack[-1].Move);
 
             StackList<uint> quiets = new(stackalloc uint[8]);
             ulong cutoffMove = Move.Pack(Color.Black, Piece.Pawn, Index.D7, Index.D5, MoveType.DblPawnMove);
 
             // update Cutoff
-            history.UpdateCutoff(cutoffMove, 0, ref quiets, searchStack, 2);
+            history.UpdateCutoff(cutoffMove, 0, ref quiets, 2);
 
             ulong counter = history.CounterMove(searchStack[-1].Move);
 
@@ -45,12 +51,13 @@ namespace Pedantic.UnitTests
         {
             // set the previous move on the search stack
             searchStack[-1].Move = (uint)Move.Pack(Color.White, Piece.Pawn, Index.D2, Index.D4, MoveType.DblPawnMove);
+            searchStack[-1].Continuation = history.GetContinuation(searchStack[-1].Move);
 
             StackList<uint> quiets = new(stackalloc uint[8]);
             ulong cutoffMove = Move.Pack(Color.Black, Piece.Pawn, Index.D7, Index.D5, MoveType.DblPawnMove);
 
             // update Cutoff
-            history.UpdateCutoff(cutoffMove, 0, ref quiets, searchStack, 2);
+            history.UpdateCutoff(cutoffMove, 0, ref quiets, 2);
 
             short historyValue = history[Color.Black, Piece.Pawn, Index.D5];
             short bonusValue = CalcBonus(2);
@@ -65,6 +72,7 @@ namespace Pedantic.UnitTests
         {
             // set the previous move on the search stack
             searchStack[-1].Move = (uint)Move.Pack(Color.White, Piece.Pawn, Index.D2, Index.D4, MoveType.DblPawnMove);
+            searchStack[-1].Continuation = history.GetContinuation(searchStack[-1].Move);
 
             StackList<uint> quiets = new(stackalloc uint[8]);
             ulong quietMove = Move.Pack(Color.Black, Piece.Pawn, Index.E7, Index.E5, MoveType.DblPawnMove);
@@ -73,7 +81,7 @@ namespace Pedantic.UnitTests
             ulong cutoffMove = Move.Pack(Color.Black, Piece.Pawn, Index.D7, Index.D5, MoveType.DblPawnMove);
 
             // update Cutoff
-            history.UpdateCutoff(cutoffMove, 0, ref quiets, searchStack, 2);        
+            history.UpdateCutoff(cutoffMove, 0, ref quiets, 2);        
 
             short bonusValue = CalcBonus(2);
 
@@ -86,6 +94,7 @@ namespace Pedantic.UnitTests
         {
             // set the previous move on the search stack
             searchStack[-1].Move = (uint)Move.Pack(Color.White, Piece.Pawn, Index.D2, Index.D4, MoveType.DblPawnMove);
+            searchStack[-1].Continuation = history.GetContinuation(searchStack[-1].Move);
 
             StackList<uint> quiets = new(stackalloc uint[8]);
             ulong quietMove = Move.Pack(Color.Black, Piece.Pawn, Index.E7, Index.E5, MoveType.DblPawnMove);
@@ -94,7 +103,7 @@ namespace Pedantic.UnitTests
             ulong cutoffMove = Move.Pack(Color.Black, Piece.Pawn, Index.D7, Index.D5, MoveType.DblPawnMove);
 
             // update Cutoff
-            history.UpdateCutoff(cutoffMove, 0, ref quiets, searchStack, 2);        
+            history.UpdateCutoff(cutoffMove, 0, ref quiets, 2);        
 
             history.Clear();
 

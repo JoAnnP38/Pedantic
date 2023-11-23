@@ -18,6 +18,7 @@
 // ***********************************************************************
 
 using Pedantic.Collections;
+using Pedantic.Utilities;
 using System.Runtime.CompilerServices;
 
 namespace Pedantic.Chess
@@ -25,9 +26,22 @@ namespace Pedantic.Chess
     public sealed class History : IHistory
     {
         public const int HISTORY_LEN = Constants.MAX_COLORS * Constants.MAX_PIECES * Constants.MAX_SQUARES;
+        public const short BONUS_MAX = 640;
+        public const short BONUS_COEFF = 80;
         private readonly short[] hhHistory = new short[HISTORY_LEN];
         private readonly uint[] counters = new uint[HISTORY_LEN];
+        private readonly short[][] contHist = Mem.Allocate2D<short>(HISTORY_LEN, HISTORY_LEN);
+        private readonly SearchStack ss;
+        private readonly short[] nullMoveCont;
+        private int ply;
 
+        public History(SearchStack stack)
+        {
+            ss = stack;
+            nullMoveCont = GetContinuation(Color.White, Piece.Pawn, Index.A1);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ulong CounterMove(ulong lastMove)
         {
             if (lastMove == 0 || lastMove == Move.NullMove)
@@ -41,7 +55,9 @@ namespace Pedantic.Chess
         {
             get
             {
-                return hhHistory[GetIndex(stm, piece, to)];
+                int index = GetIndex(stm, piece, to);
+                int value = hhHistory[index] + ss[ply - 1].Continuation![index];
+                return (short)Math.Clamp(value, short.MinValue, short.MaxValue);
             }
         }
 
@@ -49,25 +65,84 @@ namespace Pedantic.Chess
         {
             get
             {
-                return hhHistory[GetIndex(move)];
+                int index = GetIndex(move);
+                int value = hhHistory[index] + ss[ply - 1].Continuation![index];
+                return (short)Math.Clamp(value, short.MinValue, short.MaxValue);
             }
         }
 
-        public void UpdateCutoff(ulong move, int ply, ref StackList<uint> quiets, SearchStack searchStack, int depth)
-        {
-            short bonus = (short)(((depth * depth) >> 1) + (depth << 1) - 1);
-            UpdateHistory(ref hhHistory[GetIndex(move)], bonus);
+        public short[] NullMoveContinuation => nullMoveCont;
 
-            ulong lastMove = searchStack[ply - 1].Move;
+        public short MaxHistory => hhHistory.Max();
+        public short MinHistory => hhHistory.Min();
+        public short MaxContHistory
+        {
+            get
+            {
+                short max = short.MinValue;
+                for (int n = 0; n < HISTORY_LEN; n++)
+                {
+                    max = Math.Max(max, contHist[n].Max());
+                }
+                return max;
+            }
+        }
+
+        public short MinContHistory
+        {
+            get
+            {
+                short min = short.MaxValue;
+                for (int n = 0; n < HISTORY_LEN; n++)
+                {
+                    min = Math.Min(min, contHist[n].Min());
+                }
+                return min;
+            }
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetContext(int ply)
+        {
+            this.ply = ply;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public short[] GetContinuation(Color stm, Piece piece, int to)
+        {
+            return contHist[GetIndex(stm, piece, to)];
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public short[] GetContinuation(ulong move)
+        {
+            if (move == Move.NullMove)
+            {
+                return NullMoveContinuation;
+            }
+            return contHist[GetIndex(move)];
+        }
+
+        public void UpdateCutoff(ulong move, int currentPly, ref StackList<uint> quiets, int depth)
+        {
+            SetContext(currentPly);
+            short bonus = Math.Min(BONUS_MAX, (short)(BONUS_COEFF * (depth - 1)));
+            int index = GetIndex(move);
+            UpdateHistory(ref hhHistory[index], bonus);
+            UpdateHistory(ref ss[ply - 1].Continuation![index], bonus);
+
+            ulong lastMove = ss[ply - 1].Move;
             if (lastMove != Move.NullMove)
             {
                 counters[GetIndex(lastMove)] = (uint)move;
             }
 
+            short malus = (short)-bonus;
             for (int n = 0; n < quiets.Count; n++)
             {
                 ulong quiet = quiets[n];
-                UpdateHistory(ref hhHistory[GetIndex(quiet)], (short)-bonus);
+                index = GetIndex(quiet);
+                UpdateHistory(ref hhHistory[index], malus);
+                UpdateHistory(ref ss[ply - 1].Continuation![index], malus);
             }
         }
 
@@ -75,6 +150,7 @@ namespace Pedantic.Chess
         {
             Array.Clear(hhHistory);
             Array.Clear(counters);
+            Mem.Clear(contHist);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

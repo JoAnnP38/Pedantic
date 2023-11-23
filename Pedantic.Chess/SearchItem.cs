@@ -13,13 +13,15 @@ namespace Pedantic.Chess
         public bool IsPromotionThreat;
         public MovePair KillerMoves;
         public short Eval;
+        public short[]? Continuation;
 
         public SearchItem()
         {
-            Move = 0;
+            Move = (uint)Chess.Move.NullMove;
             IsCheckingMove = false;
             IsPromotionThreat = false;
             Eval = Constants.NO_SCORE;
+            Continuation = null;
         }
     }
 }

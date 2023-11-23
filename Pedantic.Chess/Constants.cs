@@ -39,8 +39,8 @@ namespace Pedantic.Chess
         public const int KILLER_SCORE = 132250;
         public const int COUNTER_SCORE = 132000;
         public const int BAD_CAPTURE = 66000;
-        public const int HISTORY_SCORE_MIN = -16384;
-        public const int HISTORY_SCORE_MAX = 16384;
+        public const int HISTORY_SCORE_MIN = -8192;
+        public const int HISTORY_SCORE_MAX = 8192;
         public const int NO_SCORE = short.MinValue;
         public const short INFINITE_WINDOW = short.MaxValue;
         public const int WINDOW_MIN_DEPTH = 6;
