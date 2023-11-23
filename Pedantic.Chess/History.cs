@@ -19,6 +19,7 @@
 
 using Pedantic.Collections;
 using Pedantic.Utilities;
+using System.IO.Hashing;
 using System.Runtime.CompilerServices;
 
 namespace Pedantic.Chess
@@ -56,7 +57,10 @@ namespace Pedantic.Chess
             get
             {
                 int index = GetIndex(stm, piece, to);
-                int value = hhHistory[index] + ss[ply - 1].Continuation![index];
+                int value = hhHistory[index] + 
+                    ss[ply - 1].Continuation![index] +
+                    ss[ply - 2].Continuation![index] +
+                    ss[ply - 4].Continuation![index]; 
                 return (short)Math.Clamp(value, short.MinValue, short.MaxValue);
             }
         }
@@ -66,7 +70,10 @@ namespace Pedantic.Chess
             get
             {
                 int index = GetIndex(move);
-                int value = hhHistory[index] + ss[ply - 1].Continuation![index];
+                int value = hhHistory[index] + 
+                    ss[ply - 1].Continuation![index] +
+                    ss[ply - 2].Continuation![index] +
+                    ss[ply - 4].Continuation![index];
                 return (short)Math.Clamp(value, short.MinValue, short.MaxValue);
             }
         }
@@ -129,6 +136,8 @@ namespace Pedantic.Chess
             int index = GetIndex(move);
             UpdateHistory(ref hhHistory[index], bonus);
             UpdateHistory(ref ss[ply - 1].Continuation![index], bonus);
+            UpdateHistory(ref ss[ply - 2].Continuation![index], bonus);
+            UpdateHistory(ref ss[ply - 4].Continuation![index], bonus);
 
             ulong lastMove = ss[ply - 1].Move;
             if (lastMove != Move.NullMove)
@@ -143,6 +152,8 @@ namespace Pedantic.Chess
                 index = GetIndex(quiet);
                 UpdateHistory(ref hhHistory[index], malus);
                 UpdateHistory(ref ss[ply - 1].Continuation![index], malus);
+                UpdateHistory(ref ss[ply - 2].Continuation![index], malus);
+                UpdateHistory(ref ss[ply - 4].Continuation![index], malus);
             }
         }
 
