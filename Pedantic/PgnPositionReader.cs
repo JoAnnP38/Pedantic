@@ -102,8 +102,6 @@ namespace Pedantic
 
         public IEnumerable<Position> Positions(TextReader reader)
         {
-            Labeler labeler = new();
-            Board bd = new();
             PositionState state = PositionState.SeekHeader;
             List<string> moves = new();
             float result = 0;

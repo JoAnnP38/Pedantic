@@ -55,6 +55,10 @@ namespace Pedantic.Chess
             stack.Initialize(board, history);
             history.Rescale();
             search?.Search();
+            //if (isPrimary && (board.HalfMoveClock & 0x07) == 0)
+            //{
+            //    GC.Collect();
+            //}
             done.Signal();
         }
 

@@ -715,6 +715,7 @@ namespace Pedantic
                         }
                     }
                 }
+                Console.Error.WriteLine();
             }
             catch (Exception e)
             {
