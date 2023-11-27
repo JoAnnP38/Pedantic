@@ -6,7 +6,7 @@ namespace Pedantic
 {
     public class Labeler
     {
-        public const int SEARCH_DEPTH = 7;
+        public const int SEARCH_DEPTH = 8;
 
         public Labeler()
         {
@@ -29,7 +29,7 @@ namespace Pedantic
             };
 
             search.Search();
-            if (Math.Abs(search.Score) < Constants.TABLEBASE_WIN && search.PV.Length > 0)
+            if (Math.Abs(search.Score) < Constants.TB_MIN && search.PV.Length > 0)
             {
                 if (!Move.IsCapture(search.PV[0]))
                 {

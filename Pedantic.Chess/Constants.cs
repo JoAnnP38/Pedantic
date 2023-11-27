@@ -29,6 +29,7 @@ namespace Pedantic.Chess
         public const int AVG_MOVES_PER_PLY = 36;
         public const short CHECKMATE_SCORE = 20000;
         public const short TABLEBASE_WIN = 19500;
+        public const short TB_MIN = TABLEBASE_WIN - MAX_PLY;
         public const short TABLEBASE_LOSS = -19500;
         public const short TOTAL_STARTING_MATERIAL = 7800;
         public const int MINOR_PIECE_COUNT = 4;
