@@ -50,6 +50,12 @@ namespace Pedantic
             Divide
         }
 
+        private enum ProgressType
+        {
+            Ply,
+            Phase
+        }
+
         private static int Main(string[] args)
         {
             Console.WriteLine($"{APP_NAME_VER} by {AUTHOR}");
@@ -130,6 +136,14 @@ namespace Pedantic
                 name: "--error",
                 description: "Error threshold for terminating optimization loop.",
                 getDefaultValue: () => 0.0);
+            var evalPctOption = new Option<int>(
+                name: "--eval_pct",
+                description: "The amount of weight to give to eval in LERP between eval and WDL.",
+                getDefaultValue: () => 0);
+            var progressOption = new Option<ProgressType>(
+                name: "--progress",
+                description: "Specifies whether to use Ply or Phase to calculate game progress.",
+                getDefaultValue: () => ProgressType.Ply);
 
             var uciCommand = new Command("uci", "Start the pedantic application in UCI mode (default).")
             {
@@ -163,7 +177,8 @@ namespace Pedantic
                 saveOption,
                 resetOption,
                 maxTimeOption,
-                errorOption
+                evalPctOption,
+                progressOption
             };
 
             var weightsCommand = new Command("weights", "Display the default weights used by evaluation.");
@@ -180,7 +195,8 @@ namespace Pedantic
             uciCommand.SetHandler(RunUci, commandFileOption, errorFileOption, randomSearchOption, statsOption, magicOption);
             perftCommand.SetHandler(RunPerft, typeOption, depthOption, fenOption, magicOption);
             labelCommand.SetHandler(RunLabel, pgnFileOption, dataFileOption, maxPositionsOption);
-            learnCommand.SetHandler(RunLearn, dataFileOption, sampleOption, iterOption, saveOption, resetOption, maxTimeOption, errorOption);
+            learnCommand.SetHandler(RunLearn, dataFileOption, sampleOption, iterOption, saveOption, resetOption, maxTimeOption, 
+                evalPctOption, progressOption);
             weightsCommand.SetHandler(RunWeights);
             rootCommand.SetHandler(async () => await RunUci(null, null, false, false, false));
             return rootCommand.InvokeAsync(args).Result;
@@ -740,8 +756,13 @@ namespace Pedantic
             }
         }
 
-        private static void RunLearn(string? dataPath, int sampleSize, int maxPass, bool save, bool reset, TimeSpan? maxTime, double minError)
+        private static void RunLearn(string? dataPath, int sampleSize, int maxPass, bool save, bool reset, TimeSpan? maxTime, 
+            int evalPct, ProgressType progress)
         {
+            evalPct = Math.Clamp(evalPct, 0, 100);
+            PosRecord.EvalPct = evalPct;
+            PosRecord.UsePhaseProgress = progress == ProgressType.Phase;
+
             if (dataPath == null)
             {
                 throw new ArgumentNullException(nameof(dataPath));
@@ -752,7 +773,7 @@ namespace Pedantic
             IList<PosRecord> positions = sampleSize <= 0 ? dataFile.LoadFile() : dataFile.LoadSample(sampleSize, save);
 
             var tuner = reset ? new GdTuner(positions) : new GdTuner(Engine.Weights, positions);
-            var (Error, Accuracy, Weights, K) = tuner.Train(maxPass, maxTime, minError);
+            var (Error, Accuracy, Weights, K) = tuner.Train(maxPass, maxTime);
             PrintSolution(positions.Count, Error, Accuracy, Weights, K);
         }
 

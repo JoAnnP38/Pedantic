@@ -2,7 +2,7 @@
   "profiles": {
     "Pedantic_Learn": {
       "commandName": "Project",
-      "commandLineArgs": "learn --data \"e:/pgn files/training/master_training_data_ver6.0.csv\" --sample 2000000 --iter 600 --reset --maxtime 0:03:00",
+      "commandLineArgs": "learn --data \"e:/pgn files/training/master_training_data_ver6.0.csv\" --sample 2000000 --iter 600 --reset --maxtime 0:03:00 --eval_pct 25 --progress Phase",
       "workingDirectory": "e:\\repos\\Pedantic\\Pedantic\\bin\\Release\\net7.0\\publish",
       "nativeDebugging": false
     },

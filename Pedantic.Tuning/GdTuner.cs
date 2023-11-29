@@ -56,7 +56,7 @@ namespace Pedantic.Tuning
         }
 
         public override (double Error, double Accuracy, HceWeights Weights, double K) Train(int maxEpoch, TimeSpan? maxTime, 
-            double minError, double precision = TOLERENCE)
+            double minError = 0.0, double precision = TOLERENCE)
         {
             WeightPair[] momentum = new WeightPair[weights.Length];
             WeightPair[] velocity = new WeightPair[weights.Length];
