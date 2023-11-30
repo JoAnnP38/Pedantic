@@ -86,8 +86,9 @@ namespace Pedantic.Chess
         EndGameMopup
     }
 
-    public enum TtFlag : byte
+    public enum TtFlag : sbyte
     {
+        None = -1,
         Exact,
         UpperBound,
         LowerBound

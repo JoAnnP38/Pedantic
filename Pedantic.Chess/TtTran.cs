@@ -188,24 +188,28 @@ namespace Pedantic.Chess
             return bestMove != 0;
         }
 
-        public bool TryGetScore(ulong hash, int depth, int ply, int alpha, int beta, 
-            out bool avoidNmp, out int score, out ulong move)
+        public bool TryGetScore(ulong hash, int depth, int ply, int alpha, int beta,
+            out bool avoidNmp, out int ttScore, out ulong ttMove, out int ttDepth, out TtFlag ttBounds)
         {
-            score = 0;
-            move = 0;
+            ttScore = Constants.NO_SCORE;
+            ttMove = Constants.NO_MOVE;
+            ttDepth = 0;
+            ttBounds = TtFlag.None;
             avoidNmp = false;
 
             if (GetLoadIndex(hash, out int index))
             {
                 ref TtTranItem item = ref table[index];
-                move = item.BestMove;
+                ttMove = item.BestMove;
+                ttDepth = item.Depth;
+                ttBounds = item.Flag;
 
-                if (item.Depth < depth)
+                if (ttDepth < depth)
                 {
                     // even if the TT entry is not good enough to return a score,
                     // it may be good enough to determine if NMP should be run
-                    if (item.Depth > 0 && item.Flag == TtFlag.UpperBound && 
-                        depth - BasicSearch.NMP[depth] - 1 <= item.Depth &&
+                    if (ttDepth > 0 && ttBounds == TtFlag.UpperBound && 
+                        depth - BasicSearch.NMP[depth] - 1 <= ttDepth &&
                         item.Score < beta)
                     {
                         avoidNmp = true;
@@ -213,33 +217,39 @@ namespace Pedantic.Chess
                     return false;
                 }
 
-                score = item.Score;
-
-                if (score >= Constants.TABLEBASE_WIN)
+                ttScore = item.Score;
+                if (ttScore >= Constants.TABLEBASE_WIN)
                 {
-                    score -= ply;
+                    ttScore -= ply;
                 }
-                else if (score <= Constants.TABLEBASE_LOSS)
+                else if (ttScore <= Constants.TABLEBASE_LOSS)
                 {
-                    score += ply;
+                    ttScore += ply;
                 }
 
-                if (item.Flag == TtFlag.Exact)
+                if (ttBounds == TtFlag.Exact)
                 {
                     return true;
                 }
 
-                if (item.Flag == TtFlag.UpperBound && score <= alpha)
+                if (ttBounds == TtFlag.UpperBound && ttScore <= alpha)
                 {
                     return true;
                 }
-                if (item.Flag == TtFlag.LowerBound && score >= beta)
+
+                if (ttBounds == TtFlag.LowerBound && ttScore >= beta)
                 {
                     return true;
                 }
             }
 
             return false;
+        }
+
+        public bool TryGetScore(ulong hash, int depth, int ply, int alpha, int beta, 
+            out bool avoidNmp, out int score, out ulong move)
+        {
+            return TryGetScore(hash, depth, ply, alpha, beta, out avoidNmp, out score, out move, out int _, out TtFlag _);
         }
 
         private int GetStoreIndex(ulong hash)

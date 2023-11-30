@@ -43,6 +43,7 @@ namespace Pedantic.Chess
         public const int HISTORY_SCORE_MIN = -8192;
         public const int HISTORY_SCORE_MAX = 8192;
         public const int NO_SCORE = short.MinValue;
+        public const uint NO_MOVE = 0;
         public const short INFINITE_WINDOW = short.MaxValue;
         public const int WINDOW_MIN_DEPTH = 6;
         public const int LAZY_EVAL_MARGIN = 500;

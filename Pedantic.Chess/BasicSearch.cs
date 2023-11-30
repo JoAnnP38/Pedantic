@@ -206,8 +206,6 @@ namespace Pedantic.Chess
             depth = Math.Min(depth, Constants.MAX_PLY - 1);
             InitPv(0);
             
-            int X = CalcExtension(0);
-
             NodesVisited++;
 
             if (MustAbort || wasAborted)
@@ -258,27 +256,22 @@ namespace Pedantic.Chess
                     R = LMR[Math.Min(depth, LMR_DEPTH_LIMIT)][Math.Min(expandedNodes - 1, LMR_MOVE_LIMIT)];
                 }
 
-                if (X > 0 && R > 0)
-                {
-                    R--;
-                }
-
                 if (!raisedAlpha)
                 {
-                    score = -Search(-beta, -alpha, depth + X - 1, 1);
+                    score = -Search(-beta, -alpha, depth - 1, 1);
                 }
                 else
                 {
-                    score = -Search(-alpha - 1, -alpha, Math.Max(depth + X - R - 1, 0), 1, isPv: false);
+                    score = -Search(-alpha - 1, -alpha, Math.Max(depth - R - 1, 0), 1, isPv: false);
 
                     if (score > alpha && R > 0)
                     {
-                        score = -Search(-alpha - 1, -alpha, depth + X - 1, 1, isPv: false);
+                        score = -Search(-alpha - 1, -alpha, depth - 1, 1, isPv: false);
                     }
 
                     if (score > alpha)
                     {
-                        score = -Search(-beta, -alpha, depth + X - 1, 1);
+                        score = -Search(-beta, -alpha, depth - 1, 1);
                     }
                 }
 
@@ -363,22 +356,32 @@ namespace Pedantic.Chess
                 return alpha;
             }
 
-            if (tt.TryGetScore(board.Hash, depth, ply, alpha, beta, out bool avoidNmp, out int score, out ulong ttMove) &&
-                (!isPv || !IsCheckmate(score)))
+            bool bbResult = tt.TryGetScore(board.Hash, depth, ply, alpha, beta, out bool avoidNmp, out int ttScore, 
+                out ulong ttMove, out int ttDepth, out TtFlag ttBounds);
+
+            if (ttMove != Constants.NO_MOVE && Move.Compare(ttMove, searchItem.Excluded) == 0)
             {
-                return score;
+                ttMove = Constants.NO_MOVE;
+                ttScore = Constants.NO_SCORE;
+                ttBounds = TtFlag.None;
             }
 
+            if ( bbResult && (!isPv || !IsCheckmate(ttScore)))
+            {
+                return ttScore;
+            }
+
+            bool ttHit = ttBounds != TtFlag.None;
+
 #if USE_TB
-            if (ProbeTb(depth, ply, alpha, beta, out score))
+            if (searchItem.Excluded == Constants.NO_MOVE && ProbeTb(depth, ply, alpha, beta, out int score))
             {
                 ++tbHits;
                 return score;
             }
 #endif
 
-            int X = CalcExtension(ply);
-            if (depth + X <= 0)
+            if (depth <= 0)
             {
                 return Quiesce(alpha, beta, ply, inCheck);
             }
@@ -407,7 +410,7 @@ namespace Pedantic.Chess
                 }
             }
 
-            if (!inCheck && !isPv)
+            if (!inCheck && !isPv && searchItem.Excluded == Constants.NO_MOVE)
             {
                 // static null move pruning (reverse futility pruning)
                 if (depth <= STATIC_NULL_MOVE_MAX_DEPTH && eval >= beta + depth * STATIC_NULL_MOVE_MARGIN)
@@ -492,7 +495,7 @@ namespace Pedantic.Chess
             {
                 (move, phase) = mvItem;
 
-                if (!board.MakeMoveNs(move))
+                if (Move.Compare(move, searchItem.Excluded) == 0 || !board.MakeMoveNs(move))
                 {
                     continue;
                 }
@@ -543,6 +546,33 @@ namespace Pedantic.Chess
                     Util.TraceInfo($"Depth {depth}, Ply {ply}, Move {Move.ToLongString(move)}");
                 }
 #endif
+                int X = 0;
+
+                // singular extension
+                if (depth > 4 && ply <= Depth * 2 && 
+                    searchItem.Excluded == Constants.NO_MOVE && Move.Compare(move, ttMove) == 0 &&
+                    ttDepth > depth - 3 && ttBounds == TtFlag.LowerBound && Math.Abs(ttScore) < Constants.TB_MIN / 4)
+                {
+                    board.UnmakeMoveNs();
+                    board.PopBoardState();
+
+                    int singularBeta = ttScore - depth * 2;
+                    searchItem.Excluded = (uint)move;
+                    score = Search(singularBeta - 1, singularBeta, depth / 2, ply, false, false);
+                    searchItem.Excluded = Constants.NO_MOVE;
+
+                    if (score < singularBeta)
+                    {
+                        X = 1;
+                    }
+                    board.PushBoardState();
+                    board.MakeMoveNs(move);
+                }
+
+                if (inCheck)
+                {
+                    X = 1;
+                }
 
                 int R = 0;
                 if (!interesting)

@@ -14,6 +14,7 @@ namespace Pedantic.Chess
         public MovePair KillerMoves;
         public short Eval;
         public short[]? Continuation;
+        public uint Excluded;
 
         public SearchItem()
         {
@@ -22,6 +23,7 @@ namespace Pedantic.Chess
             IsPromotionThreat = false;
             Eval = Constants.NO_SCORE;
             Continuation = null;
+            Excluded = 0;
         }
     }
 }
