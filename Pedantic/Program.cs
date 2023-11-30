@@ -111,7 +111,7 @@ namespace Pedantic
             var iterOption = new Option<int>(
                 name: "--iter",
                 description: "Specify the maximum number of iterations before a solution is declared.",
-                getDefaultValue: () => 5000);
+                getDefaultValue: () => 1000);
             var saveOption = new Option<bool>(
                 name: "--save",
                 description: "If specified the sample will be saved in file.",
@@ -131,15 +131,11 @@ namespace Pedantic
             var maxTimeOption = new Option<TimeSpan?>(
                 name: "--maxtime",
                 description: "Maximum duration the optimization will run before a solution is declared.",
-                getDefaultValue: () => null);
-            var errorOption = new Option<double>(
-                name: "--error",
-                description: "Error threshold for terminating optimization loop.",
-                getDefaultValue: () => 0.0);
+                getDefaultValue: () => new TimeSpan(0, 30, 0));
             var evalPctOption = new Option<int>(
                 name: "--eval_pct",
                 description: "The amount of weight to give to eval in LERP between eval and WDL.",
-                getDefaultValue: () => 0);
+                getDefaultValue: () => 25);
             var progressOption = new Option<ProgressType>(
                 name: "--progress",
                 description: "Specifies whether to use Ply or Phase to calculate game progress.",
