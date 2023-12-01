@@ -356,7 +356,7 @@ namespace Pedantic.Chess
                 return alpha;
             }
 
-            bool bbResult = tt.TryGetScore(board.Hash, depth, ply, alpha, beta, out bool avoidNmp, out int ttScore, 
+            bool ttResult = tt.TryGetScore(board.Hash, depth, ply, alpha, beta, out bool avoidNmp, out int ttScore, 
                 out ulong ttMove, out int ttDepth, out TtFlag ttBounds);
 
             if (ttMove != Constants.NO_MOVE && Move.Compare(ttMove, searchItem.Excluded) == 0)
@@ -366,7 +366,7 @@ namespace Pedantic.Chess
                 ttBounds = TtFlag.None;
             }
 
-            if ( bbResult && (!isPv || !IsCheckmate(ttScore)))
+            if ( ttResult && (!isPv || !IsCheckmate(ttScore)))
             {
                 return ttScore;
             }
@@ -480,7 +480,48 @@ namespace Pedantic.Chess
             ulong move;
             ulong bestMove = 0;
             MoveGenPhase phase;
-            var moves = board.Moves(ply, history, searchStack, moveList, ttMove);
+            IEnumerable<(ulong Move, MoveGenPhase Phase)>? moves;
+
+            // ProbCut 
+            int probCutBeta = beta + 200;
+            if (depth > 5 && (ttScore == Constants.NO_SCORE || ttBounds == TtFlag.LowerBound || ttScore >= probCutBeta))
+            {
+                moves = board.Moves(ply, history, searchStack, moveList, Constants.NO_MOVE);
+
+                foreach (var mvItem in moves)
+                {
+                    (move, phase) = mvItem;
+                    if (phase > MoveGenPhase.PromotionMoves)
+                    {
+                        break;
+                    }
+                    if (!board.MakeMoveNs(move))
+                    {
+                        continue;
+                    }
+
+                    searchItem.Move = (uint)move;
+                    searchItem.IsCheckingMove = board.IsChecked();
+                    searchItem.IsPromotionThreat = false;
+                    searchItem.Continuation = history.GetContinuation(move);
+
+                    score = -Quiesce(-probCutBeta, -probCutBeta + 1, ply + 1, searchItem.IsCheckingMove);
+                    if (score >= probCutBeta)
+                    {
+                        score = -Search(-probCutBeta, -probCutBeta + 1, depth - 4, ply + 1, isPv: false);
+                    }
+
+                    board.UnmakeMoveNs();
+
+                    if (score >= probCutBeta)
+                    {
+                        ReturnMoveList(moveList);
+                        return score;
+                    }
+                }
+            }
+
+            moves = board.Moves(ply, history, searchStack, moveList, ttMove);
 
 #if DEBUG
             if (ply == 0)
