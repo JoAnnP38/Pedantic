@@ -79,17 +79,6 @@ namespace Pedantic.UnitTests
         }
 
         [TestMethod]
-        [DataRow(Index.E1, Index.E8, KingPlacement.KK)]
-        [DataRow(Index.G1, Index.C8, KingPlacement.KQ)]
-        [DataRow(Index.C1, Index.G8, KingPlacement.QK)]
-        [DataRow(Index.C1, Index.C8, KingPlacement.QQ)]
-        public void GetKingPlacementTest(int friendlyKing, int opponentKing, KingPlacement expected)
-        {
-            KingPlacement placement = Index.GetKingPlacement(friendlyKing, opponentKing);
-            Assert.AreEqual(expected, placement);
-        }
-
-        [TestMethod]
         [DataRow(Index.C1, 4)]
         [DataRow(Index.H4, 3)]
         public void CenterManhattanDistanceTest(int index, int expected)

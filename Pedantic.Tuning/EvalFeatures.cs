@@ -35,7 +35,8 @@ namespace Pedantic.Tuning
 
         public const int FEATURE_SIZE = HceWeights.MAX_WEIGHTS;
         public const int MATERIAL = HceWeights.PIECE_VALUES;
-        public const int PIECE_SQUARE_TABLES = HceWeights.PIECE_SQUARE_TABLE;
+        public const int FRIENDLY_KING_PST = HceWeights.FRIENDLY_PIECE_SQUARE_TABLE;
+        public const int ENEMY_KING_PST = HceWeights.ENEMY_PIECE_SQUARE_TABLE;
         public const int MOBILITY = HceWeights.PIECE_MOBILITY;
         public const int TRAPPED_PIECE = HceWeights.TRAPPED_PIECE;
         public const int CENTER_CONTROL = HceWeights.CENTER_CONTROL;
@@ -88,7 +89,6 @@ namespace Pedantic.Tuning
 
         public EvalFeatures(Board bd)
         {
-            //SparseArray<short>[] sparse = { new(), new() };
             sideToMove = bd.SideToMove;
             phase = bd.Phase;
 
@@ -589,8 +589,12 @@ namespace Pedantic.Tuning
         private static void SetPieceSquare(IDictionary<int, short> v, Piece piece, KingPlacement kp, int square)
         {
             
-            //int index = PIECE_SQUARE_TABLES + ((((int)piece << 2) + (int)kp) << 6) + square;
-            int index = PIECE_SQUARE_TABLES + (int)piece * 256 + (int)kp * Constants.MAX_SQUARES + square;
+            int index = FRIENDLY_KING_PST + 
+                ((int)piece * Constants.MAX_KING_BUCKETS + kp.Friendly) * Constants.MAX_SQUARES + square;
+            v[index] = 1;
+
+            index = ENEMY_KING_PST +
+                ((int)piece * Constants.MAX_KING_BUCKETS + kp.Enemy) * Constants.MAX_SQUARES + square;
             v[index] = 1;
         }
 

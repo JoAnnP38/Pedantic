@@ -19,6 +19,9 @@ namespace Pedantic.Chess
         public const ulong LITE_SQUARES_MASK = 0x55AA55AA55AA55AAul;
         public const int LAZY_MARGIN = 500;
         public const int MAX_ATTACK_LEN = 16;
+        public const int MOPUP_TABLE_LEN = Constants.MAX_SQUARES * Constants.MAX_KING_BUCKETS;
+        private const int mopup_pst_friendly = 0;
+        private const int mopup_pst_enemy = 1;
 
         public enum EgKingPst { Normal, MopUp, MopUpNBLight, MopUpNBDark }
 
@@ -135,13 +138,15 @@ namespace Pedantic.Chess
                 Color other = color.Other();
                 int c = (int)color;
                 int o = (int)other;
+                KingPlacement kp = evalInfo[c].KP;
+
                 eval[c] += board.Material[c];
-                ReadOnlySpan<Score> kingTable = evalInfo[c].KingPst switch
+                Score[][] kingTable = evalInfo[c].KingPst switch
                 {
                     EgKingPst.MopUp         => mopUpMate,
                     EgKingPst.MopUpNBLight  => mopUpMateNBLight,
                     EgKingPst.MopUpNBDark   => mopUpMateNBDark,
-                    _ => new ReadOnlySpan<Score>(wts.Weights, 1286, Constants.MAX_SQUARES * Constants.MAX_KING_PLACEMENTS)
+                    _ => mopUpEmpty
                 };
 
                 for (ulong bb = board.Units(color); bb != 0; bb = BitOps.ResetLsb(bb))
@@ -149,14 +154,19 @@ namespace Pedantic.Chess
                     int sq = BitOps.TzCount(bb);
                     int normalSq = Index.NormalizedIndex[c][sq];
                     Piece piece = board.PieceBoard[sq].Piece;
-                    if (piece == Piece.King)
+
+                    if (piece != Piece.King || evalInfo[c].KingPst == EgKingPst.Normal)
                     {
-                        int index = (int)evalInfo[c].KP * Constants.MAX_SQUARES + normalSq;
-                        eval[c] += kingTable[index];
+                        eval[c] += wts.FriendlyPieceSquareValue(piece, kp, normalSq);
+                        eval[c] += wts.EnemyPieceSquareValue(piece, kp, normalSq);
                     }
                     else
                     {
-                        eval[c] += wts.PieceSquareValue(piece, evalInfo[c].KP, normalSq);
+                        int offset = kp.Friendly * Constants.MAX_SQUARES + normalSq;
+                        eval[c] += kingTable[mopup_pst_friendly][offset];
+
+                        offset = kp.Enemy * Constants.MAX_SQUARES + normalSq;
+                        eval[c] += kingTable[mopup_pst_enemy][offset];
                     }
                 }
 
@@ -209,11 +219,11 @@ namespace Pedantic.Chess
             }
             var (WhiteCanWin, BlackCanWin) = CanWin(board, evalInfo);
             evalInfo[0].TotalPawns = evalInfo[1].TotalPawns = (sbyte)BitOps.PopCount(evalInfo[0].Pawns | evalInfo[1].Pawns);
-            evalInfo[0].KP = Index.GetKingPlacement(evalInfo[0].KI, evalInfo[1].KI);
+            evalInfo[0].KP = Index.GetKingPlacement(Color.White, evalInfo[0].KI, evalInfo[1].KI);
             evalInfo[0].CanWin = WhiteCanWin;
             evalInfo[0].MobilityArea = ~(board.Units(Color.White) | evalInfo[1].PawnAttacks);
             evalInfo[1].TotalPawns = evalInfo[0].TotalPawns;
-            evalInfo[1].KP = Index.GetKingPlacement(evalInfo[1].KI, evalInfo[0].KI);
+            evalInfo[1].KP = Index.GetKingPlacement(Color.Black, evalInfo[1].KI, evalInfo[0].KI);
             evalInfo[1].CanWin = BlackCanWin;
             evalInfo[1].MobilityArea = ~(board.Units(Color.Black) | evalInfo[0].PawnAttacks);
         }
@@ -285,6 +295,7 @@ namespace Pedantic.Chess
         {
             int c = (int)color;
             Score evalPst = board.Material[c];
+            KingPlacement kp = evalInfo[c].KP;
 
             for (ulong bb = board.Units(color); bb != 0; bb = BitOps.ResetLsb(bb))
             {
@@ -292,7 +303,8 @@ namespace Pedantic.Chess
                 int normalSq = Index.NormalizedIndex[c][sq];
                 Square square = board.PieceBoard[sq];
 
-                evalPst += wts.PieceSquareValue(square.Piece, evalInfo[c].KP, normalSq);
+                evalPst += wts.FriendlyPieceSquareValue(square.Piece, kp, normalSq);
+                evalPst += wts.EnemyPieceSquareValue(square.Piece, kp, normalSq);
             }
 
             return evalPst;
@@ -798,22 +810,31 @@ namespace Pedantic.Chess
 
         public static void InitializeMopUpTables()
         {
-            Array.Clear(mopUpMate);
-            Array.Clear(mopUpMateNBLight);
-            Array.Clear(mopUpMateNBDark);
+            Mem.Clear(mopUpMate);
+            Mem.Clear(mopUpMateNBLight);
+            Mem.Clear(mopUpMateNBDark);
 
-            for (KingPlacement kp = KingPlacement.KK; kp <= KingPlacement.QQ; kp++)
+            for (int bucket = 0; bucket < Constants.MAX_KING_BUCKETS; bucket++)
             {
+                int kpValue = (bucket << 4) | bucket;
+                KingPlacement kp = new KingPlacement(kpValue);
+
                 for (int sq = 0; sq < Constants.MAX_SQUARES; sq++)
                 {
-                    Score kingScore = wts.PieceSquareValue(Piece.King, kp, sq);
-                    if (kingScore != Score.Zero)
+                    Score friendlyKingScore = wts.FriendlyPieceSquareValue(Piece.King, kp, sq);
+                    Score enemyKingScore = wts.EnemyPieceSquareValue(Piece.King, kp, sq);
+                    int index = kp.Friendly * Constants.MAX_SQUARES + sq;
+
+                    if (friendlyKingScore != Score.Zero)
                     {
-                        int index = (int)kp * Constants.MAX_SQUARES + sq;
-                        mopUpMate[index] = new Score(kingScore.MgScore, (short)-egMopUpMate[sq]);
-                        mopUpMateNBLight[index] = new Score(kingScore.MgScore, (short)-egMopUpMateNBLight[sq]);
-                        mopUpMateNBDark[index] = new Score(kingScore.MgScore, (short)-egMopUpMateNBDark[sq]);
+                        mopUpMate[mopup_pst_friendly][index] = new Score(friendlyKingScore.MgScore, (short)(-egMopUpMate[sq] / 2));
+                        mopUpMateNBLight[mopup_pst_friendly][index] = new Score(friendlyKingScore.MgScore, (short)(-egMopUpMateNBLight[sq] / 2));
+                        mopUpMateNBDark[mopup_pst_friendly][index] = new Score(friendlyKingScore.MgScore, (short)(-egMopUpMateNBDark[sq] / 2));
                     }
+
+                    mopUpMate[mopup_pst_enemy][index] = new Score(enemyKingScore.MgScore, (short)(-egMopUpMate[sq] / 2));
+                    mopUpMateNBLight[mopup_pst_enemy][index] = new Score(enemyKingScore.MgScore, (short)(-egMopUpMateNBLight[sq] / 2));
+                    mopUpMateNBDark[mopup_pst_enemy][index] = new Score(enemyKingScore.MgScore, (short)(-egMopUpMateNBDark[sq] / 2));
                 }
             }
         }
@@ -870,9 +891,9 @@ namespace Pedantic.Chess
             return piecePhaseValues[(int)piece + 1];
         }
 
-        public static Score[] MopUpMate => mopUpMate;
-        public static Score[] MopUpMateNBLight => mopUpMateNBLight;
-        public static Score[] MopUpMateNBDark => mopUpMateNBDark;
+        public static Score[][] MopUpMate => mopUpMate;
+        public static Score[][] MopUpMateNBLight => mopUpMateNBLight;
+        public static Score[][] MopUpMateNBDark => mopUpMateNBDark;
 
         private readonly EvalCache cache;
         private readonly bool random;
@@ -881,9 +902,10 @@ namespace Pedantic.Chess
         private GamePhase gamePhase;
 
         private static HceWeights wts;
-        private static readonly Score[] mopUpMate = new Score[Constants.MAX_SQUARES * Constants.MAX_KING_PLACEMENTS];
-        private static readonly Score[] mopUpMateNBLight =  new Score[Constants.MAX_SQUARES * Constants.MAX_KING_PLACEMENTS];
-        private static readonly Score[] mopUpMateNBDark = new Score[Constants.MAX_SQUARES * Constants.MAX_KING_PLACEMENTS];
+        private static readonly Score[][] mopUpMate = Mem.Allocate2D<Score>(2, MOPUP_TABLE_LEN);
+        private static readonly Score[][] mopUpMateNBLight = Mem.Allocate2D<Score>(2, MOPUP_TABLE_LEN);
+        private static readonly Score[][] mopUpMateNBDark = Mem.Allocate2D<Score>(2, MOPUP_TABLE_LEN);
+        private static readonly Score[][] mopUpEmpty = Mem.Allocate2D<Score>(1, 1);
         private static readonly short[] canonicalPieceValues = { 0, 100, 300, 300, 500, 900, 9900 };
 
         public static readonly sbyte[] piecePhaseValues = { 0, 1, 2, 2, 4, 8, 0 };

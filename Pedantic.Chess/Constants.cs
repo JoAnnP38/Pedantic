@@ -25,7 +25,7 @@ namespace Pedantic.Chess
         public const int MAX_DIRECTIONS = 8;
         public const int MAX_GAME_LENGTH = 1024;
         public const int MAX_PLY = 80;
-        public const int MAX_KING_PLACEMENTS = 4;
+        public const int MAX_KING_BUCKETS = 16;
         public const int AVG_MOVES_PER_PLY = 36;
         public const short CHECKMATE_SCORE = 20000;
         public const short TABLEBASE_WIN = 19500;

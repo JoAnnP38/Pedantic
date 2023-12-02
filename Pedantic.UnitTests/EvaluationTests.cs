@@ -40,8 +40,10 @@ namespace Pedantic.UnitTests
             Assert.AreEqual(16, evalInfo[1].TotalPawns);
             Assert.AreEqual(Index.E1, evalInfo[0].KI);
             Assert.AreEqual(Index.E8, evalInfo[1].KI);
-            Assert.AreEqual(KingPlacement.KK, evalInfo[0].KP);
-            Assert.AreEqual(KingPlacement.KK, evalInfo[1].KP);
+            Assert.AreEqual(3, evalInfo[0].KP.Friendly);
+            Assert.AreEqual(3, evalInfo[0].KP.Enemy);
+            Assert.AreEqual(3, evalInfo[1].KP.Friendly);
+            Assert.AreEqual(3, evalInfo[1].KP.Enemy);
             Assert.AreEqual((byte)CastlingRights.WhiteRights, evalInfo[0].CastlingRightsMask);
             Assert.AreEqual((byte)CastlingRights.BlackRights, evalInfo[1].CastlingRightsMask);
         }

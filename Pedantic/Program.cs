@@ -842,20 +842,34 @@ namespace Pedantic
 
             string[] pieceNames = { "pawns", "knights", "bishops", "rooks", "queens", "kings" };
             string[] upperNames = { "Pawn", "Knight", "Bishop", "Rook", "Queen", "King" };
-            string[] kpNames = { "KK", "KQ", "QK", "QQ" };
             WriteLine("/* piece values */");
             WriteWtsLine(wts.Weights, HceWeights.PIECE_VALUES, Constants.MAX_PIECES);
             WriteLine();
-            WriteLine("/* piece square values */");
-            WriteLine("#region piece square values");
+            WriteLine("/* friendly king piece square values */");
+            WriteLine("#region friendly king piece square values");
             WriteLine();
             for (int pc = 0; pc < Constants.MAX_PIECES; pc++)
             {
-                for (int kp = 0; kp < Constants.MAX_KING_PLACEMENTS; kp++)
+                for (int kp = 0; kp < Constants.MAX_KING_BUCKETS; kp++)
                 {
-                    int index = (pc * Constants.MAX_KING_PLACEMENTS + kp) * Constants.MAX_SQUARES;
-                    WriteLine($"/* {pieceNames[pc]}: {kpNames[kp]} */");
-                    WriteWts2D(wts.Weights, HceWeights.PIECE_SQUARE_TABLE + index, 8, Constants.MAX_SQUARES);
+                    int index = (pc * Constants.MAX_KING_BUCKETS + kp) * Constants.MAX_SQUARES;
+                    WriteLine($"/* {pieceNames[pc]}: bucket {kp} */");
+                    WriteWts2D(wts.Weights, HceWeights.FRIENDLY_PIECE_SQUARE_TABLE + index, 8, Constants.MAX_SQUARES);
+                    WriteLine();
+                }
+            }
+            WriteLine("#endregion");
+            WriteLine();
+            WriteLine("/* enemy king piece square values */");
+            WriteLine("#region enemy king piece square values");
+            WriteLine();
+            for (int pc = 0; pc < Constants.MAX_PIECES; pc++)
+            {
+                for (int kp = 0; kp < Constants.MAX_KING_BUCKETS; kp++)
+                {
+                    int index = (pc * Constants.MAX_KING_BUCKETS + kp) * Constants.MAX_SQUARES;
+                    WriteLine($"/* {pieceNames[pc]}: bucket {kp} */");
+                    WriteWts2D(wts.Weights, HceWeights.ENEMY_PIECE_SQUARE_TABLE + index, 8, Constants.MAX_SQUARES);
                     WriteLine();
                 }
             }

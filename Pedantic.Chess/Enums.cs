@@ -94,6 +94,7 @@ namespace Pedantic.Chess
         LowerBound
     }
 
+#if false
     [Flags]
     public enum KingPlacement : byte
     {
@@ -107,6 +108,7 @@ namespace Pedantic.Chess
         QK = FriendlyQueenSide | OpponentKingSide,
         QQ = FriendlyQueenSide | OpponentQueenSide
     }
+#endif
 
     public enum MoveGenPhase : byte
     {

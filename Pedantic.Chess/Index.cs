@@ -136,12 +136,9 @@ namespace Pedantic.Chess
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static KingPlacement GetKingPlacement(int friendlyIndex, int opponentIndex)
+        public static KingPlacement GetKingPlacement(Color friendlyColor, int friendlyIndex, int opponentIndex)
         {
-            int friendlyFile = GetFile(friendlyIndex);
-            int opponentFile = GetFile(opponentIndex);
-
-            return (KingPlacement)(((1 - (friendlyFile >> 2)) << 1) | (1 - (opponentFile >> 2)));
+            return new KingPlacement(friendlyColor, friendlyIndex, opponentIndex);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
