@@ -42,6 +42,9 @@ namespace Pedantic.Chess
         internal const int SEE_PRUNING_QUIET_INC = 50;
         internal const int SEE_PRUNING_CAPTURE_INC = 90;
         internal const int LMP_PRUNING_DEPTH = 7;
+        internal const int SEX_DEPTH = 4;
+        internal const int PCUT_DEPTH = 5;
+        internal const int PCUT_MARGIN = 200;
 
         public BasicSearch(SearchStack searchStack, Board board, GameClock time, EvalCache cache, History history, 
             ObjectPool<MoveList> listPool, TtTran ttTran, int maxSearchDepth, long maxNodes = long.MaxValue - 100, bool randomSearch = false) 
@@ -483,8 +486,8 @@ namespace Pedantic.Chess
             IEnumerable<(ulong Move, MoveGenPhase Phase)>? moves;
 
             // ProbCut 
-            int probCutBeta = beta + 200;
-            if (depth > 5 && (ttScore == Constants.NO_SCORE || ttBounds == TtFlag.LowerBound || ttScore >= probCutBeta))
+            int probCutBeta = beta + PCUT_MARGIN;
+            if (depth > PCUT_DEPTH && (ttScore == Constants.NO_SCORE || ttBounds == TtFlag.LowerBound || ttScore >= probCutBeta))
             {
                 moves = board.Moves(ply, history, searchStack, moveList, Constants.NO_MOVE);
 
@@ -590,7 +593,7 @@ namespace Pedantic.Chess
                 int X = 0;
 
                 // singular extension
-                if (depth > 4 && ply <= Depth * 2 && 
+                if (depth > SEX_DEPTH && ply <= Depth * 2 && 
                     searchItem.Excluded == Constants.NO_MOVE && Move.Compare(move, ttMove) == 0 &&
                     ttDepth > depth - 3 && ttBounds == TtFlag.LowerBound && Math.Abs(ttScore) < Constants.TB_MIN / 4)
                 {
