@@ -87,15 +87,15 @@ namespace Pedantic.Chess
             timeBudget = (time + movesToGo * increment) / movesToGo;
 
             int timeImbalance = 0;
-            // if opponent is using significant less time (less than 50%) than we are then reduce time budget
-            if ((opponentTime - time) * 10 / time >= 5)
+            // if opponent is using significant less time (less than 30%) than we are then reduce time budget
+            if ((opponentTime - time) * 10 / time >= 3)
             {
                 // reduce time budget by 20%
                 timeImbalance = (timeBudget * 2) / 10;
             }
 
-            // if opponent is using significantly more time (more than 50%) than we are then increase time budget
-            if ((time - opponentTime) * 10 / time >= 5)
+            // if opponent is using significantly more time (more than 30%) than we are then increase time budget
+            if ((time - opponentTime) * 10 / time >= 3)
             {
                 // increase time budget by 20%
                 timeImbalance = -(timeBudget * 2) / 10;
