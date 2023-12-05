@@ -453,24 +453,26 @@ namespace Pedantic.Chess
             return move;
         }
 
-        private static bool ProbeRootTb(out ulong move)
+        private static bool ProbeRootTb(Board board, out ulong move, out TbGameResult gameResult)
         {
             MoveList moveList = new();
-            Board.GenerateMoves(moveList);
+            board.GenerateMoves(moveList);
             move = 0;
-            if (UciOptions.SyzygyProbeRoot && Syzygy.IsInitialized && BitOps.PopCount(Board.All) <= Syzygy.TbLargest)
+            gameResult = TbGameResult.Draw;
+            if (UciOptions.SyzygyProbeRoot && Syzygy.IsInitialized && BitOps.PopCount(board.All) <= Syzygy.TbLargest)
             {
-                TbResult result = Syzygy.ProbeRoot(Board.Units(Color.White), Board.Units(Color.Black), 
-                    Board.Pieces(Color.White, Piece.King)   | Board.Pieces(Color.Black, Piece.King),
-                    Board.Pieces(Color.White, Piece.Queen)  | Board.Pieces(Color.Black, Piece.Queen),
-                    Board.Pieces(Color.White, Piece.Rook)   | Board.Pieces(Color.Black, Piece.Rook),
-                    Board.Pieces(Color.White, Piece.Bishop) | Board.Pieces(Color.Black, Piece.Bishop),
-                    Board.Pieces(Color.White, Piece.Knight) | Board.Pieces(Color.Black, Piece.Knight),
-                    Board.Pieces(Color.White, Piece.Pawn)   | Board.Pieces(Color.Black, Piece.Pawn),
-                    (uint)Board.HalfMoveClock, (uint)Board.Castling, 
-                    (uint)(Board.EnPassantValidated != Index.NONE ? Board.EnPassantValidated : 0), 
-                    Board.SideToMove == Color.White, null);
+                TbResult result = Syzygy.ProbeRoot(board.Units(Color.White), board.Units(Color.Black), 
+                    board.Pieces(Color.White, Piece.King)   | board.Pieces(Color.Black, Piece.King),
+                    board.Pieces(Color.White, Piece.Queen)  | board.Pieces(Color.Black, Piece.Queen),
+                    board.Pieces(Color.White, Piece.Rook)   | board.Pieces(Color.Black, Piece.Rook),
+                    board.Pieces(Color.White, Piece.Bishop) | board.Pieces(Color.Black, Piece.Bishop),
+                    board.Pieces(Color.White, Piece.Knight) | board.Pieces(Color.Black, Piece.Knight),
+                    board.Pieces(Color.White, Piece.Pawn)   | board.Pieces(Color.Black, Piece.Pawn),
+                    (uint)board.HalfMoveClock, (uint)board.Castling, 
+                    (uint)(board.EnPassantValidated != Index.NONE ? board.EnPassantValidated : 0), 
+                    board.SideToMove == Color.White, null);
 
+                gameResult = result.Wdl;
                 int from = (int)result.From;
                 int to = (int)result.To;
                 uint tbPromotes = result.Promotes;
@@ -482,9 +484,9 @@ namespace Pedantic.Chess
                     move = moveList[n];
                     if (Move.GetFrom(move) == from && Move.GetTo(move) == to && Move.GetPromote(move) == promote)
                     {
-                        if (Board.MakeMove(move))
+                        if (board.MakeMove(move))
                         {
-                            Board.UnmakeMove();
+                            board.UnmakeMove();
                             return true;
                         }
                     }
@@ -523,9 +525,35 @@ namespace Pedantic.Chess
                 }
             }
 
-            if (ProbeRootTb(out ulong mv))
+            if (ProbeRootTb(Board, out ulong mv, out TbGameResult gameResult))
             {
-                Uci.Default.BestMove(mv, null);
+                Board clone = Board.Clone();
+                ulong[] pv = new ulong[8];
+                int pvInsert = 0;
+                for (int ply = 0; ply < pv.Length; ply++)
+                {
+                    pv[pvInsert++] = mv;
+                    clone.MakeMove(mv);
+                    if (!ProbeRootTb(clone, out mv, out _))
+                    {
+                        break;
+                    }
+                }
+                if (pvInsert < pv.Length)
+                {
+                    Array.Resize(ref pv, pvInsert);
+                }
+                int score = gameResult switch
+                {
+                    TbGameResult.Loss       => -Constants.CHECKMATE_SCORE,
+                    TbGameResult.BlessedLoss=> -Constants.CHECKMATE_SCORE,
+                    TbGameResult.Draw       => 0,
+                    TbGameResult.CursedWin  => Constants.CHECKMATE_SCORE,
+                    TbGameResult.Win        => Constants.CHECKMATE_SCORE,
+                    _ => 0
+                };
+                Uci.Default.Info(1, 1, score, pvInsert, 0, pv, TtTran.Default.Usage, pvInsert);
+                Uci.Default.BestMove(pv[0], null);
                 return;
             }
 
