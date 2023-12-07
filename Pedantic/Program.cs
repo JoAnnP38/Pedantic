@@ -277,11 +277,9 @@ namespace Pedantic
                     Console.WriteLine(@"option name OwnBook type check default true");
                     Console.WriteLine(@"option name Ponder type check default true");
                     Console.WriteLine(@"option name RandomSearch type check default false");
-#if USE_TB
                     Console.WriteLine(@"option name SyzygyPath type string default <empty>");
                     Console.WriteLine(@"option name SyzygyProbeRoot type check default true");
                     Console.WriteLine($@"option name SyzygyProbeDepth type spin default 2 min 0 max {Constants.MAX_PLY - 1}");
-#endif
                     Console.WriteLine($@"option name UCI_AnalyseMode type check default false");
                     Console.WriteLine($@"option name UCI_EngineAbout type string default {APP_NAME_VER} by {AUTHOR}, see {PROGRAM_URL}");
                     Console.WriteLine(@"uciok");
@@ -448,7 +446,7 @@ namespace Pedantic
                             UciOptions.AnalyseMode = analyseMode;
                         }
                         break;
-#if USE_TB
+
                     case "SyzygyPath":
                         string valueToken = " value ";
                         int index = line.IndexOf(valueToken);
@@ -491,7 +489,6 @@ namespace Pedantic
                             UciOptions.SyzygyProbeDepth = Math.Max(Math.Min(probeDepth, Constants.MAX_PLY - 1), 0);
                         }
                         break;
-#endif
                 }
             }
         }

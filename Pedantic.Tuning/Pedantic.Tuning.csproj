@@ -11,24 +11,24 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <DebugType>portable</DebugType>
-    <DefineConstants>$(DefineConstants);USE_TB</DefineConstants>
+    <DefineConstants>$(DefineConstants)</DefineConstants>
     <NoWarn>1701;1702</NoWarn>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <DebugType>portable</DebugType>
-    <DefineConstants>$(DefineConstants);USE_TB</DefineConstants>
+    <DefineConstants>$(DefineConstants)</DefineConstants>
     <NoWarn>1701;1702</NoWarn>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <Optimize>True</Optimize>
     <DebugType>embedded</DebugType>
-    <DefineConstants>$(DefineConstants);USE_TB</DefineConstants>
+    <DefineConstants>$(DefineConstants)</DefineConstants>
     <NoWarn>1701;1702</NoWarn>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Optimize>True</Optimize>
     <DebugType>embedded</DebugType>
-    <DefineConstants>$(DefineConstants);USE_TB</DefineConstants>
+    <DefineConstants>$(DefineConstants)</DefineConstants>
     <NoWarn>1701;1702</NoWarn>
   </PropertyGroup>
   <ItemGroup>

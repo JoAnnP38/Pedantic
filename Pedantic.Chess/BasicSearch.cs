@@ -376,13 +376,11 @@ namespace Pedantic.Chess
 
             bool ttHit = ttBounds != TtFlag.None;
 
-#if USE_TB
             if (searchItem.Excluded == Constants.NO_MOVE && ProbeTb(depth, ply, alpha, beta, out int score))
             {
                 ++tbHits;
                 return score;
             }
-#endif
 
             if (depth <= 0)
             {
@@ -792,7 +790,6 @@ namespace Pedantic.Chess
             return alpha;
         }
 
-#if USE_TB
         private bool ProbeTb(int depth, int ply, int alpha, int beta, out int score)
         {
             score = 0;
@@ -842,7 +839,6 @@ namespace Pedantic.Chess
             }
             return false;
         }
-#endif
 
         private void ReportSearchResults(int score, TtFlag flag, ref ulong bestMove, ref ulong? ponderMove)
         {
