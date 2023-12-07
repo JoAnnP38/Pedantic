@@ -455,12 +455,13 @@ namespace Pedantic.Chess
 
         private static bool ProbeRootTb(Board board, out ulong move, out TbGameResult gameResult)
         {
-            MoveList moveList = new();
-            board.GenerateMoves(moveList);
             move = 0;
             gameResult = TbGameResult.Draw;
             if (UciOptions.SyzygyProbeRoot && Syzygy.IsInitialized && BitOps.PopCount(board.All) <= Syzygy.TbLargest)
             {
+                MoveList moveList = new();
+                board.GenerateMoves(moveList);
+
                 TbResult result = Syzygy.ProbeRoot(board.Units(Color.White), board.Units(Color.Black), 
                     board.Pieces(Color.White, Piece.King)   | board.Pieces(Color.Black, Piece.King),
                     board.Pieces(Color.White, Piece.Queen)  | board.Pieces(Color.Black, Piece.Queen),
