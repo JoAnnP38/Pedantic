@@ -384,6 +384,7 @@ namespace Pedantic.Chess
 
             if (depth <= 0)
             {
+                NodesVisited--; // will be incremented in Quiesce
                 return Quiesce(alpha, beta, ply, inCheck);
             }
 

@@ -529,7 +529,7 @@ namespace Pedantic.Chess
             if (ProbeRootTb(Board, out ulong mv, out TbGameResult gameResult))
             {
                 Board clone = Board.Clone();
-                ulong[] pv = new ulong[8];
+                ulong[] pv = new ulong[10];
                 int pvInsert = 0;
                 for (int ply = 0; ply < pv.Length; ply++)
                 {

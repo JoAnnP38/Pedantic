@@ -691,37 +691,32 @@ namespace Pedantic
                 PgnPositionReader posReader = new();
 
                 long count = 0;
-                HashSet<ulong> hashes = new();
                 Console.WriteLine(@"Hash,Ply,GamePly,FEN,HasCastled,Eval,Result");
                 foreach (var p in posReader.Positions(Console.In))
                 {
-                    if (!hashes.Contains(p.Hash))
+                    if (p.Result == PosRecord.WDL_WIN)
                     {
-                        if (p.Result == PosRecord.WDL_WIN)
-                        {
-                            wins++;
-                        }
-                        else if (p.Result == PosRecord.WDL_LOSS)
-                        {
-                            losses++;
-                        }
-                        else if (draws + 1 <= Math.Max(wins, losses) || Random.Shared.NextDouble() > 0.75)
-                        {
-                            draws++;
-                        }
-                        else
-                        {
-                            // skip - don't let draw percentage greatly exceed 33.3%
-                            continue;
-                        }
-                        Console.Error.Write($"{++count}\r");
-                        hashes.Add(p.Hash);
-                        Console.WriteLine($@"{p.Hash:X16},{p.Ply},{p.GamePly},{p.Fen},{p.HasCastled},{p.Eval},{p.Result:F1}");
-                        Console.Out.Flush();
-                        if (++total >= maxPositions)
-                        {
-                            break;
-                        }
+                        wins++;
+                    }
+                    else if (p.Result == PosRecord.WDL_LOSS)
+                    {
+                        losses++;
+                    }
+                    else if (draws + 1 <= Math.Max(wins, losses) || Random.Shared.NextDouble() > 0.75)
+                    {
+                        draws++;
+                    }
+                    else
+                    {
+                        // skip - don't let draw percentage greatly exceed 33.3%
+                        continue;
+                    }
+                    Console.Error.Write($"{++count}\r");
+                    Console.WriteLine($@"{p.Hash:X16},{p.Ply},{p.GamePly},{p.Fen},{p.HasCastled},{p.Eval},{p.Result:F1}");
+                    Console.Out.Flush();
+                    if (++total >= maxPositions)
+                    {
+                        break;
                     }
                 }
                 Console.Error.WriteLine();
@@ -747,6 +742,31 @@ namespace Pedantic
                     Console.SetOut(stdout);
                 }
             }
+        }
+
+        private static uint FenHash(string fen)
+        {
+            // only hash the first four parts of the FEN string
+            // (exclude half move clock and full move counter)
+            const ulong knuth_hash = 3074457345618258791ul;
+            ulong hash = knuth_hash;
+            int spaceCount = 0;
+            int pos = 0;
+            while (pos < fen.Length && spaceCount < 4)
+            {
+                if (fen[pos] == ' ')
+                {
+                    spaceCount++;
+                }
+
+                if (spaceCount < 4)
+                {
+                    hash += fen[pos];
+                    hash *= knuth_hash;
+                    pos++;
+                }
+            }
+            return (uint)hash;
         }
 
         private static void RunLearn(string? dataPath, int sampleSize, int maxPass, bool save, bool reset, TimeSpan? maxTime, 

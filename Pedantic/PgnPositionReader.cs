@@ -213,7 +213,15 @@ namespace Pedantic
                         continue;
                     }
 
-                    if ((skipOpening && ply <= openingCount) || (ply + MOVE_OFFSET >= gamePly))
+                    if (skipOpening && ply <= openingCount || (ply + MOVE_OFFSET >= gamePly))
+                    {
+                        continue;
+                    }
+
+                    ulong pawns = bd.Pieces(Color.White, Piece.Pawn) | bd.Pieces(Color.Black, Piece.Pawn);
+                    int allPieces = BitOps.PopCount(bd.All);
+                    int nonPawns = allPieces - BitOps.PopCount(pawns);
+                    if (allPieces > 30 || nonPawns <= 4)
                     {
                         continue;
                     }
