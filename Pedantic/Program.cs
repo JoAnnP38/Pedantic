@@ -685,6 +685,10 @@ namespace Pedantic
                 Console.SetOut(dataStream);
             }
 
+            Stopwatch clock = new();
+            clock.Start();
+            long elapsedMs = clock.ElapsedMilliseconds;
+
             try
             {
                 long total = 0, wins = 0, draws = 0, losses = 0;
@@ -702,7 +706,7 @@ namespace Pedantic
                     {
                         losses++;
                     }
-                    else if (draws + 1 <= Math.Max(wins, losses) || Random.Shared.NextDouble() > 0.75)
+                    else if (draws + 1 <= Math.Max(wins, losses) || Random.Shared.NextDouble() > 0.625)
                     {
                         draws++;
                     }
@@ -711,7 +715,12 @@ namespace Pedantic
                         // skip - don't let draw percentage greatly exceed 33.3%
                         continue;
                     }
-                    Console.Error.Write($"{++count}\r");
+
+                    if (clock.ElapsedMilliseconds - elapsedMs > 1000)
+                    {
+                        Console.Error.Write($"{++count}\r");
+                        elapsedMs = clock.ElapsedMilliseconds;
+                    }
                     Console.WriteLine($@"{p.Hash:X16},{p.Ply},{p.GamePly},{p.Fen},{p.HasCastled},{p.Eval},{p.Result:F1}");
                     Console.Out.Flush();
                     if (++total >= maxPositions)
