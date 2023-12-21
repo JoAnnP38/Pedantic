@@ -698,36 +698,18 @@ namespace Pedantic
                 Console.WriteLine(@"Hash,Ply,GamePly,FEN,HasCastled,Eval,Result");
                 foreach (var p in posReader.Positions(Console.In))
                 {
-                    if (p.Result == PosRecord.WDL_WIN)
-                    {
-                        wins++;
-                    }
-                    else if (p.Result == PosRecord.WDL_LOSS)
-                    {
-                        losses++;
-                    }
-                    else if (draws + 1 <= Math.Max(wins, losses) || Random.Shared.NextDouble() > 0.625)
-                    {
-                        draws++;
-                    }
-                    else
-                    {
-                        // skip - don't let draw percentage greatly exceed 33.3%
-                        continue;
-                    }
-
                     if (clock.ElapsedMilliseconds - elapsedMs > 1000)
                     {
                         Console.Error.Write($"{++count}\r");
                         elapsedMs = clock.ElapsedMilliseconds;
                     }
                     Console.WriteLine($@"{p.Hash:X16},{p.Ply},{p.GamePly},{p.Fen},{p.HasCastled},{p.Eval},{p.Result:F1}");
-                    Console.Out.Flush();
                     if (++total >= maxPositions)
                     {
                         break;
                     }
                 }
+                Console.Out.Flush();
                 Console.Error.WriteLine();
             }
             catch (Exception e)

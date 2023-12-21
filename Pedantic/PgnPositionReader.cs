@@ -218,14 +218,6 @@ namespace Pedantic
                         continue;
                     }
 
-                    ulong pawns = bd.Pieces(Color.White, Piece.Pawn) | bd.Pieces(Color.Black, Piece.Pawn);
-                    int allPieces = BitOps.PopCount(bd.All);
-                    int nonPawns = allPieces - BitOps.PopCount(pawns);
-                    if (allPieces > 30 || nonPawns <= 4)
-                    {
-                        continue;
-                    }
-
                     output.Add(new Position(bd.Hash, ply, gamePly, bd.ToFenString(), bd.HasCastled, 0, result));
                 }
                 else
