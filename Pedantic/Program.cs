@@ -691,16 +691,15 @@ namespace Pedantic
 
             try
             {
-                long total = 0, wins = 0, draws = 0, losses = 0;
+                long total = 0;
                 PgnPositionReader posReader = new();
 
-                long count = 0;
                 Console.WriteLine(@"Hash,Ply,GamePly,FEN,HasCastled,Eval,Result");
                 foreach (var p in posReader.Positions(Console.In))
                 {
                     if (clock.ElapsedMilliseconds - elapsedMs > 1000)
                     {
-                        Console.Error.Write($"{++count}\r");
+                        Console.Error.Write($"{total}\r");
                         elapsedMs = clock.ElapsedMilliseconds;
                     }
                     Console.WriteLine($@"{p.Hash:X16},{p.Ply},{p.GamePly},{p.Fen},{p.HasCastled},{p.Eval},{p.Result:F1}");
