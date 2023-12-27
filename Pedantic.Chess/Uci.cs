@@ -60,10 +60,13 @@ namespace Pedantic.Chess
             {
                 sb.Append($" tbhits {tbHits}");
             }
-            sb.Append(" pv");
-            for (int n = 0; n < pv.Length; n++)
+            if (flag == TtFlag.Exact && pv.Length > 0)
             {
-                sb.Append($" {Move.ToString(pv[n])}");
+                sb.Append(" pv");
+                for (int n = 0; n < pv.Length; n++)
+                {
+                    sb.Append($" {Move.ToString(pv[n])}");
+                }
             }
             string output = sb.ToString();
             Console.Out.WriteLineAsync(output);

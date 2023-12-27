@@ -13,6 +13,10 @@
     "Pedantic_Label": {
       "commandName": "Project",
       "commandLineArgs": "label --pgn \"e:/pgn files/training/masters-clean.pgn\" --data e:/temp/labeled.csv --maxpos 1000"
+    },
+    "Pedantic_Bench": {
+      "commandName": "Project",
+      "commandLineArgs": "uci --input e:/repos/Pedantic/uci_bench_test.txt"
     }
   }
 }

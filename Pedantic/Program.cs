@@ -341,7 +341,12 @@ namespace Pedantic
             TryParse(tokens, "depth", out int maxDepth, Constants.MAX_PLY);
             if (maxDepth < Constants.MAX_PLY)
             {
-                Engine.Bench(maxDepth);
+                bool extend = false;
+                if (tokens.Length >= 4 && tokens[3] == "extend")
+                {
+                    extend = true;
+                }
+                Engine.Bench(maxDepth, extend);
             }
         }
 

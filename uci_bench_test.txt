@@ -1,0 +1,8 @@
+uci
+setoption name Hash value 128
+isready
+ucinewgame
+bench depth 15
+wait
+stop
+quit

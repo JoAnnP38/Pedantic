@@ -28,7 +28,7 @@ namespace Pedantic.Chess
     {
         public const int CHECK_TC_NODES_MASK = 1023;
         internal const int WAIT_TIME = 50;
-        internal const int ONE_MOVE_MAX_DEPTH = 5;
+        internal const int ONE_MOVE_MAX_DEPTH = 10;
         internal const int LMR_DEPTH_LIMIT = Constants.MAX_PLY - 1;
         internal const int LMR_MOVE_LIMIT = 63;
         internal const int STATIC_NULL_MOVE_MAX_DEPTH = 7;
@@ -67,7 +67,6 @@ namespace Pedantic.Chess
 
         public void Search()
         {
-            string location = "0";
             string position = board.ToFenString();
             try
             {
@@ -80,7 +79,6 @@ namespace Pedantic.Chess
                 bool inCheck = searchStack[-1].IsCheckingMove;
                 Score = Quiesce(-Constants.INFINITE_WINDOW, Constants.INFINITE_WINDOW, 0, inCheck);
                 searchStack[0].Eval = (short)(inCheck ? Constants.NO_SCORE : (short)Score);
-                location = "1";
                 while (++Depth <= maxSearchDepth && time.CanSearchDeeper())
                 {
                     time.StartInterval();
@@ -89,7 +87,6 @@ namespace Pedantic.Chess
                     int beta = Constants.INFINITE_WINDOW;
                     int iAlpha = 0, iBeta = 0, result;
                     seldepth = 0;
-                    location = "2";
                     do
                     {
                         if (Depth > Constants.WINDOW_MIN_DEPTH)
@@ -97,14 +94,11 @@ namespace Pedantic.Chess
                             alpha = Window[iAlpha] == Constants.INFINITE_WINDOW
                                 ? -Constants.INFINITE_WINDOW
                                 : Score - Window[iAlpha];
-                            location = "3";
                             beta = Window[iBeta] == Constants.INFINITE_WINDOW
                                 ? Constants.INFINITE_WINDOW
                                 : Score + Window[iBeta];
                         }
-                        location = "4";
                         result = SearchRoot(alpha, beta, Depth);
-                        location = "5";
                         if (wasAborted)
                         {
                             break;
@@ -125,7 +119,6 @@ namespace Pedantic.Chess
                         }
                     } while (result <= alpha || result >= beta);
 
-                    location = "6";
                     if (wasAborted)
                     {
                         break;
@@ -141,12 +134,10 @@ namespace Pedantic.Chess
                         });
                     }
 
-                    location = "7";
                     startNodes = NodesVisited;
                     Score = result;
                     ReportSearchResults(ref bestMove, ref ponderMove);
 
-                    location = "8";
                     if (Depth == ONE_MOVE_MAX_DEPTH && oneLegalMove && !UciOptions.AnalyseMode)
                     {
                         break;
@@ -159,7 +150,6 @@ namespace Pedantic.Chess
                 // property to false resulting in CanSearchDeeper returning false.)
                 if (Pondering)
                 {
-                    location = "9";
                     bool waiting = false;
                     while (time.Infinite && !wasAborted)
                     {
@@ -167,13 +157,11 @@ namespace Pedantic.Chess
                         Thread.Sleep(WAIT_TIME);
                     }
 
-                    location = "10";
                     if (waiting)
                     {
                         ReportSearchResults(ref bestMove, ref ponderMove);
                     }
 
-                    location = "11";
                 }
 
                 if (TryGetCpuLoad(startDateTime, out int cpuLoad))
@@ -181,17 +169,15 @@ namespace Pedantic.Chess
                     Uci.Usage(cpuLoad);
                 }
 
-                location = "12";
                 Uci.Debug("Incrementing hash table version.");
                 tt.IncrementVersion();
                 searchStack.Clear();
-                location = "13";
                 Uci.BestMove(bestMove, CanPonder ? ponderMove : null);
             }
             catch (Exception ex)
             {
                 string msg =
-                    $"Search: Unexpected exception occurred at location '{location}' and at position '{position}'.";
+                    $"Search: Unexpected exception occurred on position '{position}'.";
                 Console.Error.WriteLine(msg);
                 Console.Error.WriteLine(ex.ToString());
                 Uci.Log(msg);
