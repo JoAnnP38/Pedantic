@@ -123,14 +123,15 @@ namespace Pedantic.UnitTests
             score = Evaluation.EvalThreats(bd, evalInfo, Color.White);
             score -= Evaluation.EvalThreats(bd, evalInfo, Color.Black);
             evalScore = Evaluation.StmScore(bd.SideToMove, score.NormalizeScore(bd.Phase));
-            featureScore = features.Compute(weights, HceWeights.PAWN_PUSH_THREAT, HceWeights.MAX_WEIGHTS);
+            featureScore = features.Compute(weights, HceWeights.PAWN_PUSH_THREAT, HceWeights.TEMPO_BONUS);
             Assert.AreEqual(evalScore, featureScore);
 
             // miscellaneous
             score = Evaluation.EvalMisc(bd, evalInfo, Color.White);
             score -= Evaluation.EvalMisc(bd, evalInfo, Color.Black);
             evalScore = Evaluation.StmScore(bd.SideToMove, score.NormalizeScore(bd.Phase));
-            featureScore = features.Compute(weights, HceWeights.CENTER_CONTROL, HceWeights.KING_ATTACK);
+            int[] keys = [ HceWeights.CENTER_CONTROL, HceWeights.CENTER_CONTROL + 1, HceWeights.TEMPO_BONUS ];
+            featureScore = features.Compute(weights, keys);
             Assert.AreEqual(evalScore, featureScore);
 
             evalScore = eval.Compute(bd);

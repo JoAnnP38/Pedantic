@@ -551,6 +551,25 @@ namespace Pedantic.Tuning
             }
         }
 
+        public short Compute(HceWeights weights, int[] keys)
+        {
+            try
+            {
+                Score computeScore = Score.Zero;
+                foreach (int key in keys)
+                {
+                    computeScore += coefficients[key] * weights[key];
+                }
+                int score = computeScore.NormalizeScore(phase);
+                return Evaluation.StmScore(sideToMove, score);
+            }
+            catch (Exception ex)
+            {
+                Util.TraceError(ex.ToString());
+                throw new Exception("EvalFeatures.Compute error occurred.", ex);
+            }
+        }
+
         public Color SideToMove => sideToMove;
 
         public static short GetOptimizationIncrement(int index)

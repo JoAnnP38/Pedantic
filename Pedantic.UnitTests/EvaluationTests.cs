@@ -17,15 +17,6 @@ namespace Pedantic.UnitTests
         }
 
         [TestMethod]
-        public void StaticCtorTest()
-        {
-            Assert.IsNotNull(Evaluation.Weights);
-            Assert.AreEqual(new Score(-59, -40), Evaluation.MopUpMate[12]);
-            Assert.AreEqual(new Score(-55, -40), Evaluation.MopUpMateNBLight[76]);
-            Assert.AreEqual(new Score(-98, -100), Evaluation.MopUpMateNBDark[144]);
-        }
-
-        [TestMethod]
         public void InitializeEvalInfoTest()
         {
             Span<Evaluation.EvalInfo> evalInfo = stackalloc Evaluation.EvalInfo[Constants.MAX_COLORS];
@@ -40,10 +31,10 @@ namespace Pedantic.UnitTests
             Assert.AreEqual(16, evalInfo[1].TotalPawns);
             Assert.AreEqual(Index.E1, evalInfo[0].KI);
             Assert.AreEqual(Index.E8, evalInfo[1].KI);
-            Assert.AreEqual(3, evalInfo[0].KP.Friendly);
-            Assert.AreEqual(3, evalInfo[0].KP.Enemy);
-            Assert.AreEqual(3, evalInfo[1].KP.Friendly);
-            Assert.AreEqual(3, evalInfo[1].KP.Enemy);
+            Assert.AreEqual(2, evalInfo[0].KP.Friendly);
+            Assert.AreEqual(2, evalInfo[0].KP.Enemy);
+            Assert.AreEqual(2, evalInfo[1].KP.Friendly);
+            Assert.AreEqual(2, evalInfo[1].KP.Enemy);
             Assert.AreEqual((byte)CastlingRights.WhiteRights, evalInfo[0].CastlingRightsMask);
             Assert.AreEqual((byte)CastlingRights.BlackRights, evalInfo[1].CastlingRightsMask);
         }
@@ -94,7 +85,7 @@ namespace Pedantic.UnitTests
         }
 
         [TestMethod]
-        [DataRow("rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 1", 2293775, 2293775)]
+        [DataRow("rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 1", 3407911, 2752535)]
         public void EvalMiscTest(string fen, int whiteScore, int blackScore)
         {
             Span<Evaluation.EvalInfo> evalInfo = stackalloc Evaluation.EvalInfo[Constants.MAX_COLORS];
@@ -110,7 +101,7 @@ namespace Pedantic.UnitTests
         }
 
         [TestMethod]
-        [DataRow("8/8/4K3/3N4/2b5/1k6/8/8 b - - 0 1", 0, 4128799)]
+        [DataRow("8/8/4K3/3N4/2b5/1k6/8/8 b - - 0 1", 0, 4718619)]
         public void EvalThreatsTest(string fen, int whiteScore, int blackScore)
         {
             Span<Evaluation.EvalInfo> evalInfo = stackalloc Evaluation.EvalInfo[Constants.MAX_COLORS];
@@ -126,7 +117,7 @@ namespace Pedantic.UnitTests
         }
 
         [TestMethod]
-        [DataRow("8/8/4K3/3N4/2b5/1k6/8/8 b - - 0 1", 3145800, 1572894)]
+        [DataRow("8/8/4K3/3N4/2b5/1k6/8/8 b - - 0 1", 4194360, 1572894)]
         public void EvalMobilityTest(string fen, int whiteScore, int blackScore)
         {
             Span<Evaluation.EvalInfo> evalInfo = stackalloc Evaluation.EvalInfo[Constants.MAX_COLORS];
@@ -144,7 +135,7 @@ namespace Pedantic.UnitTests
         }
 
         [TestMethod]
-        [DataRow("1r5k/6np/2p3p1/8/8/P5P1/1P2RP2/5BK1 b - - 0 1", 2490426, 2228254)]
+        [DataRow("1r5k/6np/2p3p1/8/8/P5P1/1P2RP2/5BK1 b - - 0 1", 2555908, 1507272)]
         public void EvalKingSafteyTest(string fen, int whiteScore, int blackScore)
         {
             Span<Evaluation.EvalInfo> evalInfo = stackalloc Evaluation.EvalInfo[Constants.MAX_COLORS];
@@ -166,7 +157,7 @@ namespace Pedantic.UnitTests
         }
 
         [TestMethod]
-        [DataRow("1r5k/6n1/2p3p1/2p4p/7P/6P1/PP1R1P2/5BK1 b - - 0 1", 1703998, -3276814)]
+        [DataRow("1r5k/6n1/2p3p1/2p4p/7P/6P1/PP1R1P2/5BK1 b - - 0 1", -589754, -7274484)]
         public void EvalPawnsTest(string fen, int whiteScore, int blackScore)
         {
             Span<Evaluation.EvalInfo> evalInfo = stackalloc Evaluation.EvalInfo[Constants.MAX_COLORS];
@@ -188,7 +179,7 @@ namespace Pedantic.UnitTests
         }
 
         [TestMethod]
-        [DataRow("3r3k/6n1/6p1/7p/3p3P/3B2P1/PP1R1P2/6K1 w - - 0 1", 5636109, 2228219)]
+        [DataRow("3r3k/6n1/6p1/7p/3p3P/3B2P1/PP1R1P2/6K1 w - - 0 1", 4849677, 1572869)]
         public void EvalPassedPawnsTest(string fen, int whiteScore, int blackScore)
         {
             Span<Evaluation.EvalInfo> evalInfo = stackalloc Evaluation.EvalInfo[Constants.MAX_COLORS];
@@ -210,7 +201,7 @@ namespace Pedantic.UnitTests
         }
 
         [TestMethod]
-        [DataRow("2r5/6k1/q3p3/3p1p2/3Nb3/2P1BB2/rR1P4/1R2KQ2 w - - 0 1", 6750331, 2228258)]
+        [DataRow("2r5/6k1/q3p3/3p1p2/3Nb3/2P1BB2/rR1P4/1R2KQ2 w - - 0 1", 7536771, 2818057)]
         public void EvalPiecesTest(string fen, int whiteScore, int blackScore)
         {
             Span<Evaluation.EvalInfo> evalInfo = stackalloc Evaluation.EvalInfo[Constants.MAX_COLORS];
@@ -228,7 +219,7 @@ namespace Pedantic.UnitTests
         }
 
         [TestMethod]
-        [DataRow(Constants.FEN_START_POS, 422712993, 422712993)]
+        [DataRow(Constants.FEN_START_POS, 551751524, 551751524)]
         public void EvalMaterialAndPstTest(string fen, int whiteScore, int blackScore)
         {
             Span<Evaluation.EvalInfo> evalInfo = stackalloc Evaluation.EvalInfo[Constants.MAX_COLORS];
@@ -246,9 +237,9 @@ namespace Pedantic.UnitTests
         }
 
         [TestMethod]
-        [DataRow("3R4/8/8/4k3/8/3K4/8/8 w - - 0 1", 980)]
-        [DataRow("8/8/8/3nk2b/8/3K4/8/8 b - - 0 1", -1222)]
-        [DataRow("8/8/8/3nk1b1/8/3K4/8/8 b - - 0 1", -1225)]
+        [DataRow("3R4/8/8/4k3/8/3K4/8/8 w - - 0 1", 1126)]
+        [DataRow("8/8/8/3nk2b/8/3K4/8/8 b - - 0 1", -1432)]
+        [DataRow("8/8/8/3nk1b1/8/3K4/8/8 b - - 0 1", -1433)]
         public void ComputeMopUpTest(string fen, int score)
         {
             Span<Evaluation.EvalInfo> evalInfo = stackalloc Evaluation.EvalInfo[Constants.MAX_COLORS];
@@ -263,7 +254,7 @@ namespace Pedantic.UnitTests
         }
 
         [TestMethod]
-        [DataRow(Constants.FEN_START_POS, 0)]
+        [DataRow(Constants.FEN_START_POS, 16)]
         public void ComputeNormalTest(string fen, int score)
         {
             Span<Evaluation.EvalInfo> evalInfo = stackalloc Evaluation.EvalInfo[Constants.MAX_COLORS];
@@ -278,7 +269,7 @@ namespace Pedantic.UnitTests
         }
 
         [TestMethod]
-        [DataRow(Constants.FEN_START_POS, 0)]
+        [DataRow(Constants.FEN_START_POS, 16)]
         public void ComputeTest(string fen, int score)
         {
             Board board = new(fen);

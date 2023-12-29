@@ -32,6 +32,12 @@ namespace Pedantic.UnitTests
         public void CounterMoveTest()
         {
             // set the previous move on the search stack
+            searchStack[-4].Move = (uint)Move.NullMove;
+            searchStack[-4].Continuation = history.NullMoveContinuation;
+            searchStack[-3].Move = (uint)Move.NullMove;
+            searchStack[-3].Continuation = history.NullMoveContinuation;
+            searchStack[-2].Move = (uint)Move.NullMove;
+            searchStack[-2].Continuation = history.NullMoveContinuation;
             searchStack[-1].Move = (uint)Move.Pack(Color.White, Piece.Pawn, Index.D2, Index.D4, MoveType.DblPawnMove);
             searchStack[-1].Continuation = history.GetContinuation(searchStack[-1].Move);
 
@@ -50,6 +56,12 @@ namespace Pedantic.UnitTests
         public void IndexerTest()
         {
             // set the previous move on the search stack
+            searchStack[-4].Move = (uint)Move.NullMove;
+            searchStack[-4].Continuation = history.NullMoveContinuation;
+            searchStack[-3].Move = (uint)Move.NullMove;
+            searchStack[-3].Continuation = history.NullMoveContinuation;
+            searchStack[-2].Move = (uint)Move.NullMove;
+            searchStack[-2].Continuation = history.NullMoveContinuation;
             searchStack[-1].Move = (uint)Move.Pack(Color.White, Piece.Pawn, Index.D2, Index.D4, MoveType.DblPawnMove);
             searchStack[-1].Continuation = history.GetContinuation(searchStack[-1].Move);
 
@@ -61,16 +73,22 @@ namespace Pedantic.UnitTests
 
             short historyValue = history[Color.Black, Piece.Pawn, Index.D5];
             short bonusValue = CalcBonus(2);
-            Assert.AreEqual(bonusValue, historyValue);
+            Assert.AreEqual(bonusValue * 6, historyValue);
 
             historyValue = history[cutoffMove];
-            Assert.AreEqual(bonusValue, historyValue);
+            Assert.AreEqual(bonusValue * 6, historyValue);
         }
 
         [TestMethod]
         public void UpdateCutoffTest()
         {
             // set the previous move on the search stack
+            searchStack[-4].Move = (uint)Move.NullMove;
+            searchStack[-4].Continuation = history.NullMoveContinuation;
+            searchStack[-3].Move = (uint)Move.NullMove;
+            searchStack[-3].Continuation = history.NullMoveContinuation;
+            searchStack[-2].Move = (uint)Move.NullMove;
+            searchStack[-2].Continuation = history.NullMoveContinuation;
             searchStack[-1].Move = (uint)Move.Pack(Color.White, Piece.Pawn, Index.D2, Index.D4, MoveType.DblPawnMove);
             searchStack[-1].Continuation = history.GetContinuation(searchStack[-1].Move);
 
@@ -86,13 +104,19 @@ namespace Pedantic.UnitTests
             short bonusValue = CalcBonus(2);
 
             short historyValue = history[quietMove];
-            Assert.AreEqual(-bonusValue, historyValue);
+            Assert.AreEqual(-bonusValue * 6, historyValue);
         }
 
         [TestMethod]
         public void ClearTest()
         {
             // set the previous move on the search stack
+            searchStack[-4].Move = (uint)Move.NullMove;
+            searchStack[-4].Continuation = history.NullMoveContinuation;
+            searchStack[-3].Move = (uint)Move.NullMove;
+            searchStack[-3].Continuation = history.NullMoveContinuation;
+            searchStack[-2].Move = (uint)Move.NullMove;
+            searchStack[-2].Continuation = history.NullMoveContinuation;
             searchStack[-1].Move = (uint)Move.Pack(Color.White, Piece.Pawn, Index.D2, Index.D4, MoveType.DblPawnMove);
             searchStack[-1].Continuation = history.GetContinuation(searchStack[-1].Move);
 
@@ -151,7 +175,7 @@ namespace Pedantic.UnitTests
         private static short CalcBonus(int depth)
         {
             // copied from History.cs
-            return (short)(((depth * depth) >> 1) + (depth << 1) - 1);
+            return Math.Min((short)640, (short)(80 * (depth - 1)));
         }
     }
 }

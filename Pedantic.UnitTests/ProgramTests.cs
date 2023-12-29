@@ -574,14 +574,5 @@ namespace Pedantic.UnitTests
             Program.ParseCommand("go depth 18");
             Engine.Wait();        
         }
-
-        [TestMethod]
-        public void EngineProbeRootTest()
-        {
-            Program.ParseCommand("setoption name SyzygyPath value c:/tb/syzygy/3-4-5-6");
-            Program.ParseCommand("position fen 8/6k1/6p1/8/8/8/2RK4/8 b - - 4 1");
-            Program.ParseCommand("go depth 2");
-        }
-
     }
 }
