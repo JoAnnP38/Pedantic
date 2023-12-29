@@ -14,16 +14,36 @@
 //     memory required by the list so this doesn't occur during search.
 // </summary>
 // ***********************************************************************
-using Pedantic.Collections;
+using System.Collections;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Pedantic.Utilities;
-using System;
 
 namespace Pedantic.Chess
 {
-    public sealed class MoveList : ValueList<ulong>, IPooledObject<MoveList>
+    public sealed class MoveList : IMoveList, IPooledObject<MoveList>
     {
-        public MoveList() : base(Constants.AVG_MOVES_PER_PLY * 2)
-        { }
+        public const int CAPACITY = 218;
+
+        [InlineArray(CAPACITY)]
+        private struct MoveArray
+        {
+            public ulong _element0;
+        }
+
+        public int Count => insertIndex;
+
+        public ulong this[int index]
+        {
+            get
+            {
+                if (index < 0 || index >= insertIndex)
+                {
+                    throw new IndexOutOfRangeException();
+                }
+                return array[index];
+            }
+        }
 
         public ulong Sort(int n)
         {
@@ -53,15 +73,7 @@ namespace Pedantic.Chess
             Add(Move.Pack(stm, piece, from, to, type, capture, promote, score));
         }
 
-        public void Add(ulong[] moves, int count)
-        {
-            for (int n = 0; n < count; n++)
-            {
-                Add(moves[n]);
-            }
-        }
-
-        public new bool Remove(ulong move)
+        public bool Remove(ulong move)
         {
             for (int n = 0; n < insertIndex; n++)
             {
@@ -74,52 +86,44 @@ namespace Pedantic.Chess
             return false;
         }
 
-        public ReadOnlySpan<ulong> ToSpan() => new(array, 0, Count);
+        public ReadOnlySpan<ulong> AsSpan() => MemoryMarshal.CreateReadOnlySpan(ref array._element0, insertIndex);
 
-        public void UpdateScores(ulong pv, SearchStack searchStack, int ply, History history)
+        public void Add(ulong move)
         {
-            int found = 0;
-            MovePair km = searchStack[ply].KillerMoves;
-            ulong counter = history.CounterMove(searchStack[ply - 1].Move);
-
-            for (int n = 0; n < insertIndex && found < 4; ++n)
+            if (insertIndex >= CAPACITY)
             {
-                ulong move = array[n];
+                throw new InsufficientMemoryException("Move list is full.");
+            }
+            array[insertIndex++] = move;
+        }
 
-                if (Move.Compare(move, pv) == 0)
-                {
-                    array[n] = Move.SetScore(move, Constants.PV_SCORE);
-                    found++;
-                }
-                else if (Move.Compare(move, km.Move1) == 0)
-                {
-                    array[n] = Move.SetScore(move, Constants.KILLER_SCORE + 1);
-                    found++;
-                }
-                else if (Move.Compare(move, km.Move2) == 0)
-                {
-                    array[n] = Move.SetScore(move, Constants.KILLER_SCORE);
-                    found++;
-                }
-                else if (Move.Compare(move, counter) == 0)
-                {
-                    array[n] = Move.SetScore(move, Constants.COUNTER_SCORE + 1);
-                    found++;
-                }
+        public void Add(IEnumerable<ulong> moves)
+        {
+            foreach (ulong move in moves)
+            {
+                Add(move);
             }
         }
 
-        public ref ulong LastAdded
+        public void Clear()
         {
-            get
-            {
-                if (insertIndex == 0)
-                {
-                    throw new InvalidOperationException("Move list is empty.");
-                }
+            insertIndex = 0;
+        }
 
-                return ref array[insertIndex - 1];
+        public IEnumerator<ulong> GetEnumerator()
+        {
+            for (int n = 0; n < insertIndex; n++)
+            {
+                yield return array[n];
             }
         }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
+
+        private MoveArray array;
+        private int insertIndex;
     }
 }

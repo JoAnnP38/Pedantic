@@ -106,7 +106,7 @@ namespace Pedantic.Chess
             MoveList moveList = moveListPool.Rent();
             board.PushBoardState();
             board.GenerateMoves(moveList);
-            ReadOnlySpan<ulong> moves = moveList.ToSpan();
+            ReadOnlySpan<ulong> moves = moveList.AsSpan();
             for (int n = 0; n < moves.Length; ++n)
             {
                 ulong move = moves[n];
@@ -151,7 +151,7 @@ namespace Pedantic.Chess
             board.PushBoardState();
             board.GenerateMoves(moveList);
 
-            ReadOnlySpan<ulong> moves = moveList.ToSpan();
+            ReadOnlySpan<ulong> moves = moveList.AsSpan();
             for (int n = 0; n < moves.Length; ++n)
             {
                 if (!board.MakeMoveNs(moves[n]))
@@ -188,7 +188,7 @@ namespace Pedantic.Chess
             MoveList moveList = moveListPool.Rent();
             board.PushBoardState();
             board.GenerateMoves(moveList);
-            var moves = moveList.ToSpan();
+            var moves = moveList.AsSpan();
 
             for (int n = 0; n < moves.Length; ++n)
             {
@@ -219,7 +219,7 @@ namespace Pedantic.Chess
                 MoveList moveList = moveListPool.Rent();
                 board.PushBoardState();
                 board.GenerateMoves(moveList);
-                var moves = moveList.ToSpan();
+                var moves = moveList.AsSpan();
 
                 for (int n = 0; n < moves.Length; ++n)
                 {
