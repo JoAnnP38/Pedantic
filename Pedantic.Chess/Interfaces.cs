@@ -17,6 +17,7 @@ namespace Pedantic.Chess
         public ReadOnlySpan<ulong> AsSpan();
         public void Clear();
         public int Count { get; }
+        public void ScoredAdd(Color stm, Piece piece, int from, int to, MoveType type, Piece capture, Piece promote);
         public ulong Sort(int n);
         public bool Remove(ulong move);
     }

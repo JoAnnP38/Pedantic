@@ -11,6 +11,7 @@ namespace Pedantic.Chess
             search = null;
             clock = null;
             history = new(stack);
+            listPool = new(() => new MoveList(history), Constants.MAX_PLY);
         }
 
         public void Search(GameClock clock, Board board, int maxDepth, long maxNodes, CountdownEvent done)
@@ -76,6 +77,6 @@ namespace Pedantic.Chess
         private readonly EvalCache cache = new();
         private readonly History history;
         private readonly SearchStack stack = new();
-        private readonly ObjectPool<MoveList> listPool = new(Constants.MAX_PLY);
+        private readonly ObjectPool<MoveList> listPool;
     }
 }

@@ -31,6 +31,22 @@ namespace Pedantic.Chess
             public ulong _element0;
         }
 
+        private class FakeHistory : IHistory
+        {
+            public short this[Color stm, Piece piece, int to] => 0;
+            public short this[ulong move] => 0;
+        }
+
+        public MoveList()
+        { 
+            history = new FakeHistory();
+        }
+
+        public MoveList(History history)
+        {
+            this.history = history;
+        }
+
         public int Count => insertIndex;
 
         public ulong this[int index]
@@ -110,6 +126,26 @@ namespace Pedantic.Chess
             insertIndex = 0;
         }
 
+        public void ScoredAdd(Color stm, Piece piece, int from, int to, MoveType type = MoveType.Normal, 
+            Piece capture = Piece.None, Piece promote = Piece.None)
+        {
+            int score;
+            if (capture != Piece.None)
+            {
+                score = CaptureScore(capture, piece, promote);
+            }
+            else if (promote != Piece.None)
+            {
+                score = Constants.PROMOTE_SCORE + promote.Value();
+            }
+            else
+            {
+                score = history[stm, piece, to];
+            }
+
+            Add(Move.Pack(stm, piece, from, to, type, capture, promote, score));
+        }
+
         public IEnumerator<ulong> GetEnumerator()
         {
             for (int n = 0; n < insertIndex; n++)
@@ -123,7 +159,14 @@ namespace Pedantic.Chess
             return GetEnumerator();
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int CaptureScore(Piece captured, Piece attacker, Piece promote = Piece.None)
+        {
+            return Constants.CAPTURE_SCORE + promote.Value() + ((int)captured << 3) + (Constants.MAX_PIECES - (int)attacker);
+        }
+
         private MoveArray array;
         private int insertIndex;
+        private IHistory history;
     }
 }

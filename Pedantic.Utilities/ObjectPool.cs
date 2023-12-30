@@ -22,25 +22,31 @@ namespace Pedantic.Utilities
     public class ObjectPool<T> where T : class, IPooledObject<T>, new()
     {
         private readonly Bag<T> objects;
+        private readonly Func<T> create;
 
-        public ObjectPool(int capacity, int preallocate = 0)
+        public ObjectPool(Func<T> create, int capacity, int preallocate = 0)
         {
             objects = new Bag<T>(capacity);
+            this.create = create;
 
             for (int i = 0; i < preallocate; ++i)
             {
-                Return(new T());
+                Return(create());
             }
         }
+
+        public ObjectPool(int capacity, int preallocate = 0)
+            : this(() => new(), capacity, preallocate)
+        { }
 
         public T Rent()
         {
             if (objects.TryTake(out T? item))
             {
-                return item ?? new();
+                return item ?? create();
             }
 
-            return new();
+            return create();
         }
 
         public void Return(T item)
