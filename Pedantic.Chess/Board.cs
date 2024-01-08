@@ -973,13 +973,13 @@ namespace Pedantic.Chess
         {
             ulong[] bc = badCaptures[ply];
             int bcIndex = 0;
-            history.SetContext(ply);
 
             if (bestMove != 0 && IsPseudoLegal(bestMove))
             {
                 yield return (bestMove, MoveGenPhase.HashMove);
             }
 
+            history.SetContext(ply);
             moveList.Clear();
             GenerateCaptures(moveList);
             moveList.Remove(bestMove);
@@ -1007,6 +1007,7 @@ namespace Pedantic.Chess
                 yield return (moveList.Sort(n), MoveGenPhase.PromotionMoves);
             }
 
+            history.SetContext(ply);
             moveList.Clear();
             GenerateQuietMoves(moveList);
             moveList.Remove(bestMove);
@@ -1095,13 +1096,14 @@ namespace Pedantic.Chess
             }
         }
 
-        public IEnumerable<ulong> EvasionMoves(MoveList moveList, ulong bestMove)
+        public IEnumerable<ulong> EvasionMoves(int ply, History history, MoveList moveList, ulong bestMove)
         {
             if (bestMove != 0 && IsPseudoLegal(bestMove))
             {
                 yield return bestMove;
             }
 
+            history.SetContext(ply);
             moveList.Clear();
             GenerateEvasions(moveList);
             moveList.Remove(bestMove);
@@ -1473,7 +1475,7 @@ namespace Pedantic.Chess
             if (enPassantValidated != Index.NONE)
             {
                 ulong epMask = 1ul << enPassantValidated;
-                epMask = sideToMove == Color.White ? epMask >> 8 : epMask << 8;
+                //epMask = sideToMove == Color.White ? epMask >> 8 : epMask << 8;
                 if ((epMask & validSquares) != 0)
                 {
                     ulong bb = PawnDefends(sideToMove, enPassantValidated) & pawns;

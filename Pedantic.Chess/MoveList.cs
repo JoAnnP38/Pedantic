@@ -146,6 +146,24 @@ namespace Pedantic.Chess
             Add(Move.Pack(stm, piece, from, to, type, capture, promote, score));
         }
 
+        public void ScoredAddQuiet(Color stm, Piece piece, int from, int to, MoveType type = MoveType.Normal)
+        {
+            int score = history[stm, piece, to];
+            Add(Move.Pack(stm, piece, from, to, type, score: score));
+        }
+
+        public void ScoredAddPromote(Color stm, Piece piece, int from, int to, Piece promote)
+        {
+            int score = Constants.PROMOTE_SCORE + promote.Value();
+            Add(Move.Pack(stm, piece, from, to, MoveType.Promote, promote: promote, score: score));
+        }
+
+        public void ScoredAddCapture(Color stm, Piece piece, int from, int to, MoveType type, Piece capture, Piece promote = Piece.None)
+        {
+            int score = CaptureScore(capture, piece, promote);
+            Add(Move.Pack(stm, piece, from, to, type, capture, promote, score));
+        }
+
         public IEnumerator<ulong> GetEnumerator()
         {
             for (int n = 0; n < insertIndex; n++)

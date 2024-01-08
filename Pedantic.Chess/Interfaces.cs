@@ -18,6 +18,9 @@ namespace Pedantic.Chess
         public void Clear();
         public int Count { get; }
         public void ScoredAdd(Color stm, Piece piece, int from, int to, MoveType type, Piece capture, Piece promote);
+        public void ScoredAddQuiet(Color stm, Piece piece, int from, int to, MoveType type = MoveType.Normal);
+        public void ScoredAddPromote(Color stm, Piece piece, int from, int to, Piece promote);
+        public void ScoredAddCapture(Color stm, Piece piece, int from, int to, MoveType type, Piece capture, Piece promote = Piece.None);
         public ulong Sort(int n);
         public bool Remove(ulong move);
     }

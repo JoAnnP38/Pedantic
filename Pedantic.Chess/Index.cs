@@ -25,6 +25,17 @@ namespace Pedantic.Chess
         public const sbyte MAX_VALUE = 63;
         public const sbyte MIN_VALUE = 0;
 
+        static Index()
+        {
+            for (int from = MIN_VALUE; from <= MAX_VALUE; from++)
+            {
+                for (int to = MIN_VALUE; to <= MAX_VALUE; to++)
+                {
+                    directionBetween[from * Constants.MAX_SQUARES + to] = GetDirection(from, to);
+                }
+            }
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool IsValid(int value)
         {
@@ -149,12 +160,21 @@ namespace Pedantic.Chess
 
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool GetDirection(int from, int to, out Direction direction)
         {
-            direction = Direction.None;
+            Util.Assert(from >= MIN_VALUE && from <= MAX_VALUE);
+            Util.Assert(to >= MIN_VALUE && to <= MAX_VALUE);
+            direction = directionBetween[from * Constants.MAX_SQUARES + to];
+            return direction != Direction.None;
+        }
+
+        private static Direction GetDirection(int from, int to)
+        {
+            Direction direction = Direction.None;
             if (from == to)
             {
-                return false;
+                return direction;
             }
 
             var fromCoords = ToCoords(from);
@@ -178,7 +198,7 @@ namespace Pedantic.Chess
             {
                 direction = rankDiff > 0 ? Direction.NorthEast : Direction.SouthWest;
             }
-            return direction != Direction.None;
+            return direction;
         }
 
         private static readonly string[] algebraicIndices =
@@ -267,8 +287,7 @@ namespace Pedantic.Chess
 
         public static readonly sbyte[][] NormalizedIndex = 
         {
-            new sbyte[]
-            {
+            [
                 A1, B1, C1, D1, E1, F1, G1, H1,
                 A2, B2, C2, D2, E2, F2, G2, H2,
                 A3, B3, C3, D3, E3, F3, G3, H3,
@@ -277,9 +296,8 @@ namespace Pedantic.Chess
                 A6, B6, C6, D6, E6, F6, G6, H6,
                 A7, B7, C7, D7, E7, F7, G7, H7,
                 A8, B8, C8, D8, E8, F8, G8, H8
-            },
-            new sbyte[]
-            {
+            ],
+            [
                 A8, B8, C8, D8, E8, F8, G8, H8,
                 A7, B7, C7, D7, E7, F7, G7, H7,
                 A6, B6, C6, D6, E6, F6, G6, H6,
@@ -288,8 +306,10 @@ namespace Pedantic.Chess
                 A3, B3, C3, D3, E3, F3, G3, H3,
                 A2, B2, C2, D2, E2, F2, G2, H2,
                 A1, B1, C1, D1, E1, F1, G1, H1
-            }
+            ]
         };
+
+        private static Direction[] directionBetween = new Direction[ Constants.MAX_SQUARES * Constants.MAX_SQUARES ];
 
         #endregion
     }

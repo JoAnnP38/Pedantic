@@ -197,14 +197,14 @@ namespace Pedantic.Chess
                 evalInfo[c].Pawns = board.Pieces(color, Piece.Pawn);
                 if (color == Color.White)
                 {
-                    evalInfo[c].PawnAttacks = ((evalInfo[c].Pawns & ~Board.MaskFile(Index.A1)) << 7) |
-                                              ((evalInfo[c].Pawns & ~Board.MaskFile(Index.H1)) << 9);
+                    evalInfo[c].PawnAttacks = ((BitOps.AndNot(evalInfo[c].Pawns, Board.MaskFile(Index.A1))) << 7) |
+                                              ((BitOps.AndNot(evalInfo[c].Pawns, Board.MaskFile(Index.H1))) << 9);
                     evalInfo[c].CastlingRightsMask = (byte)CastlingRights.WhiteRights;
                 }
                 else
                 {
-                    evalInfo[c].PawnAttacks = ((evalInfo[c].Pawns & ~Board.MaskFile(Index.H1)) >> 7) |
-                                              ((evalInfo[c].Pawns & ~Board.MaskFile(Index.A1)) >> 9);
+                    evalInfo[c].PawnAttacks = ((BitOps.AndNot(evalInfo[c].Pawns, Board.MaskFile(Index.H1))) >> 7) |
+                                              ((BitOps.AndNot(evalInfo[c].Pawns, Board.MaskFile(Index.A1))) >> 9);
                     evalInfo[c].CastlingRightsMask = (byte)CastlingRights.BlackRights;
                 }
                 evalInfo[c].KI = (sbyte)BitOps.TzCount(board.Pieces(color, Piece.King));
@@ -393,8 +393,8 @@ namespace Pedantic.Chess
                 int sq = BitOps.TzCount(p);
                 Ray ray = Board.Vectors[sq];
                 ulong bb = color == Color.White ? 
-                    ray.South & ~Board.RevVectors[BitOps.LzCount(ray.South & board.All)].South :
-                    ray.North & ~Board.Vectors[BitOps.TzCount(ray.North & board.All)].North;
+                    BitOps.AndNot(ray.South, Board.RevVectors[BitOps.LzCount(ray.South & board.All)].South) :
+                    BitOps.AndNot(ray.North, Board.Vectors[BitOps.TzCount(ray.North & board.All)].North);
 
                 if ((bb & board.Pieces(color, Piece.Rook)) != 0)
                 {
@@ -575,7 +575,7 @@ namespace Pedantic.Chess
             int enemyKI = evalInfo[o].KI;
             for (int n = 0; n < evalInfo[c].AttackCount; n++)
             {
-                ulong attacks = evalInfo[c].Attacks[n] & ~evalInfo[o].PawnAttacks;
+                ulong attacks = BitOps.AndNot(evalInfo[c].Attacks[n], evalInfo[o].PawnAttacks);
                 kingSafety += BitOps.PopCount(attacks & KingProximity[0, enemyKI]) * wts.KingAttack(0);
                 kingSafety += BitOps.PopCount(attacks & KingProximity[1, enemyKI]) * wts.KingAttack(1);
                 kingSafety += BitOps.PopCount(attacks & KingProximity[2, enemyKI]) * wts.KingAttack(2);
@@ -682,7 +682,7 @@ namespace Pedantic.Chess
             ulong otherPawns = evalInfo[o].Pawns;
             Score evalThreats = Score.Zero;
 
-            ulong targets = board.Units(other) & ~(otherPawns | board.Pieces(other, Piece.King));
+            ulong targets = BitOps.AndNot(board.Units(other), (otherPawns | board.Pieces(other, Piece.King)));
             if (targets == 0)
             {
                 return evalThreats;
@@ -691,17 +691,17 @@ namespace Pedantic.Chess
             ulong pushAttacks;
             if (color == Color.White)
             {
-                ulong pawnPushes = (pawns << 8) & ~board.All;
+                ulong pawnPushes = BitOps.AndNot((pawns << 8), board.All);
 
-                pushAttacks = ((pawnPushes & ~Board.MaskFile(Index.A1)) << 7) |
-                              ((pawnPushes & ~Board.MaskFile(Index.H1)) << 9);
+                pushAttacks = ((BitOps.AndNot(pawnPushes, Board.MaskFile(Index.A1))) << 7) |
+                              ((BitOps.AndNot(pawnPushes, Board.MaskFile(Index.H1))) << 9);
             }
             else
             {
-                ulong pawnPushes = (pawns >> 8) & ~board.All;
+                ulong pawnPushes = BitOps.AndNot((pawns >> 8), board.All);
 
-                pushAttacks = ((pawnPushes & ~Board.MaskFile(Index.H1)) >> 7) |
-                              ((pawnPushes & ~Board.MaskFile(Index.A1)) >> 9);
+                pushAttacks = ((BitOps.AndNot(pawnPushes, Board.MaskFile(Index.H1))) >> 7) |
+                              ((BitOps.AndNot(pawnPushes, Board.MaskFile(Index.A1))) >> 9);
             }
         
             for (ulong bb = evalInfo[c].PawnAttacks & targets; bb != 0; bb = BitOps.ResetLsb(bb))
