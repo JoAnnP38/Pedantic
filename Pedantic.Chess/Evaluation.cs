@@ -11,7 +11,7 @@ namespace Pedantic.Chess
     // TODO: Reduce material or pawn material advantage for winning side if OCB
     // TODO: Penalize each potential square that is open for a slider to attack king
     // TODO: Piece Type bonus for King Zone Attack eval
-    public sealed class Evaluation
+    public sealed class Evaluation : IInitialize
     {
         public const ulong D0_CENTER_CONTROL_MASK = 0x0000001818000000ul;
         public const ulong D1_CENTER_CONTROL_MASK = 0x00003C24243C0000ul;
@@ -891,6 +891,10 @@ namespace Pedantic.Chess
             return piecePhaseValues[(int)piece + 1];
         }
 
+        // DO NOT DELETE: Required for deterministic static initialization
+        public static void Initialize()
+        { }
+
         public static Score[][] MopUpMate => mopUpMate;
         public static Score[][] MopUpMateNBLight => mopUpMateNBLight;
         public static Score[][] MopUpMateNBDark => mopUpMateNBDark;
@@ -910,7 +914,7 @@ namespace Pedantic.Chess
 
         public static readonly sbyte[] piecePhaseValues = { 0, 1, 2, 2, 4, 8, 0 };
 
-        public static readonly Array2D<ulong> PassedPawnMasks = new (Constants.MAX_COLORS, Constants.MAX_SQUARES)
+        public static readonly UnsafeArray2D<ulong> PassedPawnMasks = new (Constants.MAX_COLORS, Constants.MAX_SQUARES)
         {
             #region PassedPawnMasks data
 
@@ -953,7 +957,7 @@ namespace Pedantic.Chess
             #endregion PassedPawnMasks data
         };
 
-        public static readonly ulong[] IsolatedPawnMasks = 
+        public static readonly UnsafeArray<ulong> IsolatedPawnMasks = new (Constants.MAX_SQUARES)
         {
             #region IsolatedPawnMasks data
             0x0000000000000000ul, 0x0000000000000000ul, 0x0000000000000000ul, 0x0000000000000000ul,
@@ -975,7 +979,7 @@ namespace Pedantic.Chess
             #endregion IsolatedPawnMasks data
         };
 
-        public static readonly Array2D<ulong> KingProximity = new (3, Constants.MAX_SQUARES)
+        public static readonly UnsafeArray2D<ulong> KingProximity = new (3, Constants.MAX_SQUARES)
         {
             #region KingProximity data
 
@@ -1036,7 +1040,7 @@ namespace Pedantic.Chess
             #endregion KingProximity data
         };
 
-        public static readonly Array2D<ulong> BackwardPawnMasks = new (Constants.MAX_COLORS, Constants.MAX_SQUARES)
+        public static readonly UnsafeArray2D<ulong> BackwardPawnMasks = new (Constants.MAX_COLORS, Constants.MAX_SQUARES)
         {
             #region BackwardPawnMasks data
 
@@ -1079,7 +1083,7 @@ namespace Pedantic.Chess
             #endregion BackwardPawnMasks data
         };
 
-        public static readonly ulong[] AdjacentPawnMasks = 
+        public static readonly UnsafeArray<ulong> AdjacentPawnMasks = new (Constants.MAX_SQUARES)
         {
             #region AdjacentPawnMasks data
 
@@ -1103,7 +1107,7 @@ namespace Pedantic.Chess
             #endregion AdjacentPawnMasks data
         };
 
-        public static readonly ulong[] Diagonals =
+        public static readonly UnsafeArray<ulong> Diagonals = new (Constants.MAX_SQUARES)
         {
             #region Diagonals data
             0x8040201008040201ul, 0x0080402010080402ul, 0x0000804020100804ul, 0x0000008040201008ul,
@@ -1125,7 +1129,7 @@ namespace Pedantic.Chess
             #endregion Diagonals data
         };
 
-        public static readonly ulong[] Antidiagonals =
+        public static readonly UnsafeArray<ulong> Antidiagonals = new (Constants.MAX_SQUARES)
         {
             #region Antidiagonals data
             0x0000000000000001ul, 0x0000000000000102ul, 0x0000000000010204ul, 0x0000000001020408ul,

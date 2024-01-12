@@ -24,4 +24,9 @@ namespace Pedantic.Chess
         public ulong Sort(int n);
         public bool Remove(ulong move);
     }
+
+    public interface IInitialize
+    {
+        public static void Initialize() { }
+    }
 }

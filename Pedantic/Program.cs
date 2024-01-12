@@ -23,6 +23,7 @@ using Pedantic.Tablebase;
 using Pedantic.Tuning;
 
 using Score = Pedantic.Chess.Score;
+using System.Reflection;
 
 // ReSharper disable LocalizableElement
 
@@ -60,6 +61,7 @@ namespace Pedantic
         {
             Console.WriteLine($"{APP_NAME_VER} by {AUTHOR}");
             Console.Write("Fast PEXT available: ");
+            InitializeStaticData();
             if (Board.IsPextSupported)
             {
                 Console.WriteLine("Yes");
@@ -196,6 +198,20 @@ namespace Pedantic
             weightsCommand.SetHandler(RunWeights);
             rootCommand.SetHandler(async () => await RunUci(null, null, false, false, false));
             return rootCommand.InvokeAsync(args).Result;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code", Justification = "<Pending>")]
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Trimming", "IL2070:'this' argument does not satisfy 'DynamicallyAccessedMembersAttribute' in call to target method. The parameter of method does not have matching annotations.", Justification = "<Pending>")]
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Trimming", "IL2075:'this' argument does not satisfy 'DynamicallyAccessedMembersAttribute' in call to target method. The return value of the source method does not have matching annotations.", Justification = "<Pending>")]
+        static void InitializeStaticData()
+        {
+            var classesWithStaticData = Assembly.GetExecutingAssembly().GetTypes()
+                .Where(t => t.GetInterfaces().Contains(typeof(IInitialize)));
+
+            foreach(var initClass in classesWithStaticData)
+            {
+                _ = (initClass.GetMethod("Initialize")?.Invoke(null, null));
+            }
         }
 
         private static async Task RunUci(string? inFile, string? errFile, bool random, bool stats, bool forceMagic)

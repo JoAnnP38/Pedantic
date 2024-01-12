@@ -29,7 +29,7 @@ namespace Pedantic.Chess
     // TODO: Refactor board remove unused methods / data
     // TODO: Combine AddPiece/RemovePiece into MovePiece
     // TODO: Replace MoveList & MoveListPool with stackallocated MoveList.
-    public sealed partial class Board : ICloneable
+    public sealed partial class Board : ICloneable, IInitialize
     {
         public const ulong WHITE_KS_CLEAR_MASK = (1ul << Index.F1) | (1ul << Index.G1);
         public const ulong WHITE_QS_CLEAR_MASK = (1ul << Index.B1) | (1ul << Index.C1) | (1ul << Index.D1);
@@ -2304,6 +2304,10 @@ namespace Pedantic.Chess
             return Constants.CAPTURE_SCORE + promote.Value() + ((int)captured << 3) + (Constants.MAX_PIECES - (int)attacker);
         }
 
+        // DO NOT DELETE: Required for deterministic static initialization
+        public static void Initialize()
+        { }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static ulong GetBishopMoves(int sq, ulong blockers)
         {
@@ -2539,7 +2543,7 @@ namespace Pedantic.Chess
             #endregion
         };
 
-        public static readonly Ray[] Vectors =
+        public static readonly UnsafeArray<Ray> Vectors = new (Constants.MAX_SQUARES + 1)
         {
             #region vectors data
             new Ray(0x0101010101010100ul, 0x8040201008040200ul, 0x00000000000000FEul, 0x0000000000000000ul,
@@ -2675,7 +2679,7 @@ namespace Pedantic.Chess
             #endregion
         };
 
-        public static readonly Ray[] RevVectors = new Ray[Constants.MAX_SQUARES + 1];
+        public static readonly UnsafeArray<Ray> RevVectors = new (Constants.MAX_SQUARES + 1, true);
 
         private static readonly UnsafeArray2D<sbyte> pawnLeft = new(Constants.MAX_COLORS, Constants.MAX_SQUARES)
         {
