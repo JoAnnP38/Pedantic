@@ -998,6 +998,7 @@ namespace Pedantic.Chess
                 yield return (move, MoveGenPhase.CaptureMoves);
             }
 
+            history.SetContext(ply);
             moveList.Clear();
             GeneratePromotions(moveList, Pieces(sideToMove, Piece.Pawn));
             moveList.Remove(bestMove);
@@ -1042,7 +1043,7 @@ namespace Pedantic.Chess
             }
         }
 
-        public IEnumerable<ulong> QMoves(int ply, int qsPly, MoveList moveList, ulong bestMove)
+        public IEnumerable<ulong> QMoves(int ply, int qsPly, SearchStack ss, MoveList moveList, ulong bestMove)
         {
             ulong[] bc = badCaptures[ply];
             int bcIndex = 0;
@@ -1054,13 +1055,15 @@ namespace Pedantic.Chess
 
             moveList.Clear();
 
+            ulong lastMove = ss[ply - 1].Move;
+
             if (qsPly < 6)
             {
                 GenerateCaptures(moveList);
             }
-            else if (Move.IsCapture(LastMove))
+            else
             {
-                GenerateRecaptures(moveList, Move.GetTo(LastMove));
+                GenerateRecaptures(moveList, Move.GetTo(lastMove));
             }
 
             moveList.Remove(bestMove);

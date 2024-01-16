@@ -730,7 +730,7 @@ namespace Pedantic.Chess
             MoveList moveList = GetMoveList();
             IEnumerable<ulong> moves = inCheck ? 
                 board.EvasionMoves(ply, history, moveList, ttMove) : 
-                board.QMoves(ply, qsPly, moveList, ttMove);
+                board.QMoves(ply, qsPly, searchStack, moveList, ttMove);
 
             foreach (ulong move in moves)
             {

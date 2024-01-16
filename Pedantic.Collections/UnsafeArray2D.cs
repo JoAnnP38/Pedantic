@@ -81,8 +81,8 @@ namespace Pedantic.Collections
         {
             get
             {
-                Debug.Assert(i >= 0 && i < dim1);
-                Debug.Assert(j >= 0 && j < dim2);
+                Debug.Assert(i >= 0 && i < dim1, $"i: {i}");
+                Debug.Assert(j >= 0 && j < dim2, $"j: {j}");
                 return ref pArray[i * dim2 + j];
             }
         }

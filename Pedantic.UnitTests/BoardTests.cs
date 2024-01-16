@@ -215,7 +215,9 @@ namespace Pedantic.UnitTests
         public void MoveCapturesTest()
         {
             Board bd = new("7r/P7/1K2k3/8/8/8/7p/1R6 b - - 0 1");
-            foreach (ulong move in bd.QMoves(0, 0, new MoveList(), 0))
+            SearchStack ss = new();
+
+            foreach (ulong move in bd.QMoves(0, 0, ss, new MoveList(), 0))
             {
                 Console.WriteLine(Move.ToString(move));
             }
@@ -296,7 +298,7 @@ namespace Pedantic.UnitTests
         [DataRow("8/1pqk2Q1/2p4p/5pp1/5P2/7P/1P5K/2R1r3 b - - 0 1", 6)]
         [DataRow("2kr1b1r/p1p3pp/Bp3n2/4B3/1q6/2N5/PPP2PbP/R2QK2R b KQ - 0 1", 2)]
         [DataRow("r4rk1/pbp2ppp/1pnq1N2/8/QP1pPP2/3P3P/P2K3P/2RB1R2 b - - 0 1", 3)] /* pawn capture */
-        [DataRow("5r2/8/8/2B4k/5pP1/8/5P2/6K1 b - g3 0 1", 6)] /* e.p. */
+        [DataRow("5r2/8/8/2B4k/5pP1/8/5P2/6K1 b - g3 0 1", 5)] /* e.p. */
         [DataRow("8/8/5q2/4k3/3p1n2/6PN/6K1/2Q5 w - - 0 1", 9)] /* knight check */
         [DataRow("rnb1kbnr/pp1ppppp/8/q7/2p5/2KP4/PPP1PPPP/RNBQ1BNR w kq - 2 4", 3)] /* king escape */
         public void GenerateEvasionsTest(string fen, int expected)
