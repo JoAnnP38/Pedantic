@@ -523,6 +523,8 @@ namespace Pedantic.Tuning
                     coefficients.Add(kvp.Key, (short)-kvp.Value);
                 }
             }
+
+            sparse = Array.Empty<SparseArray<short>>();
         }
 
         public IDictionary<int, short> Coefficients => coefficients;
