@@ -13,7 +13,7 @@
     <Platforms>AnyCPU;x64</Platforms>
     <StartupObject>Pedantic.Program</StartupObject>
     <Configurations>Debug;Release</Configurations>
-    <Version>0.7.0</Version>
+    <Version>0.6.2</Version>
     <TieredPGO>true</TieredPGO>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
