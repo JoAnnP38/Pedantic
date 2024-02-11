@@ -330,8 +330,8 @@ namespace Pedantic.Chess
                 return evaluation.Compute(board, alpha, beta);
             }
 
-            (bool repeated, _) = board.PositionRepeated();
-            if (repeated)
+            (bool repeated, bool fiftyMoveRule) = board.PositionRepeated();
+            if (repeated || fiftyMoveRule)
             {
                 return DrawScore;
             }
