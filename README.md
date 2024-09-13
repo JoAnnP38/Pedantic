@@ -4,6 +4,8 @@
 <span style="font-weight: bold">pedantic</span>
 </p>
 
+**NOTE**: This version of Pedantic has been superceded with a rewritten/refactored version found [here](https://github.com/JoAnnP38/PedanticRF).
+
 Pedantic is a chess engine designed to play standard chess via one of the many UCI chess clients (i.e. [Arena](http://www.playwitharena.de/), [BanksiaGUI](https://banksiagui.com/) or [Cute Chess](https://cutechess.com/) for instance.) Any client, GUI, analysis tool designed to work with engines that support the UCI protocol should be able to work with Pedantic. As such, Pedantic is not designed to be used alone to play chess, but it does support some command-line functionality (more on that later.)
 ### Goals
 Pedantic is my first step in advancing my knowledge of computer chess to the point of competing against some of the strongest chess engines int he world. I chose C# as the development language due to my familiarity and it's usefulness over C++ to flesh out my initial ideas. When I have fully explored the latest and cutting edge techniques in computer chess, I hope to eventually port Pedantic to a more performant language such as C++ or perhaps Rust. Throughout my journey of developing Pedantic, I am often reminded of basketball legend, Michael Jordan's quote, "you reach, I teach." However, in this case as I _reach_ to explore the chess programming body-of-work, Pedantic _teaches_ me along every captivating step. 
